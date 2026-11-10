@@ -42,7 +42,7 @@ Commands assume a systemd-based distro; adapt package commands to yours.
 
 3. **Services** (creates `/var/lib/trackle` for the database).
    ```sh
-   cd /tmp && sudo -u trackle git --git-dir=/opt/trackle/repo.git archive origin/production deploy | tar -x
+   cd /tmp && sudo -u trackle git --git-dir=/opt/trackle/repo.git archive production deploy | tar -x
    sudo cp /tmp/deploy/*.service /tmp/deploy/*.timer /etc/systemd/system/ && rm -r /tmp/deploy
    sudo systemctl daemon-reload
    sudo systemctl enable trackle
@@ -55,7 +55,7 @@ Commands assume a systemd-based distro; adapt package commands to yours.
    First deploy (builds the first release, creates `/opt/trackle/current` and
    starts the service), then turn on backups and continuous deployment:
    ```sh
-   sudo -u trackle git --git-dir=/opt/trackle/repo.git show origin/production:deploy/deploy.sh | sudo -u trackle bash -s
+   sudo -u trackle git --git-dir=/opt/trackle/repo.git show production:deploy/deploy.sh | sudo -u trackle bash -s
    curl http://127.0.0.1:3000/api/health      # {"ok":true}
    sudo systemctl enable --now trackle-backup.timer trackle-deploy.timer
    ```

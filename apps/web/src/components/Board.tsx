@@ -1,7 +1,13 @@
-import { DELTA, DIRS, E, N, S, W, edgeBetween, inBounds, type Cell, type Dir, type PuzzleLayout } from "@trackle/shared";
+import { DELTA, DIRS, E, N, S, W, edgeBetween, edgeCells, inBounds, type Cell, type Dir, type PuzzleLayout } from "@trackle/shared";
 import { useMemo, useRef, type PointerEvent } from "react";
 import { allEdges, boardCounts, boardMasks, cellKey, clueStatus, setEdge, setMark, type Mode } from "../board/model";
 import type { BoardState, CellMark } from "../storage/progressStore";
+
+export interface Highlight {
+  tone: "hint" | "mistake";
+  cells: Cell[];
+  edges: string[];
+}
 
 interface BoardProps {
   layout: PuzzleLayout;
@@ -9,6 +15,8 @@ interface BoardProps {
   mode: Mode;
   locked: boolean;
   onChange(fn: (board: BoardState) => BoardState): void;
+  /** Briefly marks squares/segments, e.g. a hinted piece or a mistake. */
+  highlight?: Highlight | null;
 }
 
 // Board geometry, in SVG units where one cell = 1.
@@ -59,7 +67,7 @@ function Rails({ d, kind, gap }: { d: string; kind: "player" | "fixed"; gap: str
   );
 }
 
-export function Board({ layout, board, mode, locked, onChange }: BoardProps) {
+export function Board({ layout, board, mode, locked, onChange, highlight }: BoardProps) {
   const { width, height } = layout;
   const svgRef = useRef<SVGSVGElement>(null);
   const boardRef = useRef(board);
@@ -264,6 +272,31 @@ export function Board({ layout, board, mode, locked, onChange }: BoardProps) {
       {Array.from({ length: height - 1 }, (_, i) => (
         <line key={`gh${i}`} x1={0} y1={i + 1} x2={width} y2={i + 1} className="board__gridline" />
       ))}
+
+      {highlight?.cells.map((cell) => (
+        <rect
+          key={`hl${cellKey(cell)}`}
+          x={cell.col + 0.04}
+          y={cell.row + 0.04}
+          width={0.92}
+          height={0.92}
+          rx={0.12}
+          className={`board__highlight board__highlight--${highlight.tone}`}
+        />
+      ))}
+      {highlight?.edges.map((edge) => {
+        const [a, b] = edgeCells(edge);
+        return (
+          <line
+            key={`hle${edge}`}
+            x1={a.col + 0.5}
+            y1={a.row + 0.5}
+            x2={b.col + 0.5}
+            y2={b.row + 0.5}
+            className={`board__highlight-edge board__highlight-edge--${highlight.tone}`}
+          />
+        );
+      })}
 
       {layout.colClues.map((clue, c) => (
         <text key={`cc${c}`} x={c + 0.5} y={-CLUE_OFFSET} className={`clue clue--${clueStatus(counts.cols[c]!, clue)}`}>

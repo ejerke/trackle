@@ -7,7 +7,7 @@ import type { ProgressStore, PuzzleProgress } from "../storage/progressStore";
 import { ModeBar } from "./ModeBar";
 import { Page } from "./Page";
 
-type Status = "solved" | "started" | "unplayed";
+type Status = "solved" | "revealed" | "started" | "unplayed";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
@@ -27,7 +27,7 @@ export function ArchivePage({ difficulty: fromUrl, store }: { difficulty: number
     const byDate = new Map<string, Status>();
     for (const p of records) {
       if (p.key.kind === "daily" && p.key.difficulty === difficulty) {
-        byDate.set(p.key.date, p.solvedAt ? "solved" : "started");
+        byDate.set(p.key.date, p.solvedAt ? "solved" : p.revealedAt ? "revealed" : "started");
       }
     }
     return byDate;
@@ -65,6 +65,7 @@ export function ArchivePage({ difficulty: fromUrl, store }: { difficulty: number
           {months.length > 0 && (
             <p className="archive-legend">
               <span className="archive-day archive-day--solved">✓</span> solved
+              <span className="archive-day archive-day--revealed">?</span> answer shown
               <span className="archive-day archive-day--started">•</span> started
               <span className="archive-day archive-day--unplayed">·</span> not played
             </p>

@@ -398,11 +398,45 @@ const knownFacts = (s: Knowledge) =>
  * report the hardest tier that was needed.
  */
 export function rateLogic(layout: PuzzleLayout): LogicRating {
+  return runLogic(layout, () => {});
+}
+
+/**
+ * The order in which logic completes each track square (both of its exits
+ * known), easiest deductions first. Hints reveal the first square in this
+ * order that the player doesn't have yet: the natural "next step".
+ * Squares already given (hints, A/B fully fixed) are left out.
+ */
+export function deductionOrder(layout: PuzzleLayout): { row: number; col: number }[] {
+  const order: { row: number; col: number }[] = [];
+  let seen: Set<number> | null = null;
+  runLogic(layout, (ctx, s) => {
+    const done = new Set<number>();
+    for (let i = 0; i < s.cell.length; i++) {
+      let yes = 0;
+      let known = 0;
+      for (let k = 0; k < 4; k++) {
+        const e = s.edge[i * 4 + k];
+        if (e === YES) yes++;
+        if (e !== UNKNOWN) known++;
+      }
+      if (s.cell[i] === TRACK && yes === 2 && known === 4) done.add(i);
+    }
+    if (seen) for (const i of done) if (!seen.has(i)) order.push({ row: Math.floor(i / ctx.w), col: i % ctx.w });
+    seen = done; // the first snapshot (givens only) is the baseline
+  });
+  return order;
+}
+
+/** The rating loop; `observe` sees the knowledge at the start and after every step. */
+function runLogic(layout: PuzzleLayout, observe: (ctx: Ctx, s: Knowledge) => void): LogicRating {
   const { ctx, s } = setup(layout);
   const totalFacts = s.cell.length + s.edge.length;
   const knownAtStart = knownFacts(s);
+  observe(ctx, s);
 
   tier1(ctx, s);
+  observe(ctx, s);
   const tier1Progress =
     totalFacts === knownAtStart ? 1 : (knownFacts(s) - knownAtStart) / (totalFacts - knownAtStart);
 
@@ -420,6 +454,7 @@ export function rateLogic(layout: PuzzleLayout): LogicRating {
       break;
     }
     tier1(ctx, s);
+    observe(ctx, s);
   }
 
   const cells = Array.from({ length: ctx.h }, (_, r) => Array.from(s.cell.subarray(r * ctx.w, (r + 1) * ctx.w)));

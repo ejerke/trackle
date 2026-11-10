@@ -1,15 +1,22 @@
 import { existsSync } from "node:fs";
 import fastifyStatic from "@fastify/static";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import {
   DEFAULT_DIFFICULTY,
+  canShowAnswer,
+  hintsLeft,
   isIsoDate,
   isRandomSeed,
   nextUtcMidnight,
   type ApiError,
   type CheckRequest,
   type CheckResponse,
+  type AnswerResponse,
   type ArchiveResponse,
+  type HintRequest,
+  type HintResponse,
+  type PuzzleKey,
+  type PuzzleLayout,
   type PuzzleResponse,
   type RandomPuzzleResponse,
 } from "@trackle/shared";
@@ -24,7 +31,8 @@ import { ProgressSync } from "./progress/progressSync.ts";
 import { registerProgressRoutes } from "./progress/routes.ts";
 import type { ScryptParams } from "./auth/password.ts";
 import { registerRateLimits, type RateLimitOptions } from "./rateLimit/rateLimit.ts";
-import { checkBodySchema } from "./schemas.ts";
+import { computeHint } from "./puzzles/hints.ts";
+import { checkBodySchema, emptyBodySchema, hintBodySchema } from "./schemas.ts";
 
 export interface AppOptions {
   db: Db;
@@ -93,7 +101,42 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     secureCookies: options.secureCookies ?? false,
     passwordParams: options.passwordParams,
   });
-  registerProgressRoutes(app, new ProgressSync(options.db, puzzleRepository, now), currentUser);
+  const progressSync = new ProgressSync(options.db, puzzleRepository, now);
+  registerProgressRoutes(app, progressSync, currentUser);
+
+  /**
+   * Hints and answers (ADR 0014). Shared by daily and random routes: given the
+   * puzzle, compute the response and record the help for a signed-in player.
+   */
+  const giveHint = (
+    req: FastifyRequest,
+    reply: FastifyReply,
+    key: PuzzleKey,
+    layout: PuzzleLayout,
+    solution: number[][],
+    body: HintRequest,
+  ) => {
+    const hint: HintResponse = computeHint(layout, solution, body.cells, body.emptyCells);
+    if (hint.kind === "complete") return hint; // not help, so never limited
+    const user = currentUser(req);
+    if (user) {
+      // Per-level hint limits (LEVELS in @trackle/shared) are enforced where the server
+      // knows the count: for signed-in players. Signed out, the browser enforces them.
+      const used = progressSync.get(user.id, key)?.hintsUsed ?? 0;
+      if (hintsLeft(key.difficulty, used) === 0) return reply.code(403).send({ error: "hint_limit" } satisfies ApiError);
+      progressSync.recordHelp(user.id, key, layout, solution, "hint");
+    }
+    return hint;
+  };
+  const giveAnswer = (req: FastifyRequest, reply: FastifyReply, key: PuzzleKey, layout: PuzzleLayout, solution: number[][]) => {
+    // Some levels (Hard) never show answers, for anyone: the server knows the
+    // difficulty, so this needs no account.
+    if (!canShowAnswer(key.difficulty)) return reply.code(403).send({ error: "answer_unavailable" } satisfies ApiError);
+    const user = currentUser(req);
+    if (user) progressSync.recordHelp(user.id, key, layout, solution, "answer");
+    const body: AnswerResponse = { cells: solution };
+    return body;
+  };
 
   app.get("/api/health", async () => ({ ok: true }));
 
@@ -129,6 +172,28 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       return body;
     },
   );
+
+  app.post<DailyRequest & { Body: HintRequest }>(
+    "/api/puzzles/:date/hint",
+    { schema: { body: hintBodySchema } },
+    async (req, reply) => {
+      if (!isIsoDate(req.params.date)) return reply.code(400).send(invalidDate);
+      const difficulty = parseDifficulty(req.query.difficulty);
+      if (difficulty === null) return reply.code(400).send(invalidDifficulty);
+      const stored = daily.existing(req.params.date, difficulty);
+      if (!stored) return reply.code(404).send(notFound);
+      return giveHint(req, reply, { kind: "daily", date: req.params.date, difficulty }, stored.puzzle, stored.solution, req.body);
+    },
+  );
+
+  app.post<DailyRequest>("/api/puzzles/:date/answer", { schema: { body: emptyBodySchema } }, async (req, reply) => {
+    if (!isIsoDate(req.params.date)) return reply.code(400).send(invalidDate);
+    const difficulty = parseDifficulty(req.query.difficulty);
+    if (difficulty === null) return reply.code(400).send(invalidDifficulty);
+    const stored = daily.existing(req.params.date, difficulty);
+    if (!stored) return reply.code(404).send(notFound);
+    return giveAnswer(req, reply, { kind: "daily", date: req.params.date, difficulty }, stored.puzzle, stored.solution);
+  });
 
   app.get<{ Querystring: { difficulty?: string } }>("/api/archive", async (req, reply) => {
     const difficulty = parseDifficulty(req.query.difficulty);
@@ -167,6 +232,27 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       return body;
     },
   );
+
+  app.post<RandomRequest & { Body: HintRequest }>(
+    "/api/random/:difficulty/:seed/hint",
+    { schema: { body: hintBodySchema } },
+    async (req, reply) => {
+      const parsed = parseRandom(req.params);
+      if ("error" in parsed) return reply.code(400).send(parsed);
+      if (!random.has(parsed.difficulty, parsed.seed) && !limits.allowGeneration(req, reply)) return reply;
+      const { puzzle, solution } = random.get(parsed.difficulty, parsed.seed);
+      return giveHint(req, reply, { kind: "random", seed: parsed.seed, difficulty: parsed.difficulty }, puzzle, solution, req.body);
+    },
+  );
+
+  app.post<RandomRequest>("/api/random/:difficulty/:seed/answer", { schema: { body: emptyBodySchema } }, async (req, reply) => {
+    const parsed = parseRandom(req.params);
+    if ("error" in parsed) return reply.code(400).send(parsed);
+    if (!canShowAnswer(parsed.difficulty)) return reply.code(403).send({ error: "answer_unavailable" } satisfies ApiError);
+    if (!random.has(parsed.difficulty, parsed.seed) && !limits.allowGeneration(req, reply)) return reply;
+    const { puzzle, solution } = random.get(parsed.difficulty, parsed.seed);
+    return giveAnswer(req, reply, { kind: "random", seed: parsed.seed, difficulty: parsed.difficulty }, puzzle, solution);
+  });
 
   if (options.enableLab) registerLabRoutes(app);
 

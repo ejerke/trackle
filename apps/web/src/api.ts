@@ -1,10 +1,13 @@
 import type {
   ApiErrorCode,
   ArchiveResponse,
+  AnswerResponse,
   AuthResponse,
   ChangePasswordRequest,
   Credentials,
   DeleteAccountRequest,
+  HintRequest,
+  HintResponse,
   ProgressListResponse,
   ProgressSaveResponse,
   PuzzleProgress,
@@ -65,6 +68,28 @@ export function checkTrack(date: string, difficulty: number, cells: number[][]):
 
 export function fetchArchive(difficulty: number): Promise<ArchiveResponse> {
   return request<ArchiveResponse>(`/api/archive?difficulty=${difficulty}`);
+}
+
+// ---- hints and answers (ADR 0014) ----
+
+const postJson = <T>(path: string, body: unknown) => request<T>(path, { method: "POST", body: JSON.stringify(body) });
+
+export function dailyHint(date: string, difficulty: number, cells: number[][], emptyCells: [number, number][]) {
+  const body: HintRequest = { cells, emptyCells };
+  return postJson<HintResponse>(`/api/puzzles/${date}/hint?difficulty=${difficulty}`, body);
+}
+
+export async function dailyAnswer(date: string, difficulty: number): Promise<number[][]> {
+  return (await postJson<AnswerResponse>(`/api/puzzles/${date}/answer?difficulty=${difficulty}`, {})).cells;
+}
+
+export function randomHint(difficulty: number, seed: string, cells: number[][], emptyCells: [number, number][]) {
+  const body: HintRequest = { cells, emptyCells };
+  return postJson<HintResponse>(`/api/random/${difficulty}/${seed}/hint`, body);
+}
+
+export async function randomAnswer(difficulty: number, seed: string): Promise<number[][]> {
+  return (await postJson<AnswerResponse>(`/api/random/${difficulty}/${seed}/answer`, {})).cells;
 }
 
 export function fetchRandomPuzzle(difficulty: number, seed: string): Promise<RandomPuzzleResponse> {

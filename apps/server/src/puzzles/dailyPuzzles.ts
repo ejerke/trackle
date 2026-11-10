@@ -50,6 +50,11 @@ export class DailyPuzzles {
     return this.repo.listDates(difficulty, this.today());
   }
 
+  /** An existing puzzle up to today, or null. Never generates. */
+  existing(date: string, difficulty: number): StoredPuzzle | null {
+    return date > this.today() ? null : this.repo.find(date, difficulty);
+  }
+
   /** Null if the puzzle doesn't exist. Never generates. */
   check(date: string, difficulty: number, cells: number[][], log?: Logger): boolean | null {
     const stored = date > this.today() ? null : this.repo.find(date, difficulty);

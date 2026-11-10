@@ -115,8 +115,11 @@ Metrics: hardest tier needed (`null` = needs guessing), `tier1Progress` (share
 of unknown squares *and* connections tier 1 alone decides), track length,
 squares to work out, hints, giveaway lines (clues of 0 or full).
 
-**Difficulty profiles** (`difficulty.ts`) set grid size, extra hints, an attempt
-limit and filters on those metrics:
+**Levels and difficulty profiles.** Player-facing settings per level (name,
+grid size, hint limit) are in `LEVELS` (`packages/shared/src/levels.ts`), the
+one place for game balance players see. The server's `difficulty.ts` adds how
+to generate each level (extra pieces given, an attempt limit, filters on the
+metrics above):
 
 | Level | Profile |
 | ----- | ------- |

@@ -37,7 +37,8 @@ describe("computeStats", () => {
     const records: PuzzleProgress[] = [
       onDay("2026-11-08", 1, 1),
       onDay("2026-11-09", 1, 3),
-      onDay("2026-11-10", 1, 2),
+      { ...onDay("2026-11-10", 1, 2), hintsUsed: 2 }, // solved with hints: still solved and a streak day
+      { ...daily("2026-11-05", 1, null, 1), revealedAt: "2026-11-05T10:00:00.000Z" }, // answer shown
       daily("2026-11-07", 1, "2026-11-10T09:00:00.000Z", 1), // archive catch-up
       daily("2026-11-06", 1, null, 2), // started, not solved
       onDay("2026-11-10", 2, 5),
@@ -48,8 +49,10 @@ describe("computeStats", () => {
     const medium = stats.daily.find((d) => d.difficulty === 1)!;
     expect(medium).toEqual({
       difficulty: 1,
-      played: 5,
+      played: 6,
       solved: 4,
+      unaided: 3,
+      revealed: 1,
       currentStreak: 3, // the 7th was solved late, so it doesn't extend the streak
       bestStreak: 3,
       averageChecks: (1 + 3 + 2 + 1) / 4,

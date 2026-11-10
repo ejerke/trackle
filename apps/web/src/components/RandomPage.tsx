@@ -1,6 +1,6 @@
 import { difficultyName, type RandomPuzzleResponse } from "@trackle/shared";
 import { useEffect, useMemo, useState } from "react";
-import { ApiRequestError, checkRandomTrack, fetchRandomPuzzle } from "../api";
+import { ApiRequestError, checkRandomTrack, fetchRandomPuzzle, randomAnswer, randomHint } from "../api";
 import { dailyUrl, randomUrl } from "../routes";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
 import { Game } from "./Game";
@@ -53,6 +53,8 @@ export function RandomPage({ difficulty, seed, store }: { difficulty: number; se
           progressKey={progressKey}
           store={store}
           check={(cells) => checkRandomTrack(difficulty, seed, cells)}
+          hint={(cells, empty) => randomHint(difficulty, seed, cells, empty)}
+          answer={() => randomAnswer(difficulty, seed)}
           afterSolve={
             <>
               <a className="button button--primary" href={randomUrl(difficulty)}>

@@ -24,6 +24,7 @@ export function StatsPage({ store }: { store: ProgressStore }) {
                 <h2>{difficultyName(d.difficulty)}</h2>
                 <dl>
                   <Stat label="Solved" value={d.solved} />
+                  <Stat label="On your own" value={d.unaided} />
                   <Stat label="Current streak" value={d.currentStreak} />
                   <Stat label="Best streak" value={d.bestStreak} />
                   <Stat label="First try" value={d.solved ? `${Math.round((d.firstTry / d.solved) * 100)}%` : "–"} />

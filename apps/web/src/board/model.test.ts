@@ -1,7 +1,7 @@
 import { E, N, S, W, type PuzzleLayout } from "@trackle/shared";
 import { describe, expect, it } from "vitest";
 import type { BoardState } from "../storage/progressStore";
-import { boardCounts, boardMasks, clueStatus, setEdge, setMark } from "./model";
+import { boardCounts, boardMasks, clueStatus, placePiece, setEdge, setMark } from "./model";
 
 // 3x3, A enters (0,0) from the west, B leaves (2,2) to the south. Hint: (1,1) is a vertical straight.
 const layout: PuzzleLayout = {
@@ -56,6 +56,12 @@ describe("board model", () => {
     // A (0,0), hint neighbour (0,1), hint (1,1), (2,1) via hint, B (2,2), marked (1,2)
     expect(counts.rows).toEqual([2, 2, 2]);
     expect(counts.cols).toEqual([1, 3, 2]);
+  });
+
+  it("places a whole hinted piece, and skips sides that leave the grid", () => {
+    const b = placePiece(layout, empty, { row: 0, col: 0 }, W | E); // A's square: W is the stub
+    expect(b.edges).toEqual(["h:0:0"]);
+    expect(boardMasks(layout, b)[0]![0]).toBe(W | E);
   });
 
   it("classifies clue progress", () => {

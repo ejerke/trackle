@@ -77,6 +77,35 @@ Checks a track. The body is the full board as a mask grid (see
   simply `{ "correct": false }`.
 - `404` if the puzzle does not exist. Checking never creates a puzzle.
 
+## Hints and answers
+
+Same paths for daily (`/api/puzzles/:date/…?difficulty=N`) and random
+(`/api/random/:difficulty/:seed/…`) puzzles ([ADR 0014](adr/0014-hints-and-answers.md)).
+For a signed-in player the server records the help on the account.
+
+### `POST …/hint`
+
+```json
+{ "cells": [[...]], "emptyCells": [[2, 3]] }      // the board, and squares marked "no track"
+```
+
+```json
+200 { "kind": "mistake", "edge": "h:2:3", "cell": null }      // a wrong segment...
+200 { "kind": "mistake", "edge": null, "cell": { "row": 2, "col": 3 } } // ...or a wrong "no track" mark
+200 { "kind": "piece", "row": 1, "col": 4, "piece": 6 }       // the next piece logic would place
+200 { "kind": "complete" }                                     // already the solution (not counted)
+```
+
+Hard allows 5 hints per puzzle (`hintLimit` in `LEVELS`). For a signed-in
+player the server enforces it: the next request gets
+`403 { "error": "hint_limit" }`. Signed out, the browser enforces it.
+
+### `POST …/answer`
+
+Body `{}`. `200 { "cells": [[...]] }`: the solution. The puzzle counts as
+revealed from then on. Levels with `showAnswer: false` in `LEVELS` (Hard)
+refuse for everyone: `403 { "error": "answer_unavailable" }`.
+
 ## `GET /api/archive`
 
 Days that have a daily puzzle at `?difficulty=N` (default Medium), newest

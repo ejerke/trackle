@@ -48,14 +48,15 @@ Defined in [0002_users_and_sessions.sql](../apps/server/migrations/0002_users_an
 Defined in [0003_user_progress.sql](../apps/server/migrations/0003_user_progress.sql)
 ([ADR 0013](adr/0013-progress-sync.md)). One row per (user, puzzle):
 `user_id` → `users` `ON DELETE CASCADE`, `key_id` (e.g. `2026-11-10:1`),
-`record_json` (the browser's record), and `updated_at` / `solved_at` copied out
-of it for querying. Primary key `(user_id, key_id)`.
+`record_json` (the browser's record), and `updated_at` / `solved_at` /
+`hints_used` / `revealed_at` (0005) copied out of it for querying. Primary key
+`(user_id, key_id)`. "Solved it yourself":
+`solved_at IS NOT NULL AND hints_used = 0 AND revealed_at IS NULL`
+([ADR 0014](adr/0014-hints-and-answers.md)).
 
 ### Expected future tables (not created yet)
 
-Leaderboard/group tables, once decided (see the
-[proposal](proposals/accounts-and-leaderboards.md)). Verified solve times can
-come from `user_progress.solved_at` for daily puzzles.
+None planned. Leaderboards were dropped ([ADR 0015](adr/0015-no-leaderboards.md)).
 
 ## Migrations
 

@@ -1,7 +1,9 @@
 import {
   bitCount,
+  edgeBetween,
   edgeCells,
   fixedEdges,
+  isValidEdge,
   lineCounts,
   masksFromEdges,
   type Cell,
@@ -57,6 +59,25 @@ export function setMark(layout: PuzzleLayout, board: BoardState, cell: Cell, mar
   if (mark === null) delete marks[key];
   else marks[key] = mark;
   return { ...board, marks };
+}
+
+/**
+ * Lay a whole piece at (row, col), as a hint does: a segment across each side
+ * the piece uses. Sides pointing out of the grid are A/B and already there.
+ */
+export function placePiece(layout: PuzzleLayout, board: BoardState, cell: Cell, piece: number): BoardState {
+  let next = board;
+  for (const [bit, dr, dc] of [
+    [1, -1, 0],
+    [2, 0, 1],
+    [4, 1, 0],
+    [8, 0, -1],
+  ] as const) {
+    if (!(piece & bit)) continue;
+    const edge = edgeBetween(cell, { row: cell.row + dr, col: cell.col + dc });
+    if (edge && isValidEdge(layout.width, layout.height, edge)) next = setEdge(layout, next, edge, true);
+  }
+  return next;
 }
 
 /** Live clue counts: squares with track segments or a "track here" mark. */

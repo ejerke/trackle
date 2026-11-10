@@ -11,12 +11,12 @@ import { EMPTY_BOARD, betterSolve, type PuzzleProgress } from "@trackle/shared";
  * unfinished board is left out (it only reaches the account via Save).
  */
 export function toSummary(p: PuzzleProgress): PuzzleProgress {
-  return p.solvedAt ? p : { ...p, board: EMPTY_BOARD };
+  return p.solvedAt || p.revealedAt ? p : { ...p, board: EMPTY_BOARD };
 }
 
 /** Changes when something the account cares about changes (not on board edits). */
 export function summaryKey(p: PuzzleProgress): string {
-  return JSON.stringify([p.puzzleFingerprint, p.checks, p.solvedAt]);
+  return JSON.stringify([p.puzzleFingerprint, p.checks, p.solvedAt, p.hintsUsed, p.revealedAt]);
 }
 
 export interface DeviceMerge {
@@ -31,6 +31,8 @@ export interface DeviceMerge {
  *
  *  - Solves: the better solve (betterSolve) wins on both sides; a solve from
  *    the account brings its finished track.
+ *  - Help (ADR 0014) only ever adds up: the higher hint count and an answer
+ *    shown on either side win; a shown answer brings the solution board.
  *  - Boards: a board saved from another device replaces this device's board
  *    only if this device has no unsaved edits. Unsaved work is never
  *    overwritten, and no device clocks are compared.
@@ -40,8 +42,18 @@ export function mergeOnDevice(local: PuzzleProgress | null, remote: PuzzleProgre
   if (!local) return { local: { ...remote!, boardDirty: false }, push: false };
   if (!remote) return { local, push: true };
 
-  let out: PuzzleProgress = { ...local, checks: Math.max(local.checks, remote.checks) };
-  let push = local.checks > remote.checks;
+  let out: PuzzleProgress = {
+    ...local,
+    checks: Math.max(local.checks, remote.checks),
+    hintsUsed: Math.max(local.hintsUsed, remote.hintsUsed),
+  };
+  let push = local.checks > remote.checks || local.hintsUsed > remote.hintsUsed;
+
+  if (remote.revealedAt && !local.revealedAt && !local.solvedAt) {
+    out = { ...out, revealedAt: remote.revealedAt, board: remote.board, boardSavedAt: remote.boardSavedAt, boardDirty: false };
+  } else if (local.revealedAt && !remote.revealedAt && !remote.solvedAt) {
+    push = true;
+  }
 
   const solve = betterSolve(local, remote);
   if (solve === remote && remote.solvedAt !== local.solvedAt) {
@@ -57,7 +69,7 @@ export function mergeOnDevice(local: PuzzleProgress | null, remote: PuzzleProgre
     push = true;
   }
 
-  if (!out.solvedAt && remote.boardSavedAt && remote.boardSavedAt !== local.boardSavedAt && !local.boardDirty) {
+  if (!out.solvedAt && !out.revealedAt && remote.boardSavedAt && remote.boardSavedAt !== local.boardSavedAt && !local.boardDirty) {
     out = { ...out, board: remote.board, boardSavedAt: remote.boardSavedAt };
   }
   return { local: out, push };

@@ -78,4 +78,4 @@ docs/              Architecture, API, database, rules, deployment, ADRs
 - [Deployment, backups and operations](docs/deployment.md)
 - [Client-side progress storage](docs/client-storage.md)
 - [Architecture Decision Records](docs/adr/README.md)
-- [Proposal: accounts and leaderboards](docs/proposals/accounts-and-leaderboards.md) (draft, needs decisions)
+- [Proposal: accounts and leaderboards](docs/proposals/accounts-and-leaderboards.md) (closed; kept for the record)

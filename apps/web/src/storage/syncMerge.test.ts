@@ -19,6 +19,27 @@ describe("toSummary / summaryKey", () => {
   });
 });
 
+describe("mergeOnDevice: help", () => {
+  it("keeps the higher hint count, and uploads it when this device has more", () => {
+    expect(mergeOnDevice(rec({ hintsUsed: 1 }), rec({ hintsUsed: 3 }))).toMatchObject({ local: { hintsUsed: 3 }, push: false });
+    expect(mergeOnDevice(rec({ hintsUsed: 2 }), rec({ hintsUsed: 0 }))).toMatchObject({ local: { hintsUsed: 2 }, push: true });
+  });
+
+  it("an answer shown on another device shows here too, with the solution board", () => {
+    const remote = rec({ revealedAt: "2026-11-10T10:00:00.000Z", board: board("h:0:0", "v:0:1") });
+    const { local } = mergeOnDevice(rec({ board: board("v:3:3"), boardDirty: true }), remote);
+    expect(local).toMatchObject({ revealedAt: "2026-11-10T10:00:00.000Z", boardDirty: false });
+    expect(local.board.edges).toEqual(["h:0:0", "v:0:1"]);
+  });
+
+  it("uploads an answer shown here, and keeps the shown board in automatic sync", () => {
+    const local = rec({ revealedAt: "2026-11-10T10:00:00.000Z", board: board("h:0:0") });
+    expect(mergeOnDevice(local, rec({})).push).toBe(true);
+    expect(toSummary(local).board.edges).toEqual(["h:0:0"]);
+    expect(summaryKey(local)).not.toBe(summaryKey({ ...local, hintsUsed: 1 }));
+  });
+});
+
 describe("mergeOnDevice", () => {
   it("adopts the account's record when this device has none, and uploads ones the account lacks", () => {
     const remote = rec({ board: board("h:0:0"), boardSavedAt: "2026-11-10T09:00:00.000Z" });

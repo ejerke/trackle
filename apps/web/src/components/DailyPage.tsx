@@ -1,6 +1,6 @@
 import { difficultyName, type PuzzleResponse } from "@trackle/shared";
 import { useEffect, useMemo, useState } from "react";
-import { ApiRequestError, checkTrack, fetchPuzzle } from "../api";
+import { ApiRequestError, checkTrack, dailyAnswer, dailyHint, fetchPuzzle } from "../api";
 import { dailyUrl, randomUrl } from "../routes";
 import { loadPreferredDifficulty } from "../storage/preferences";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
@@ -74,6 +74,8 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
             progressKey={progressKey}
             store={store}
             check={(cells) => checkTrack(ready.puzzle.date, difficulty, cells)}
+            hint={(cells, empty) => dailyHint(ready.puzzle.date, difficulty, cells, empty)}
+            answer={() => dailyAnswer(ready.puzzle.date, difficulty)}
             afterSolve={
               <>
                 <StreakNote store={store} difficulty={difficulty} />

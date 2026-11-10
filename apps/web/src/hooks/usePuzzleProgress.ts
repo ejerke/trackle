@@ -1,4 +1,4 @@
-import { puzzleFingerprint, type PuzzleLayout } from "@trackle/shared";
+import { edgesFromMasks, fixedEdges, puzzleFingerprint, type PuzzleLayout } from "@trackle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { reconcileProgress } from "../storage/reconcile";
 import {
@@ -19,6 +19,10 @@ export interface PuzzleProgressApi {
   /** Record a server check result. Saved immediately. */
   recordCheck(correct: boolean, cells: number[][]): void;
   clearBoard(): void;
+  /** Count one hint (after the server gave it). Saved immediately. */
+  recordHint(): void;
+  /** Show the answer: the board becomes the solution and the puzzle is locked as revealed. */
+  revealAnswer(solution: number[][]): void;
   /** Whether the store can save to an account right now (signed in). */
   canSaveToAccount: boolean;
   /** Save the current board to the account; marks it saved unless edited meanwhile. */
@@ -102,7 +106,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
   const updateBoard = useCallback(
     (fn: (board: BoardState) => BoardState) => {
       const current = latest.current;
-      if (!current || current.solvedAt) return;
+      if (!current || current.solvedAt || current.revealedAt) return;
       const board = fn(current.board);
       if (board === current.board) return;
       commit({ ...current, board, boardDirty: true, updatedAt: new Date().toISOString() }, false);
@@ -113,7 +117,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
   const recordCheck = useCallback(
     (correct: boolean, cells: number[][]) => {
       const current = latest.current;
-      if (!current || current.solvedAt) return;
+      if (!current || current.solvedAt || current.revealedAt) return;
       const now = new Date().toISOString();
       commit(
         {
@@ -125,6 +129,25 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
         },
         true,
       );
+    },
+    [commit],
+  );
+
+  const recordHint = useCallback(() => {
+    const current = latest.current;
+    if (!current || current.solvedAt || current.revealedAt) return;
+    commit({ ...current, hintsUsed: current.hintsUsed + 1, updatedAt: new Date().toISOString() }, true);
+  }, [commit]);
+
+  const revealAnswer = useCallback(
+    (solution: number[][]) => {
+      const current = latest.current;
+      if (!current || current.solvedAt || current.revealedAt) return;
+      const layout = layoutRef.current;
+      const fixed = fixedEdges(layout);
+      const edges = edgesFromMasks(layout.width, layout.height, solution).filter((e) => !fixed.has(e));
+      const now = new Date().toISOString();
+      commit({ ...current, board: { edges, marks: {} }, revealedAt: now, updatedAt: now, boardDirty: false }, true);
     },
     [commit],
   );
@@ -146,6 +169,8 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
     progress,
     updateBoard,
     recordCheck,
+    recordHint,
+    revealAnswer,
     clearBoard,
     canSaveToAccount: Boolean(store.signedIn && store.saveToAccount),
     saveToAccount,

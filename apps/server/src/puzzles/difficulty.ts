@@ -1,17 +1,16 @@
-import type { PuzzleMetrics } from "@trackle/shared";
+import { LEVELS, type Level, type PuzzleMetrics } from "@trackle/shared";
 
 /**
- * SERVER ONLY. One entry per difficulty level. Adding a level = adding an entry
- * here (and a display name in @trackle/shared DIFFICULTY_NAMES).
+ * SERVER ONLY. How the generator makes puzzles for each level. The
+ * player-facing settings (name, grid size, hint limit) live in LEVELS
+ * (@trackle/shared levels.ts); a DifficultyProfile is a level plus these
+ * generation settings, one entry per level, in the same order.
  *
- * Changing any value changes which puzzles get generated for a given seed, so
- * bump GENERATOR_VERSION in generator.ts when you do. Stored puzzles are
- * unaffected.
+ * Changing any value here changes which puzzles get generated for a given
+ * seed, so bump GENERATOR_VERSION in generator.ts when you do. Stored puzzles
+ * are unaffected.
  */
-export interface DifficultyProfile {
-  name: string;
-  width: number;
-  height: number;
+export interface GenerationSettings {
   /** Hints given on top of the minimum needed for a unique solution. */
   extraHints: number;
   /**
@@ -21,6 +20,8 @@ export interface DifficultyProfile {
   maxAttempts: number;
   filters: DifficultyFilters;
 }
+
+export type DifficultyProfile = Level & GenerationSettings;
 
 /** Every filter is optional; a candidate is accepted when it violates none. */
 export interface DifficultyFilters {
@@ -38,22 +39,16 @@ export interface DifficultyFilters {
   minTier3Steps?: number;
 }
 
-export const DIFFICULTIES: readonly DifficultyProfile[] = [
+const GENERATION: readonly GenerationSettings[] = [
   {
-    // The original generator: random path, minimum hints for uniqueness + 2,
-    // no filtering. Playtesting showed this is easy (or very easy).
-    name: "Easy",
-    width: 6,
-    height: 6,
+    // Easy: the original generator: random path, minimum hints for
+    // uniqueness + 2, no filtering. Playtesting showed this is easy.
     extraHints: 2,
     maxAttempts: 1,
     filters: {},
   },
   {
-    // First draft; tune with `npm run lab -- --difficulty 1`.
-    name: "Medium",
-    width: 6,
-    height: 6,
+    // Medium: needs "don't close a loop" reasoning, never trial and error.
     extraHints: 0,
     maxAttempts: 2000,
     filters: {
@@ -66,10 +61,7 @@ export const DIFFICULTIES: readonly DifficultyProfile[] = [
     },
   },
   {
-    // First draft; tune with `npm run lab -- --difficulty 2`.
-    name: "Hard",
-    width: 7,
-    height: 7,
+    // Hard: needs trial reasoning (tier 3) at least twice, still never guessing.
     extraHints: 0,
     maxAttempts: 3000,
     filters: {
@@ -82,6 +74,11 @@ export const DIFFICULTIES: readonly DifficultyProfile[] = [
     },
   },
 ];
+
+if (GENERATION.length !== LEVELS.length) throw new Error("Every level in LEVELS needs generation settings");
+
+/** One profile per difficulty: the shared level plus how to generate it. */
+export const DIFFICULTIES: readonly DifficultyProfile[] = LEVELS.map((level, i) => ({ ...level, ...GENERATION[i]! }));
 
 export function profileFor(difficulty: number): DifficultyProfile {
   const profile = DIFFICULTIES[difficulty];

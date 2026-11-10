@@ -42,8 +42,15 @@ describe("records", () => {
     const v3 = { ...emptyProgress(key, "fp"), schemaVersion: 3, board: { edges: ["h:0:0"], marks: {} } } as Record<string, unknown>;
     delete v3.boardSavedAt;
     delete v3.boardDirty;
-    expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 4, boardSavedAt: null, boardDirty: true });
+    expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 5, boardSavedAt: null, boardDirty: true });
     const empty = { ...v3, board: { edges: [], marks: {} } };
     expect(migrateProgress(empty)).toMatchObject({ boardDirty: false });
+  });
+
+  it("upgrades v4 records: no hints used, answer never shown", () => {
+    const v4 = { ...emptyProgress(key, "fp"), schemaVersion: 4 } as Record<string, unknown>;
+    delete v4.hintsUsed;
+    delete v4.revealedAt;
+    expect(migrateProgress(v4)).toMatchObject({ schemaVersion: 5, hintsUsed: 0, revealedAt: null });
   });
 });

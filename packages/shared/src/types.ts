@@ -28,20 +28,6 @@ export interface PuzzleLayout {
   hints: Hint[];
 }
 
-/** The difficulty served when the player hasn't chosen one. */
-export const DEFAULT_DIFFICULTY = 1;
-
-/** Display names; the number is what's stored. Extend when adding levels. */
-export const DIFFICULTY_NAMES: Readonly<Record<number, string>> = {
-  0: "Easy",
-  1: "Medium",
-  2: "Hard",
-};
-
-export function difficultyName(difficulty: number): string {
-  return DIFFICULTY_NAMES[difficulty] ?? `Level ${difficulty}`;
-}
-
 /** A layout plus its difficulty: everything the client needs to play. */
 export interface PlayablePuzzle extends PuzzleLayout {
   /** 0 = easiest. */

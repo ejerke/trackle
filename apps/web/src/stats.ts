@@ -1,4 +1,4 @@
-import { DIFFICULTY_NAMES, addDays } from "@trackle/shared";
+import { DIFFICULTY_NAMES, addDays, solvedUnaided } from "@trackle/shared";
 import type { PuzzleProgress } from "./storage/progressStore";
 
 /**
@@ -10,7 +10,12 @@ export interface DifficultyStats {
   difficulty: number;
   /** Daily puzzles started (any interaction). */
   played: number;
+  /** Solved, with or without hints (a shown answer never counts as solved). */
   solved: number;
+  /** Solved on your own: no hints, answer never shown. */
+  unaided: number;
+  /** Answer shown. */
+  revealed: number;
   /** Consecutive UTC days, up to today or yesterday, solved on the day itself. */
   currentStreak: number;
   bestStreak: number;
@@ -63,6 +68,8 @@ export function computeStats(records: readonly PuzzleProgress[], today: string):
       difficulty,
       played: mine.length,
       solved: solved.length,
+      unaided: solved.filter(solvedUnaided).length,
+      revealed: mine.filter((p) => p.revealedAt !== null).length,
       currentStreak: current,
       bestStreak: best,
       averageChecks: solved.length ? solved.reduce((sum, p) => sum + p.checks, 0) / solved.length : null,

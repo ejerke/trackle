@@ -1,10 +1,9 @@
 # Proposal: accounts and leaderboards
 
-- Status: **Partly decided.** Sign-in: username + password, no email
-  ([ADR 0012](../adr/0012-accounts.md), built). Progress sync: built
-  ([ADR 0013](../adr/0013-progress-sync.md)). Leaderboards: still open
-  (questions 2–4).
-- Date: 2026-11-10
+- Status: **Closed.** Sign-in: username + password ([ADR 0012](../adr/0012-accounts.md)).
+  Progress sync: built ([ADR 0013](../adr/0013-progress-sync.md)).
+  Leaderboards: **dropped**, personal stats on the honor system
+  ([ADR 0015](../adr/0015-no-leaderboards.md)). Kept for the record.
 
 Everything else on the roadmap is built. Accounts and leaderboards are held
 back because they need decisions only the owner can make: how people sign in,

@@ -29,8 +29,11 @@ export interface BoardState {
 }
 
 export interface PuzzleProgress {
-  /** 4: adds boardSavedAt/boardDirty. 3: adds puzzleFingerprint. 2: key has a `kind`. 1: key was { date, difficulty }. */
-  schemaVersion: 4;
+  /**
+   * 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
+   * 3: adds puzzleFingerprint. 2: key has a `kind`. 1: key was { date, difficulty }.
+   */
+  schemaVersion: 5;
   key: PuzzleKey;
   /**
    * puzzleFingerprint() of the puzzle this board was drawn on, so it is never
@@ -56,9 +59,18 @@ export interface PuzzleProgress {
   boardSavedAt: string | null;
   /** The board has edits that haven't been saved to the account. Device-local. */
   boardDirty: boolean;
+  /** Hints given for this puzzle (mistakes pointed out or pieces revealed). Only ever grows. */
+  hintsUsed: number;
+  /** When the answer was shown, or null. A revealed puzzle can't be solved any more. */
+  revealedAt: string | null;
 }
 
-export const CURRENT_SCHEMA_VERSION = 4 as const;
+export const CURRENT_SCHEMA_VERSION = 5 as const;
+
+/** Solved without any help: no hints and the answer never shown. */
+export function solvedUnaided(p: PuzzleProgress): boolean {
+  return p.solvedAt !== null && p.hintsUsed === 0 && p.revealedAt === null;
+}
 
 export function emptyProgress(key: PuzzleKey, fingerprint: string | null = null, now: Date = new Date()): PuzzleProgress {
   const iso = now.toISOString();
@@ -74,6 +86,8 @@ export function emptyProgress(key: PuzzleKey, fingerprint: string | null = null,
     solvedCells: null,
     boardSavedAt: null,
     boardDirty: false,
+    hintsUsed: 0,
+    revealedAt: null,
   };
 }
 
@@ -98,6 +112,10 @@ export function migrateProgress(raw: unknown): PuzzleProgress | null {
     const board = record.board as BoardState | undefined;
     const drawn = (board?.edges?.length ?? 0) > 0 || Object.keys(board?.marks ?? {}).length > 0;
     record = { ...record, schemaVersion: 4, boardSavedAt: null, boardDirty: drawn };
+  }
+  if (record.schemaVersion === 4) {
+    // Hints and answers didn't exist before v5.
+    record = { ...record, schemaVersion: 5, hintsUsed: 0, revealedAt: null };
   }
   if (record.schemaVersion !== CURRENT_SCHEMA_VERSION) return null; // unknown (e.g. newer) version
   return isProgressRecord(record) ? record : null;
@@ -129,7 +147,9 @@ export function isProgressRecord(value: unknown): value is PuzzleProgress {
     (p.solvedAt === null || typeof p.solvedAt === "string") &&
     (p.solvedCells === null || Array.isArray(p.solvedCells)) &&
     (p.boardSavedAt === null || typeof p.boardSavedAt === "string") &&
-    typeof p.boardDirty === "boolean"
+    typeof p.boardDirty === "boolean" &&
+    typeof p.hintsUsed === "number" &&
+    (p.revealedAt === null || typeof p.revealedAt === "string")
   );
 }
 
@@ -151,45 +171,54 @@ export const EMPTY_BOARD: BoardState = Object.freeze({ edges: [], marks: {} }) a
 
 // ---- the account's merge rules (applied by the server) ----
 
+const earliest = (a: string | null, b: string | null) => (a && b ? (a < b ? a : b) : (a ?? b));
+
 /**
- * How the account combines incoming records (ADR 0013). Two kinds of writes:
+ * How the account combines incoming records (ADR 0013, 0014). Two kinds of writes:
  *
  *  - automatic (`mergeSummary`): account-level facts only: the solve (with
- *    its finished track), checks, start time. An unfinished board sent this
- *    way is ignored, so it never reaches the account without a Save.
+ *    its finished track), checks, hints, a shown answer, start time. An
+ *    unfinished board sent this way is ignored, so it never reaches the
+ *    account without a Save.
  *  - explicit Save (`saveBoard`): also stores the unfinished board.
+ *
+ * Help can't be undone: hint counts only grow, a shown answer stays shown,
+ * and a solve made after the answer was shown doesn't count.
  */
 export function mergeSummary(existing: PuzzleProgress | null, incoming: PuzzleProgress): PuzzleProgress {
-  if (!existing) {
-    return incoming.solvedAt
-      ? { ...incoming, boardSavedAt: incoming.solvedAt, boardDirty: false }
-      : { ...incoming, board: EMPTY_BOARD, boardSavedAt: null, boardDirty: false };
-  }
+  const base: PuzzleProgress = existing
+    ? {
+        ...existing,
+        puzzleFingerprint: existing.puzzleFingerprint ?? incoming.puzzleFingerprint,
+        checks: Math.max(existing.checks, incoming.checks),
+        startedAt: incoming.startedAt < existing.startedAt ? incoming.startedAt : existing.startedAt,
+        updatedAt: incoming.updatedAt > existing.updatedAt ? incoming.updatedAt : existing.updatedAt,
+      }
+    : { ...incoming, board: EMPTY_BOARD, boardSavedAt: null, solvedAt: null, solvedCells: null, revealedAt: null };
+
   let merged: PuzzleProgress = {
-    ...existing,
-    puzzleFingerprint: existing.puzzleFingerprint ?? incoming.puzzleFingerprint,
-    checks: Math.max(existing.checks, incoming.checks),
-    startedAt: incoming.startedAt < existing.startedAt ? incoming.startedAt : existing.startedAt,
-    updatedAt: incoming.updatedAt > existing.updatedAt ? incoming.updatedAt : existing.updatedAt,
+    ...base,
     boardDirty: false,
+    hintsUsed: Math.max(existing?.hintsUsed ?? 0, incoming.hintsUsed),
+    revealedAt: earliest(existing?.revealedAt ?? null, incoming.revealedAt),
   };
-  if (betterSolve(existing, incoming) === incoming && incoming.solvedAt !== existing.solvedAt) {
+
+  const solveCounts = !merged.revealedAt || (incoming.solvedAt !== null && incoming.solvedAt < merged.revealedAt);
+  const newSolve =
+    incoming.solvedAt !== null && (!existing || (betterSolve(existing, incoming) === incoming && incoming.solvedAt !== existing.solvedAt));
+  if (newSolve && solveCounts) {
     // A new (or earlier) solve: its finished track becomes the saved board.
-    merged = {
-      ...merged,
-      solvedAt: incoming.solvedAt,
-      solvedCells: incoming.solvedCells,
-      board: incoming.board,
-      boardSavedAt: incoming.solvedAt,
-    };
+    merged = { ...merged, solvedAt: incoming.solvedAt, solvedCells: incoming.solvedCells, board: incoming.board, boardSavedAt: incoming.solvedAt };
+  } else if (!merged.solvedAt && merged.revealedAt && merged.revealedAt === incoming.revealedAt && existing?.revealedAt !== incoming.revealedAt) {
+    // Newly shown answer: the board shows the solution from now on.
+    merged = { ...merged, board: incoming.board, boardSavedAt: incoming.revealedAt };
   }
   return merged;
 }
 
-/** Explicit Save: everything mergeSummary does, plus the board. A solved puzzle's board is final. */
+/** Explicit Save: everything mergeSummary does, plus the board. A solved or revealed puzzle's board is final. */
 export function saveBoard(existing: PuzzleProgress | null, incoming: PuzzleProgress, now: Date): PuzzleProgress {
   const merged = mergeSummary(existing, incoming);
-  if (merged.solvedAt) return merged;
+  if (merged.solvedAt || merged.revealedAt) return merged;
   return { ...merged, board: incoming.board, boardSavedAt: now.toISOString(), updatedAt: incoming.updatedAt };
 }
-

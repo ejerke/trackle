@@ -41,6 +41,16 @@ shared: it always shows the same puzzle.
 Progress is saved in the browser, so reloading keeps the board and solved state
 (see [client-storage.md](client-storage.md)).
 
+## Hints and answers
+
+Under the board: **Hint** first points out a mistake if there is one (a wrong
+segment, or a "no track" mark on a track square, highlighted in red);
+otherwise it places the next piece logic would work out. Hard allows 5 hints
+per puzzle; Easy and Medium are unlimited. **Show answer** (Easy and Medium
+only; asks for confirmation) shows the whole solution; the puzzle then counts
+as *answer shown*, never as solved. Both are counted: stats show "On your own"
+(solved without hints or the answer) next to "Solved".
+
 ## Archive and stats
 
 - **Archive** (`/archive`): a calendar of past daily puzzles at the chosen
@@ -68,7 +78,11 @@ the account).
 ## Difficulty
 
 Difficulty is an integer, `0` = easiest; higher numbers can be added later
-without schema changes. Each level has its own daily puzzle; the default is
+without schema changes. Player-facing settings per level (name, grid size,
+hint limit) live in one file,
+[`packages/shared/src/levels.ts`](../packages/shared/src/levels.ts); how the
+generator makes each level's puzzles is in
+[`apps/server/src/puzzles/difficulty.ts`](../apps/server/src/puzzles/difficulty.ts). Each level has its own daily puzzle; the default is
 **Medium (1)**.
 
 | Level | Feels like |

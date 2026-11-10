@@ -17,6 +17,31 @@ export interface ArchiveResponse {
   dates: string[];
 }
 
+/** POST .../hint: the player's board, so the hint can point out mistakes first. */
+export interface HintRequest {
+  /** height x width mask grid, as for /check. */
+  cells: number[][];
+  /** Squares the player marked "no track", as [row, col]. */
+  emptyCells?: [number, number][];
+}
+
+/**
+ * The hint (ADR 0014):
+ *  - "mistake": something on the board is wrong: a segment (edge key such as
+ *    "h:2:3") or a square marked "no track" that does have track;
+ *  - "piece": the next piece logic would work out, at (row, col);
+ *  - "complete": the board already matches the solution (press Check).
+ */
+export type HintResponse =
+  | { kind: "mistake"; edge: string | null; cell: { row: number; col: number } | null }
+  | { kind: "piece"; row: number; col: number; piece: number }
+  | { kind: "complete" };
+
+/** POST .../answer: the full solution. Recorded as "answer shown" for signed-in players. */
+export interface AnswerResponse {
+  cells: number[][];
+}
+
 /** GET /api/random/:difficulty/:seed */
 export interface RandomPuzzleResponse {
   puzzle: PlayablePuzzle;
@@ -146,6 +171,8 @@ export type ApiErrorCode =
   | "invalid_difficulty"
   | "invalid_seed"
   | "rate_limited"
+  | "hint_limit"
+  | "answer_unavailable"
   | "unsupported_media_type"
   | "invalid_username"
   | "invalid_password"

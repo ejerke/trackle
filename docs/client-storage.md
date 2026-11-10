@@ -31,7 +31,7 @@ type PuzzleKey =
   | { kind: "random"; seed: string; difficulty: number }; // "k3j9x2ab", 0
 
 interface PuzzleProgress {
-  schemaVersion: 4;
+  schemaVersion: 5;
   key: PuzzleKey;
   puzzleFingerprint: string | null; // which puzzle the board was drawn on
   board: {
@@ -45,6 +45,8 @@ interface PuzzleProgress {
   solvedCells: number[][] | null; // the mask grid the server accepted
   boardSavedAt: string | null; // when this board was last saved to the account
   boardDirty: boolean;         // edits since then (device-local)
+  hintsUsed: number;           // only ever grows
+  revealedAt: string | null;   // answer shown: locked, never counts as solved
 }
 ```
 
@@ -56,9 +58,9 @@ are not stored; they come from the puzzle.
 
 - `solvedCells` keeps the accepted answer. When accounts arrive, the server can
   **re-verify** imported progress instead of trusting the browser's word.
-- `startedAt` / `checks` give future stats something to work with. They come
-  from the client clock, so they are fine for personal stats but **not**
-  trustworthy for leaderboards (those will need server-side timing).
+- `startedAt` / `checks` give stats something to work with. They come from
+  the client clock, which is fine for personal stats (there are no
+  leaderboards, [ADR 0015](adr/0015-no-leaderboards.md)).
 - `schemaVersion` allows reading old data after the format changes.
 
 ### Schema history
@@ -68,7 +70,8 @@ are not stored; they come from the puzzle.
 | 1 | key `{ date, difficulty }` | → 2: key gets `kind: "daily"` |
 | 2 | key is `daily` or `random` | → 3: `puzzleFingerprint: null` |
 | 3 | adds `puzzleFingerprint` | → 4: `boardSavedAt: null`, `boardDirty` = anything drawn |
-| 4 | adds `boardSavedAt`, `boardDirty` (Save button) | (current) |
+| 4 | adds `boardSavedAt`, `boardDirty` (Save button) | → 5: `hintsUsed: 0`, `revealedAt: null` |
+| 5 | adds `hintsUsed`, `revealedAt` (hints and answers) | (current) |
 
 `migrateProgress()` walks old records up one version at a time, so the
 storage key layout (`v1`) did not need to change. Tested in
@@ -134,8 +137,8 @@ While signed in, `SyncedProgressStore` (`storage/syncedProgressStore.ts`) wraps
 the local store; components didn't change. The browser always autosaves the
 board locally, so reloads never lose work.
 
-- **Synced automatically**: solves (with their finished track) and check
-  counts. Board edits alone send nothing.
+- **Synced automatically**: solves (with their finished track), check
+  counts, hints used and a shown answer. Board edits alone send nothing.
 - **Save button**: puts the unfinished board in the account, so another device
   can continue it. The record remembers `boardSavedAt` (which saved version the
   board is based on) and `boardDirty` (edits since).

@@ -27,10 +27,12 @@ const recordSchema = {
     "solvedCells",
     "boardSavedAt",
     "boardDirty",
+    "hintsUsed",
+    "revealedAt",
   ],
   additionalProperties: false,
   properties: {
-    schemaVersion: { const: 4 },
+    schemaVersion: { const: 5 },
     key: {
       type: "object",
       required: ["kind", "difficulty"],
@@ -64,6 +66,8 @@ const recordSchema = {
     },
     boardSavedAt: { anyOf: [timestamp, { type: "null" }] },
     boardDirty: { type: "boolean" },
+    hintsUsed: { type: "integer", minimum: 0, maximum: 10_000 },
+    revealedAt: { anyOf: [timestamp, { type: "null" }] },
   },
 } as const;
 

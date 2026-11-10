@@ -53,6 +53,7 @@ Notes:
 | `npm run typecheck` | TypeScript check of every workspace                       |
 | `npm run build`     | Production build of the web app                           |
 | `npm start`         | Production server: API + built web app on one port        |
+| `npm run backup`    | Online backup of the SQLite database (`BACKUP_DIR`, `BACKUP_KEEP`) |
 | `npm run lab`       | Puzzle lab: difficulty metrics for many generated puzzles, e.g. `npm run lab -- --difficulty 1 --raw` (flags at the top of `apps/server/src/lab/lab.ts`) |
 
 ## Repository layout
@@ -62,7 +63,9 @@ packages/shared/   Types and rule helpers used by both server and web
 apps/server/       Fastify API, SQLite, puzzle generator and solver
   migrations/      Numbered plain-SQL schema migrations
 apps/web/          React + Vite single-page app
-docs/              Architecture, API, database, rules, ADRs
+deploy/            systemd units, Caddyfile, deploy script (see docs/deployment.md)
+.github/workflows/ CI: typecheck, test, build on every push
+docs/              Architecture, API, database, rules, deployment, ADRs
 ```
 
 ## Documentation
@@ -71,5 +74,7 @@ docs/              Architecture, API, database, rules, ADRs
 - [Architecture overview](docs/architecture.md)
 - [HTTP API](docs/api.md)
 - [Database and migrations](docs/database.md)
+- [Deployment, backups and operations](docs/deployment.md)
 - [Client-side progress storage](docs/client-storage.md)
 - [Architecture Decision Records](docs/adr/README.md)
+- [Proposal: accounts and leaderboards](docs/proposals/accounts-and-leaderboards.md) (draft, needs decisions)

@@ -1,6 +1,7 @@
 import { DIFFICULTY_NAMES } from "@trackle/shared";
 import { archiveUrl, dailyUrl, randomUrl } from "../routes";
-import { savePreferredDifficulty } from "../storage/preferences";
+import { useAuth } from "../auth";
+import { rememberDifficulty } from "../storage/preferences";
 
 interface ModeBarProps {
   kind: "daily" | "random" | "archive";
@@ -21,11 +22,13 @@ const LEVELS = Object.entries(DIFFICULTY_NAMES).map(([d, name]) => ({ difficulty
 /**
  * Difficulty picker plus "Today" / "New random". On a daily page, picking a
  * difficulty shows that difficulty's daily puzzle; on a random page, a new
- * random puzzle of that difficulty. The choice is remembered for "/".
+ * random puzzle of that difficulty. The choice is remembered for "/", and on
+ * the account when signed in.
  */
 export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
+  const { user } = useAuth();
   const go = (url: string, chosen: number) => {
-    savePreferredDifficulty(chosen);
+    rememberDifficulty(chosen, user !== null);
     window.location.assign(url);
   };
 

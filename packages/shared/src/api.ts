@@ -71,6 +71,8 @@ export interface AccountUser {
   /** As the user typed it; unique ignoring case. */
   username: string;
   createdAt: string;
+  /** Difficulty last chosen while signed in; null = not chosen yet. */
+  preferredDifficulty: number | null;
 }
 
 /** GET /api/auth/me and the result of register/login. */
@@ -89,6 +91,11 @@ export interface Credentials {
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
+}
+
+/** PUT /api/auth/preferences */
+export interface PreferencesRequest {
+  preferredDifficulty: number;
 }
 
 /** POST /api/auth/delete-account */

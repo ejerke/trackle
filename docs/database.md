@@ -40,7 +40,7 @@ Defined in [0002_users_and_sessions.sql](../apps/server/migrations/0002_users_an
 
 | Table | Columns | Notes |
 | ----- | ------- | ----- |
-| `users` | `id`, `username` (`UNIQUE COLLATE NOCASE`), `password_hash`, `created_at`, `password_changed_at` | hash is `scrypt$N$r$p$salt$hash`, never the password |
+| `users` | `id`, `username` (`UNIQUE COLLATE NOCASE`), `password_hash`, `created_at`, `password_changed_at`, `preferred_difficulty` (0004, NULL = not chosen) | hash is `scrypt$N$r$p$salt$hash`, never the password |
 | `sessions` | `token_hash` (PK), `user_id` → `users` `ON DELETE CASCADE`, `created_at`, `expires_at` | SHA-256 of the cookie token; expired rows are pruned on login |
 
 ### `user_progress`

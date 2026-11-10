@@ -11,6 +11,7 @@ interface UserRow {
   username: string;
   password_hash: string;
   created_at: string;
+  preferred_difficulty: number | null;
 }
 
 export interface StoredUser {
@@ -19,7 +20,12 @@ export interface StoredUser {
 }
 
 const toUser = (row: UserRow): StoredUser => ({
-  user: { id: row.id, username: row.username, createdAt: row.created_at },
+  user: {
+    id: row.id,
+    username: row.username,
+    createdAt: row.created_at,
+    preferredDifficulty: row.preferred_difficulty,
+  },
   passwordHash: row.password_hash,
 });
 
@@ -40,7 +46,7 @@ export class Accounts {
       .prepare(
         `INSERT INTO users (username, password_hash) VALUES (?, ?)
          ON CONFLICT (username) DO NOTHING
-         RETURNING id, username, password_hash, created_at`,
+         RETURNING id, username, password_hash, created_at, preferred_difficulty`,
       )
       .get(username, passwordHash) as UserRow | undefined;
     return row ? toUser(row) : null;
@@ -48,14 +54,14 @@ export class Accounts {
 
   findByUsername(username: string): StoredUser | null {
     const row = this.db
-      .prepare("SELECT id, username, password_hash, created_at FROM users WHERE username = ?")
+      .prepare("SELECT id, username, password_hash, created_at, preferred_difficulty FROM users WHERE username = ?")
       .get(username) as UserRow | undefined;
     return row ? toUser(row) : null;
   }
 
   findById(id: number): StoredUser | null {
     const row = this.db
-      .prepare("SELECT id, username, password_hash, created_at FROM users WHERE id = ?")
+      .prepare("SELECT id, username, password_hash, created_at, preferred_difficulty FROM users WHERE id = ?")
       .get(id) as UserRow | undefined;
     return row ? toUser(row) : null;
   }
@@ -64,6 +70,10 @@ export class Accounts {
     this.db
       .prepare("UPDATE users SET password_hash = ?, password_changed_at = ? WHERE id = ?")
       .run(passwordHash, this.now().toISOString(), userId);
+  }
+
+  setPreferredDifficulty(userId: number, difficulty: number): void {
+    this.db.prepare("UPDATE users SET preferred_difficulty = ? WHERE id = ?").run(difficulty, userId);
   }
 
   /** Deletes the user; their sessions go with them (ON DELETE CASCADE). */
@@ -90,7 +100,7 @@ export class Accounts {
   userForToken(token: string): AccountUser | null {
     const row = this.db
       .prepare(
-        `SELECT u.id, u.username, u.password_hash, u.created_at
+        `SELECT u.id, u.username, u.password_hash, u.created_at, u.preferred_difficulty
          FROM sessions s JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ? AND s.expires_at > ?`,
       )

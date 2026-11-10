@@ -1,6 +1,7 @@
 import type { AccountUser } from "@trackle/shared";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { fetchMe, logout } from "./api";
+import { syncDifficultyWithAccount } from "./storage/preferences";
 import type { SyncedProgressStore } from "./storage/syncedProgressStore";
 
 /**
@@ -29,7 +30,10 @@ export function AuthProvider({ store, children }: { store: SyncedProgressStore; 
   useEffect(() => {
     void (async () => {
       const me = await fetchMe().then((res) => res.user, () => null); // offline/server error: act signed out
-      if (me) await store.signIn(me.id).catch((err) => console.warn("Progress sync failed", err));
+      if (me) {
+        syncDifficultyWithAccount(me.preferredDifficulty);
+        await store.signIn(me.id).catch((err) => console.warn("Progress sync failed", err));
+      }
       setUser(me);
     })();
   }, [store]);
@@ -39,6 +43,7 @@ export function AuthProvider({ store, children }: { store: SyncedProgressStore; 
   const state: AuthState = {
     user,
     async signedIn(u) {
+      syncDifficultyWithAccount(u.preferredDifficulty);
       await store.signIn(u.id).catch((err) => console.warn("Progress sync failed", err));
       setUser(u);
     },

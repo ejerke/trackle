@@ -112,8 +112,11 @@ they'll work unchanged on records synced from an account later.
 ## Preferences
 
 The last chosen difficulty is kept in `trackle:prefs:difficulty`
-(`storage/preferences.ts`). It's a per-browser convenience that will never need
-to move to an account, so it uses `localStorage` directly (still guarded).
+(`storage/preferences.ts`), so `/` opens it. For signed-in players it's also
+stored on the account (`PUT /api/auth/preferences`): on each page load the
+account's choice wins, and an account that hasn't chosen yet adopts the
+browser's. Picking a difficulty sends it with `keepalive`, since the page
+navigates away immediately.
 
 ## Robustness rules
 

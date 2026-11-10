@@ -8,9 +8,11 @@ import {
   type ChangePasswordRequest,
   type Credentials,
   type DeleteAccountRequest,
+  type PreferencesRequest,
 } from "@trackle/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Db } from "../db/connection.ts";
+import { DIFFICULTIES } from "../puzzles/difficulty.ts";
 import type { RateLimits } from "../rateLimit/rateLimit.ts";
 import { Accounts, SESSION_DAYS } from "./accounts.ts";
 import { parseCookies, serializeCookie } from "./cookies.ts";
@@ -137,6 +139,29 @@ export function registerAuthRoutes(
       // A changed password should lock out anyone else who had a session.
       accounts.deleteOtherSessions(user.id, tokenOf(req));
       return reply.code(204).send();
+    },
+  );
+
+  app.put<{ Body: PreferencesRequest }>(
+    "/api/auth/preferences",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["preferredDifficulty"],
+          additionalProperties: false,
+          properties: { preferredDifficulty: { type: "integer", minimum: 0, maximum: 99 } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const user = currentUser(req);
+      if (!user) return reply.code(401).send(error("unauthorized"));
+      const d = req.body.preferredDifficulty;
+      if (DIFFICULTIES[d] === undefined) return reply.code(400).send(error("invalid_difficulty"));
+      accounts.setPreferredDifficulty(user.id, d);
+      const body: AuthResponse = { user: { ...user, preferredDifficulty: d } };
+      return body;
     },
   );
 

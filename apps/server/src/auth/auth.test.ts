@@ -162,6 +162,30 @@ describe("accounts", () => {
   });
 });
 
+describe("preferences", () => {
+  const prefs = (body: object, token?: string) =>
+    app.inject({ method: "PUT", url: "/api/auth/preferences", payload: body, headers: token ? { cookie: `${SESSION_COOKIE}=${token}` } : {} });
+
+  it("remembers the chosen difficulty on the account, for every device", async () => {
+    await setup();
+    const phone = sessionFrom(await post("/api/auth/register", { username: "alice", password: "correct horse" }))!;
+    expect(await me(phone)).toMatchObject({ preferredDifficulty: null });
+
+    expect((await prefs({ preferredDifficulty: 2 }, phone)).json().user.preferredDifficulty).toBe(2);
+    const laptop = await post("/api/auth/login", { username: "alice", password: "correct horse" });
+    expect(laptop.json().user.preferredDifficulty).toBe(2);
+    expect(await me(sessionFrom(laptop))).toMatchObject({ preferredDifficulty: 2 });
+  });
+
+  it("rejects unknown difficulties and anonymous requests", async () => {
+    await setup();
+    const token = sessionFrom(await post("/api/auth/register", { username: "alice", password: "correct horse" }))!;
+    expect((await prefs({ preferredDifficulty: 9 }, token)).json()).toEqual({ error: "invalid_difficulty" });
+    expect((await prefs({ preferredDifficulty: "hard" }, token)).statusCode).toBe(400);
+    expect((await prefs({ preferredDifficulty: 1 })).statusCode).toBe(401);
+  });
+});
+
 describe("CSRF protection", () => {
   it("rejects API writes that aren't JSON (e.g. a cross-site form post)", async () => {
     await setup();

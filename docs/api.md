@@ -120,9 +120,11 @@ rate limit.
 | `POST /api/auth/login` | `{ username, password }` | `200 { user }` + cookie | `401 invalid_credentials` |
 | `POST /api/auth/logout` | `{}` | `204`, cookie cleared | |
 | `POST /api/auth/password` | `{ currentPassword, newPassword }` | `204`; other sessions ended | `401 unauthorized`, `401 invalid_credentials`, `400 invalid_password` |
+| `PUT /api/auth/preferences` | `{ preferredDifficulty }` | `200 { user }` | `401 unauthorized`, `400 invalid_difficulty` |
 | `POST /api/auth/delete-account` | `{ password }` | `204`; user + sessions deleted | `401 unauthorized`, `401 invalid_credentials` |
 
-`AccountUser` is `{ id, username, createdAt }`.
+`AccountUser` is `{ id, username, createdAt, preferredDifficulty }`
+(`preferredDifficulty` is `null` until chosen while signed in).
 
 ## Progress sync (signed in)
 

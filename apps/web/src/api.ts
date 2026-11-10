@@ -96,6 +96,13 @@ export const register = (c: Credentials) => post<AuthResponse>("/api/auth/regist
 export const login = (c: Credentials) => post<AuthResponse>("/api/auth/login", c);
 export const logout = () => post<void>("/api/auth/logout", {});
 export const changePassword = (r: ChangePasswordRequest) => post<void>("/api/auth/password", r);
+/** Fire-and-forget friendly: `keepalive` lets it finish while the page navigates away. */
+export const savePreferences = (preferredDifficulty: number) =>
+  request<AuthResponse>("/api/auth/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ preferredDifficulty }),
+    keepalive: true,
+  });
 export const deleteAccount = (r: DeleteAccountRequest) => post<void>("/api/auth/delete-account", r);
 
 // ---- progress sync (signed in) ----

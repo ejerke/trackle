@@ -18,3 +18,4 @@ Template: copy [0000-template.md](0000-template.md) to the next number.
 | 0007 | [Player progress behind an async store, localStorage first](0007-progress-store.md) | Accepted |
 | 0008 | [Difficulty by logic rating, deterministic generate-and-filter](0008-difficulty-by-logic-rating.md) | Accepted |
 | 0009 | [Random puzzles are identified by seed, not stored](0009-random-puzzles-by-seed.md) | Accepted |
+| 0010 | [In-process token-bucket rate limiting, keyed on the real client IP](0010-rate-limiting.md) | Accepted |

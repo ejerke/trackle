@@ -230,3 +230,63 @@ describe("random puzzles", () => {
     }
   });
 });
+
+describe("rate limiting", () => {
+  async function setupWith(rateLimit: Parameters<typeof buildApp>[0]["rateLimit"]) {
+    db = openDatabase(":memory:");
+    migrate(db, loadMigrations(migrationsDir));
+    app = await buildApp({ db, now: () => now, rateLimit });
+  }
+  const from = (ip: string, url: string) =>
+    app.inject({ url, remoteAddress: "127.0.0.1", headers: { "cf-connecting-ip": ip } });
+
+  it("limits all API requests per client and says when to retry", async () => {
+    await setupWith({ policies: { api: { capacity: 3, refillPerSecond: 0.1 } } });
+    for (let i = 0; i < 3; i++) expect((await app.inject("/api/health")).statusCode).toBe(200);
+    const limited = await app.inject("/api/health");
+    expect(limited.statusCode).toBe(429);
+    expect(limited.json()).toEqual({ error: "rate_limited" });
+    expect(limited.headers["retry-after"]).toBe("10");
+  });
+
+  it("charges random-puzzle generation, but not cache hits", async () => {
+    await setupWith({ policies: { generation: { capacity: 2, refillPerSecond: 0.01 } } });
+    expect((await app.inject("/api/random/0/aaaa")).statusCode).toBe(200);
+    expect((await app.inject("/api/random/0/bbbb")).statusCode).toBe(200);
+    // Same puzzles again (and checking them) are cached: free.
+    expect((await app.inject("/api/random/0/aaaa")).statusCode).toBe(200);
+    const check = await app.inject({ method: "POST", url: "/api/random/0/bbbb/check", payload: { cells: [[0]] } });
+    expect(check.statusCode).toBe(200);
+    // A third *new* puzzle needs generating: denied.
+    expect((await app.inject("/api/random/0/cccc")).statusCode).toBe(429);
+    // Daily puzzles are not affected by the generation limit.
+    expect((await app.inject("/api/puzzles/today?difficulty=0")).statusCode).toBe(200);
+  });
+
+  it("limits each client separately when behind the proxy", async () => {
+    await setupWith({
+      clientIpHeader: "cf-connecting-ip",
+      policies: { generation: { capacity: 1, refillPerSecond: 0.01 } },
+    });
+    expect((await from("198.51.100.1", "/api/random/0/aaaa")).statusCode).toBe(200);
+    expect((await from("198.51.100.1", "/api/random/0/bbbb")).statusCode).toBe(429);
+    expect((await from("198.51.100.2", "/api/random/0/cccc")).statusCode).toBe(200);
+  });
+
+  it("caps generation across all clients together", async () => {
+    await setupWith({
+      clientIpHeader: "cf-connecting-ip",
+      policies: { generationGlobal: { capacity: 2, refillPerSecond: 0.01 } },
+    });
+    expect((await from("198.51.100.1", "/api/random/0/aaaa")).statusCode).toBe(200);
+    expect((await from("198.51.100.2", "/api/random/0/bbbb")).statusCode).toBe(200);
+    expect((await from("198.51.100.3", "/api/random/0/cccc")).statusCode).toBe(429);
+  });
+
+  it("does not limit the web app's static files or SPA routes", async () => {
+    await setupWith({ policies: { api: { capacity: 1, refillPerSecond: 0.01 } } });
+    await app.inject("/api/health");
+    expect((await app.inject("/api/health")).statusCode).toBe(429);
+    expect((await app.inject("/2026-11-10")).statusCode).not.toBe(429);
+  });
+});

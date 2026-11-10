@@ -54,7 +54,13 @@ export interface LabPuzzleResponse {
   generationMs: number;
 }
 
-export type ApiErrorCode = "not_found" | "invalid_date" | "invalid_body" | "invalid_difficulty" | "invalid_seed";
+export type ApiErrorCode =
+  | "not_found"
+  | "invalid_date"
+  | "invalid_body"
+  | "invalid_difficulty"
+  | "invalid_seed"
+  | "rate_limited";
 
 export interface ApiError {
   error: ApiErrorCode;

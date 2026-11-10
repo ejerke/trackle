@@ -12,6 +12,11 @@ export interface Config {
   webDistDir: string;
   /** Development-only puzzle lab. Off unless ENABLE_LAB=1. */
   enableLab: boolean;
+  /**
+   * Header carrying the real client IP when requests come through our reverse
+   * proxy (e.g. "cf-connecting-ip" behind Cloudflare). Unset: use the socket address.
+   */
+  clientIpHeader: string | undefined;
 }
 
 /** All configuration comes from environment variables, with dev-friendly defaults. */
@@ -28,5 +33,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     migrationsDir: `${serverRoot}migrations`,
     webDistDir: env.WEB_DIST_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url)),
     enableLab: env.ENABLE_LAB === "1",
+    clientIpHeader: env.CLIENT_IP_HEADER?.toLowerCase() || undefined,
   };
 }

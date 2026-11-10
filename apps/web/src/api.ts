@@ -8,9 +8,12 @@ import type {
 
 export class ApiRequestError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  /** From the Retry-After header on 429 responses. */
+  readonly retryAfterSeconds: number | null;
+  constructor(status: number, message: string, retryAfterSeconds: number | null = null) {
     super(message);
     this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -19,7 +22,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
-  if (!res.ok) throw new ApiRequestError(res.status, `${init?.method ?? "GET"} ${path} -> ${res.status}`);
+  if (!res.ok) {
+    const retryAfter = Number(res.headers.get("Retry-After"));
+    throw new ApiRequestError(
+      res.status,
+      `${init?.method ?? "GET"} ${path} -> ${res.status}`,
+      Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
+    );
+  }
   return (await res.json()) as T;
 }
 

@@ -7,7 +7,13 @@ const config = loadConfig();
 const db = openDatabase(config.databasePath);
 
 const applied = migrate(db, loadMigrations(config.migrationsDir));
-const app = await buildApp({ db, webDistDir: config.webDistDir, logger: true, enableLab: config.enableLab });
+const app = await buildApp({
+  db,
+  webDistDir: config.webDistDir,
+  logger: true,
+  enableLab: config.enableLab,
+  rateLimit: { clientIpHeader: config.clientIpHeader },
+});
 if (config.enableLab) app.log.warn("Puzzle lab routes are enabled (ENABLE_LAB=1). Never do this in production.");
 if (applied.length > 0) app.log.info({ applied }, "Applied database migrations");
 

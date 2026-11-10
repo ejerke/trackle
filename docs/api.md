@@ -22,6 +22,18 @@ interface Endpoint { row: number; col: number; dir: Dir }   // dir points out of
 interface Hint     { row: number; col: number; piece: number } // 2-bit direction mask
 ```
 
+## Rate limits
+
+All `/api/*` requests are rate limited per client, and requests that make the
+server generate a random puzzle have a stricter limit
+([ADR 0010](adr/0010-rate-limiting.md)). Over the limit:
+
+```
+429 Too Many Requests
+Retry-After: <seconds>
+{ "error": "rate_limited" }
+```
+
 ## Difficulty
 
 Every daily endpoint takes an optional `?difficulty=N` (0 Easy, 1 Medium).

@@ -36,6 +36,7 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
       .catch((err: unknown) =>
         setState(err instanceof ApiRequestError && err.status === 404 ? { status: "missing" } : { status: "error" }),
       );
+    // A 429 here only happens under extreme request rates; the generic error (reload) covers it.
   }, [date, difficulty]);
 
   const ready = state.status === "ready" ? state.data : null;

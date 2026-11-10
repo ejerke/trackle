@@ -1,12 +1,13 @@
 import type { PlayablePuzzle } from "@trackle/shared";
 import { useEffect, useState, type ReactNode } from "react";
+import { ApiRequestError } from "../api";
 import { boardMasks, type Mode } from "../board/model";
 import { usePuzzleProgress } from "../hooks/usePuzzleProgress";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
 import { Board } from "./Board";
 import { Toolbar } from "./Toolbar";
 
-type CheckState = "idle" | "checking" | "wrong" | "error";
+type CheckState = "idle" | "checking" | "wrong" | "error" | "rateLimited";
 
 interface GameProps {
   puzzle: PlayablePuzzle;
@@ -46,8 +47,8 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, after
       const correct = await checkWithServer(cells);
       recordCheck(correct, cells);
       setCheck(correct ? "idle" : "wrong");
-    } catch {
-      setCheck("error");
+    } catch (err) {
+      setCheck(err instanceof ApiRequestError && err.status === 429 ? "rateLimited" : "error");
     }
   };
 
@@ -89,6 +90,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, after
           <p className="message" role="status" aria-live="polite">
             {check === "wrong" && "Not quite. Something doesn't fit yet."}
             {check === "error" && "Couldn't reach the server. Try again."}
+            {check === "rateLimited" && "Too many checks too quickly. Wait a few seconds and try again."}
           </p>
         </>
       )}

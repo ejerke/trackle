@@ -38,9 +38,9 @@ same puzzle for a given `GENERATOR_VERSION`.
 ## Consequences
 
 - **Cost per request is CPU**: a Medium generation blocks the Node event loop
-  for ~0.1 s (up to ~0.6 s). Anyone can request unlimited seeds. **Before
-  public deployment, add rate limiting** (e.g. `@fastify/rate-limit` keyed on
-  Cloudflare's `CF-Connecting-IP`), or move generation to a worker thread.
+  for ~0.1 s (up to ~0.6 s). Anyone can request unlimited seeds, so generation
+  is rate limited per client and globally: see
+  [ADR 0010](0010-rate-limiting.md).
 - Bumping `GENERATOR_VERSION` changes what every random URL shows. Shared links
   from before the change show a different puzzle, and a player's saved progress
   for that seed no longer fits it. Acceptable for random puzzles; daily

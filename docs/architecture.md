@@ -66,6 +66,9 @@ Daily puzzles are stored, one per UTC day per difficulty. Random puzzles are
 not stored: `(difficulty, seed)` regenerates them deterministically
 ([ADR 0009](adr/0009-random-puzzles-by-seed.md)).
 
+Generation costs CPU, so the API is rate limited per client, with a strict
+extra budget for puzzle generation ([ADR 0010](adr/0010-rate-limiting.md)).
+
 ## Daily puzzle flow
 
 1. The client loads `/` (or `/YYYY-MM-DD`) and requests the puzzle from the API.

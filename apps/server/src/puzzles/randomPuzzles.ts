@@ -20,6 +20,11 @@ interface Entry {
 export class RandomPuzzles {
   private readonly cache = new Map<string, Entry>();
 
+  /** True if serving this puzzle won't need a (costly) generation. */
+  has(difficulty: number, seed: string): boolean {
+    return this.cache.has(`${difficulty}:${seed}`);
+  }
+
   get(difficulty: number, seed: string): Entry {
     const key = `${difficulty}:${seed}`;
     const hit = this.cache.get(key);

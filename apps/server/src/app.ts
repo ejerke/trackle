@@ -18,6 +18,7 @@ import { DailyPuzzles } from "./puzzles/dailyPuzzles.ts";
 import { DIFFICULTIES } from "./puzzles/difficulty.ts";
 import { RandomPuzzles } from "./puzzles/randomPuzzles.ts";
 import { PuzzleRepository } from "./puzzles/repository.ts";
+import { registerRateLimits, type RateLimitOptions } from "./rateLimit/rateLimit.ts";
 import { checkBodySchema } from "./schemas.ts";
 
 export interface AppOptions {
@@ -29,6 +30,8 @@ export interface AppOptions {
   logger?: boolean;
   /** Development-only puzzle lab routes (ENABLE_LAB=1). Never enable in production. */
   enableLab?: boolean;
+  /** Rate-limit settings (policies, client IP header). Limits are always on. */
+  rateLimit?: RateLimitOptions;
 }
 
 /** Build the Fastify app without listening, so tests can use app.inject(). */
@@ -60,6 +63,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     if (err.validation) return reply.code(400).send({ error: "invalid_body" } satisfies ApiError);
     throw err;
   });
+
+  const limits = registerRateLimits(app, options.rateLimit);
 
   app.get("/api/health", async () => ({ ok: true }));
 
@@ -109,6 +114,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.get<RandomRequest>("/api/random/:difficulty/:seed", async (req, reply) => {
     const parsed = parseRandom(req.params);
     if ("error" in parsed) return reply.code(400).send(parsed);
+    // Only a cache miss costs CPU, so only that is charged against the generation limit.
+    if (!random.has(parsed.difficulty, parsed.seed) && !limits.allowGeneration(req, reply)) return reply;
     const body: RandomPuzzleResponse = { puzzle: random.get(parsed.difficulty, parsed.seed).puzzle, seed: parsed.seed };
     return body;
   });
@@ -119,6 +126,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     async (req, reply) => {
       const parsed = parseRandom(req.params);
       if ("error" in parsed) return reply.code(400).send(parsed);
+      if (!random.has(parsed.difficulty, parsed.seed) && !limits.allowGeneration(req, reply)) return reply;
       const body: CheckResponse = { correct: random.check(parsed.difficulty, parsed.seed, req.body.cells) };
       return body;
     },

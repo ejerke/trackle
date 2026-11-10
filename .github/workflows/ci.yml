@@ -1,0 +1,35 @@
+# Continuous integration: every push to master and every pull request must
+# install cleanly from the lockfile, typecheck, pass all tests and build.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older, now pointless, run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24 # keep in sync with mise.toml and the server
+          cache: npm
+
+      # `npm ci` installs exactly what package-lock.json says (no silent upgrades)
+      # and runs only the install scripts allowed in package.json (better-sqlite3).
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

@@ -1,0 +1,12 @@
+# Daily backup at 03:30 server time (plus up to 10 min jitter).
+#   sudo systemctl enable --now trackle-backup.timer
+[Unit]
+Description=Daily Trackle database backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

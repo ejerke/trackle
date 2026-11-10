@@ -15,7 +15,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build -w @trackle/web",
     "start": "npm run start -w @trackle/server",
-    "lab": "npm run lab -w @trackle/server --"
+    "lab": "npm run lab -w @trackle/server --",
+    "backup": "npm run backup -w @trackle/server"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",

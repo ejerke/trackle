@@ -1,0 +1,54 @@
+# systemd unit for the Trackle server. Install: see docs/deployment.md.
+#   sudo cp deploy/trackle.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now trackle
+
+[Unit]
+Description=Trackle daily puzzle server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=trackle
+Group=trackle
+WorkingDirectory=/opt/trackle
+
+# Node 24 runs the TypeScript sources directly (no build step for the server).
+# Adjust the path if node lives elsewhere (`command -v node`).
+ExecStart=/usr/bin/node apps/server/src/index.ts
+
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+Environment=DATABASE_PATH=/var/lib/trackle/trackle.db
+# Behind Cloudflare + Caddy: the real client IP for rate limiting (ADR 0010).
+Environment=CLIENT_IP_HEADER=cf-connecting-ip
+# Never set ENABLE_LAB here.
+
+Restart=on-failure
+RestartSec=2
+# SIGTERM lets the server close the database cleanly (WAL checkpoint).
+KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# /var/lib/trackle, owned by the service user, created by systemd.
+StateDirectory=trackle
+StateDirectoryMode=0750
+
+# Hardening: the process can read the app, write only its state directory.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

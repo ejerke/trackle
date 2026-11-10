@@ -1,0 +1,19 @@
+# One-off database backup, triggered daily by trackle-backup.timer.
+[Unit]
+Description=Back up the Trackle database
+
+[Service]
+Type=oneshot
+User=trackle
+Group=trackle
+WorkingDirectory=/opt/trackle
+ExecStart=/usr/bin/node apps/server/src/tools/backup.ts
+Environment=DATABASE_PATH=/var/lib/trackle/trackle.db
+Environment=BACKUP_DIR=/var/lib/trackle/backups
+Environment=BACKUP_KEEP=30
+
+StateDirectory=trackle
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

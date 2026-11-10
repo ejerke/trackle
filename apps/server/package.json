@@ -8,7 +8,8 @@
     "start": "node src/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lab": "node src/lab/lab.ts"
+    "lab": "node src/lab/lab.ts",
+    "backup": "node src/tools/backup.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.7",

@@ -21,7 +21,7 @@ interface GameProps {
 }
 
 export function Game({ puzzle, progressKey, store, check: checkWithServer, afterSolve }: GameProps) {
-  const { progress, updateBoard, recordCheck, clearBoard } = usePuzzleProgress(store, progressKey);
+  const { progress, updateBoard, recordCheck, clearBoard } = usePuzzleProgress(store, progressKey, puzzle);
   const [mode, setMode] = useState<Mode>("track");
   const [check, setCheck] = useState<CheckState>("idle");
   const [confirmClear, setConfirmClear] = useState(false);

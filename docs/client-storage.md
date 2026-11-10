@@ -31,8 +31,9 @@ type PuzzleKey =
   | { kind: "random"; seed: string; difficulty: number }; // "k3j9x2ab", 0
 
 interface PuzzleProgress {
-  schemaVersion: 2;
+  schemaVersion: 3;
   key: PuzzleKey;
+  puzzleFingerprint: string | null; // which puzzle the board was drawn on
   board: {
     edges: string[];                          // track segments, e.g. "h:2:3", "v:0:5"
     marks: Record<string, "track" | "empty">; // "r:c" -> mark
@@ -63,11 +64,23 @@ are not stored; they come from the puzzle.
 | Version | Change | Upgrade on read |
 | ------- | ------ | --------------- |
 | 1 | key `{ date, difficulty }` | → 2: key gets `kind: "daily"` |
-| 2 | key is `daily` or `random` | (current) |
+| 2 | key is `daily` or `random` | → 3: `puzzleFingerprint: null` |
+| 3 | adds `puzzleFingerprint` | (current) |
 
 `migrateProgress()` walks old records up one version at a time, so the
 storage key layout (`v1`) did not need to change. Tested in
 `localProgressStore.test.ts`.
+
+### Never showing a board on the wrong puzzle
+
+Each record stores `puzzleFingerprint` (a hash of the puzzle's size, clues,
+endpoints and hints, from `@trackle/shared`). When a puzzle loads,
+`reconcileProgress()` (`storage/reconcile.ts`) keeps the saved record only if
+the fingerprint matches; a record for a different puzzle under the same key
+(a regenerated puzzle, random puzzles after a generator change, a restored
+database) is deleted and the board starts empty. Records from before v3 have
+no fingerprint: they're kept only if solved and their saved answer still
+solves the puzzle.
 
 ## localStorage layout
 

@@ -30,9 +30,15 @@ export interface BoardState {
 }
 
 export interface PuzzleProgress {
-  /** 2: key has a `kind` (daily | random). 1: key was always { date, difficulty }. */
-  schemaVersion: 2;
+  /** 3: adds puzzleFingerprint. 2: key has a `kind`. 1: key was always { date, difficulty }. */
+  schemaVersion: 3;
   key: PuzzleKey;
+  /**
+   * puzzleFingerprint() of the puzzle this board was drawn on, so it is never
+   * shown on a different puzzle under the same key. null in records saved
+   * before v3 (checked against the puzzle instead, see usePuzzleProgress).
+   */
+  puzzleFingerprint: string | null;
   board: BoardState;
   /** ISO timestamp of first interaction (client clock). */
   startedAt: string;
@@ -49,17 +55,19 @@ export interface PuzzleProgress {
 export interface ProgressStore {
   get(key: PuzzleKey): Promise<PuzzleProgress | null>;
   save(progress: PuzzleProgress): Promise<void>;
+  delete(key: PuzzleKey): Promise<void>;
   /** Every stored puzzle: daily ones newest date first, then random ones most recently played first. */
   list(): Promise<PuzzleProgress[]>;
 }
 
-export const CURRENT_SCHEMA_VERSION = 2 as const;
+export const CURRENT_SCHEMA_VERSION = 3 as const;
 
-export function emptyProgress(key: PuzzleKey, now: Date = new Date()): PuzzleProgress {
+export function emptyProgress(key: PuzzleKey, fingerprint: string | null = null, now: Date = new Date()): PuzzleProgress {
   const iso = now.toISOString();
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     key,
+    puzzleFingerprint: fingerprint,
     board: { edges: [], marks: {} },
     startedAt: iso,
     updatedAt: iso,

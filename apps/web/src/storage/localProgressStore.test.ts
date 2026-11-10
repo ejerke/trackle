@@ -12,11 +12,18 @@ describe("LocalProgressStore", () => {
 
   it("round-trips saved progress", async () => {
     const store = new LocalProgressStore(new MemoryStorage());
-    const progress = emptyProgress(key, new Date("2026-11-10T08:00:00Z"));
+    const progress = emptyProgress(key, "abcd1234", new Date("2026-11-10T08:00:00Z"));
     progress.board.edges.push("h:0:1");
     progress.board.marks["2:3"] = "empty";
     await store.save(progress);
     expect(await store.get(key)).toEqual(progress);
+  });
+
+  it("deletes one puzzle's progress", async () => {
+    const store = new LocalProgressStore(new MemoryStorage());
+    await store.save(emptyProgress(key));
+    await store.delete(key);
+    expect(await store.get(key)).toBeNull();
   });
 
   it("keeps puzzles separate by date and difficulty", async () => {
@@ -31,9 +38,9 @@ describe("LocalProgressStore", () => {
     const storage = new MemoryStorage();
     storage.setItem("unrelated", "x");
     const store = new LocalProgressStore(storage);
-    await store.save(emptyProgress({ kind: "random", seed: "old1", difficulty: 1 }, new Date("2026-11-01T00:00:00Z")));
+    await store.save(emptyProgress({ kind: "random", seed: "old1", difficulty: 1 }, null, new Date("2026-11-01T00:00:00Z")));
     await store.save(emptyProgress({ kind: "daily", date: "2026-11-08", difficulty: 1 }));
-    await store.save(emptyProgress({ kind: "random", seed: "new1", difficulty: 1 }, new Date("2026-11-09T00:00:00Z")));
+    await store.save(emptyProgress({ kind: "random", seed: "new1", difficulty: 1 }, null, new Date("2026-11-09T00:00:00Z")));
     await store.save(emptyProgress({ kind: "daily", date: "2026-11-10", difficulty: 1 }));
     const ids = (await store.list()).map((p) => (p.key.kind === "daily" ? p.key.date : p.key.seed));
     expect(ids).toEqual(["2026-11-10", "2026-11-08", "new1", "old1"]);
@@ -62,7 +69,7 @@ describe("LocalProgressStore", () => {
 
 describe("migrateProgress", () => {
   it("rejects records missing required fields", () => {
-    expect(migrateProgress({ schemaVersion: 2, key })).toBeNull();
+    expect(migrateProgress({ schemaVersion: 3, key })).toBeNull();
     expect(migrateProgress(null)).toBeNull();
   });
 
@@ -77,7 +84,12 @@ describe("migrateProgress", () => {
       solvedAt: null,
       solvedCells: null,
     };
-    expect(migrateProgress(v1)).toEqual({ ...v1, schemaVersion: 2, key: { kind: "daily", date: "2026-11-10", difficulty: 1 } });
+    expect(migrateProgress(v1)).toEqual({
+      ...v1,
+      schemaVersion: 3,
+      key: { kind: "daily", date: "2026-11-10", difficulty: 1 },
+      puzzleFingerprint: null,
+    });
 
     // And it is found under the same storage key as before the upgrade.
     const storage = new MemoryStorage();

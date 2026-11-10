@@ -1,6 +1,7 @@
+import { puzzleFingerprint, type PuzzleLayout } from "@trackle/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { reconcileProgress } from "../storage/reconcile";
 import {
-  emptyProgress,
   puzzleKeyId,
   type BoardState,
   type ProgressStore,
@@ -24,7 +25,7 @@ export interface PuzzleProgressApi {
  * Loads and saves one puzzle's progress through a ProgressStore. Board edits
  * are debounced; check results and page hide are saved right away.
  */
-export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey): PuzzleProgressApi {
+export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: PuzzleLayout): PuzzleProgressApi {
   const [progress, setProgress] = useState<PuzzleProgress | null>(null);
   // The latest value, so several edits in one event chain correctly.
   const latest = useRef<PuzzleProgress | null>(null);
@@ -34,6 +35,9 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey): PuzzleP
   const id = puzzleKeyId(key);
   const keyRef = useRef(key);
   keyRef.current = key;
+  const fingerprint = puzzleFingerprint(layout);
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
 
   const flush = useCallback(() => {
     window.clearTimeout(timer.current);
@@ -62,14 +66,21 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey): PuzzleP
     const current = keyRef.current;
     void store.get(current).then((stored) => {
       if (cancelled) return;
-      const loaded = stored ?? emptyProgress(current);
+      // Never show a board saved for a different puzzle under the same key.
+      const { progress: loaded, action } = reconcileProgress(stored, current, layoutRef.current);
+      if (action === "discard") {
+        console.info("Discarded saved progress drawn on a different version of this puzzle");
+        void store.delete(current);
+      } else if (action === "adopt") {
+        void store.save(loaded); // remember which puzzle it belongs to from now on
+      }
       latest.current = loaded;
       setProgress(loaded);
     });
     return () => {
       cancelled = true;
     };
-  }, [store, id]);
+  }, [store, id, fingerprint]);
 
   useEffect(() => {
     window.addEventListener("pagehide", flush);

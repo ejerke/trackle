@@ -37,6 +37,10 @@ export function migrateProgress(raw: unknown): PuzzleProgress | null {
     // v1 keys were always daily puzzles: { date, difficulty }.
     record = { ...record, schemaVersion: 2, key: { kind: "daily", ...(record.key as object) } };
   }
+  if (record.schemaVersion === 2) {
+    // v2 records don't know which puzzle they were drawn on.
+    record = { ...record, schemaVersion: 3, puzzleFingerprint: null };
+  }
   if (record.schemaVersion !== CURRENT_SCHEMA_VERSION) return null; // unknown (e.g. newer) version
   return isCurrentProgress(record) ? record : null;
 }
@@ -53,6 +57,7 @@ function isCurrentProgress(value: unknown): value is PuzzleProgress {
   const p = value as PuzzleProgress;
   return (
     isValidKey(p.key) &&
+    (p.puzzleFingerprint === null || typeof p.puzzleFingerprint === "string") &&
     Array.isArray(p.board?.edges) &&
     typeof p.board?.marks === "object" &&
     p.board.marks !== null &&
@@ -81,6 +86,14 @@ export class LocalProgressStore implements ProgressStore {
     } catch (err) {
       // Quota exceeded or storage disabled: the game keeps working, it just won't remember.
       console.warn("Could not save progress", err);
+    }
+  }
+
+  async delete(key: PuzzleKey): Promise<void> {
+    try {
+      this.storage.removeItem(storageKey(key));
+    } catch (err) {
+      console.warn("Could not delete progress", err);
     }
   }
 

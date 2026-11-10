@@ -54,6 +54,11 @@ Defined in [0003_user_progress.sql](../apps/server/migrations/0003_user_progress
 `solved_at IS NOT NULL AND hints_used = 0 AND revealed_at IS NULL`
 ([ADR 0014](adr/0014-hints-and-answers.md)).
 
+`record_json` can hold older record versions (rows written by older code);
+the server upgrades them with `migrateProgress()` whenever it reads one.
+0006 additionally rewrote v5 rows to v6 (`timeMs: 0`) in place
+([ADR 0017](adr/0017-timed-solves.md)).
+
 ### Expected future tables (not created yet)
 
 None planned. Leaderboards were dropped ([ADR 0015](adr/0015-no-leaderboards.md)).

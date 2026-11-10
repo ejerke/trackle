@@ -1,10 +1,12 @@
-import { canShowAnswer, hintsLeft, type HintResponse, type PlayablePuzzle } from "@trackle/shared";
-import { useEffect, useState, type ReactNode } from "react";
+import { canShowAnswer, hintsLeft, validateTrack, type HintResponse, type PlayablePuzzle } from "@trackle/shared";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiRequestError } from "../api";
 import { boardMasks, placePiece, type Mode } from "../board/model";
 import { usePuzzleProgress } from "../hooks/usePuzzleProgress";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
+import { formatDuration } from "../time";
 import { Board, type Highlight } from "./Board";
+import { Clock } from "./Clock";
 import { Toolbar } from "./Toolbar";
 
 type CheckState = "idle" | "checking" | "wrong" | "error" | "rateLimited";
@@ -17,7 +19,7 @@ interface GameProps {
   /** Where this puzzle's progress is saved. */
   progressKey: PuzzleKey;
   store: ProgressStore;
-  /** Asks the server whether the track is correct. */
+  /** Asks the server whether the track is correct. Called by itself once the track looks complete. */
   check(cells: number[][]): Promise<boolean>;
   /** Asks the server for a hint about this board. Omitted: no Hint button (e.g. the lab). */
   hint?(cells: number[][], emptyCells: [number, number][]): Promise<HintResponse>;
@@ -34,6 +36,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   const answer = canShowAnswer(puzzle.difficulty) ? answerProp : undefined;
   const {
     progress,
+    runningSince,
     updateBoard,
     recordCheck,
     recordHint,
@@ -50,10 +53,32 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   const [helping, setHelping] = useState(false);
   const [helpMessage, setHelpMessage] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<Highlight | null>(null);
+  // The last board sent for checking, so each finished track is checked once.
+  const lastChecked = useRef<string | null>(null);
 
-  // Any edit hides an old "not quite" message.
+  const runCheck = async (cells: number[][]) => {
+    setCheck("checking");
+    try {
+      const correct = await checkWithServer(cells);
+      recordCheck(correct, cells);
+      setCheck(correct ? "idle" : "wrong");
+    } catch (err) {
+      setCheck(err instanceof ApiRequestError && err.status === 429 ? "rateLimited" : "error");
+    }
+  };
+
+  // No Check button: a track that follows every rule is the solution (the
+  // puzzle has exactly one), so it's checked as soon as it's drawn. The
+  // server still has the final word (ADR 0004).
   useEffect(() => {
-    if (check === "wrong") setCheck("idle");
+    if (!progress || progress.solvedAt || progress.revealedAt) return;
+    if (check === "wrong") setCheck("idle"); // any edit hides an old "not quite"
+    const cells = boardMasks(puzzle, progress.board);
+    if (!validateTrack(puzzle, cells).ok) return;
+    const signature = JSON.stringify(cells);
+    if (lastChecked.current === signature) return;
+    lastChecked.current = signature;
+    void runCheck(cells);
   }, [progress?.board]);
 
   useEffect(() => {
@@ -79,17 +104,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   const revealed = progress.revealedAt !== null;
   const finished = solved || revealed;
 
-  const onCheck = async () => {
-    const cells = boardMasks(puzzle, progress.board);
-    setCheck("checking");
-    try {
-      const correct = await checkWithServer(cells);
-      recordCheck(correct, cells);
-      setCheck(correct ? "idle" : "wrong");
-    } catch (err) {
-      setCheck(err instanceof ApiRequestError && err.status === 429 ? "rateLimited" : "error");
-    }
-  };
+  const retryCheck = () => void runCheck(boardMasks(puzzle, progress.board));
 
   const left = hintsLeft(puzzle.difficulty, progress.hintsUsed);
 
@@ -102,7 +117,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
     try {
       const res = await hint(boardMasks(puzzle, progress.board), emptyCells);
       if (res.kind === "complete") {
-        setHelpMessage("Your track is complete. Press Check!");
+        setHelpMessage("Your track is complete.");
         return;
       }
       recordHint();
@@ -164,6 +179,9 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   return (
     <section className="game">
       <Toolbar mode={mode} onMode={setMode} disabled={finished} />
+      {!revealed && !(solved && progress.timeMs === 0) && (
+        <Clock timeMs={progress.timeMs} runningSince={runningSince} />
+      )}
 
       <Board
         layout={puzzle}
@@ -178,9 +196,14 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
         <div className="result result--solved" role="status">
           <p className="result__title">{progress.hintsUsed === 0 ? "Track complete!" : "Track complete"}</p>
           <p className="result__detail">
-            {progress.hintsUsed === 0
-              ? `Solved on your own with ${plural(progress.checks, "check")}.`
-              : `Solved with ${plural(progress.hintsUsed, "hint")} and ${plural(progress.checks, "check")}.`}
+            {progress.hintsUsed === 0 ? "Solved on your own" : `Solved with ${plural(progress.hintsUsed, "hint")}`}
+            {progress.timeMs > 0 && (
+              <>
+                {" "}
+                in <b className="result__time">{formatDuration(progress.timeMs)}</b>
+              </>
+            )}
+            .
           </p>
           {afterSolve && <div className="result__actions">{afterSolve}</div>}
         </div>
@@ -207,14 +230,6 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
                 {saving === "saving" ? "Saving…" : progress.boardDirty ? "Save" : "Saved"}
               </button>
             )}
-            <button
-              type="button"
-              className="button button--primary"
-              onClick={onCheck}
-              disabled={check === "checking"}
-            >
-              {check === "checking" ? "Checking…" : "Check"}
-            </button>
           </div>
           {canSaveToAccount && (
             <p className="save-status">
@@ -228,9 +243,16 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
             </p>
           )}
           <p className="message" role="status" aria-live="polite">
+            {check === "checking" && <span className="message--quiet">Checking your track…</span>}
             {check === "wrong" && "Not quite. Something doesn't fit yet."}
-            {check === "error" && "Couldn't reach the server. Try again."}
-            {check === "rateLimited" && "Too many checks too quickly. Wait a few seconds and try again."}
+            {(check === "error" || check === "rateLimited") && (
+              <>
+                {check === "error" ? "Couldn't check your track." : "Too many checks too quickly."}{" "}
+                <button type="button" className="link-button" onClick={retryCheck}>
+                  Try again
+                </button>
+              </>
+            )}
             {check === "idle" && helpMessage}
           </p>
           {(hint || answer) && (

@@ -1,5 +1,5 @@
 import { DELTA, DIRS, E, N, S, W, edgeBetween, edgeCells, inBounds, type Cell, type Dir, type PuzzleLayout } from "@trackle/shared";
-import { useMemo, useRef, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, type PointerEvent } from "react";
 import { allEdges, boardCounts, boardMasks, cellKey, clueStatus, setEdge, setMark, type Mode } from "../board/model";
 import type { BoardState, CellMark } from "../storage/progressStore";
 
@@ -78,6 +78,25 @@ export function Board({ layout, board, mode, locked, onChange, highlight }: Boar
   const playerEdges = useMemo(() => new Set(board.edges), [board.edges]);
   const hintCells = useMemo(() => new Set(layout.hints.map(cellKey)), [layout]);
   const edges = useMemo(() => allEdges(layout, board), [layout, board]);
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
+
+  // `touch-action: none` (styles.css) should stop the page scrolling while
+  // drawing, but some mobile browsers (notably iOS Safari on SVG) still scroll
+  // or pull-to-refresh. A non-passive touch listener can veto that; React's
+  // own touch handlers are passive and can't. Pointer events still fire.
+  useEffect(() => {
+    const svg = svgRef.current!;
+    const stop = (e: TouchEvent) => {
+      if (!lockedRef.current && e.cancelable) e.preventDefault();
+    };
+    svg.addEventListener("touchstart", stop, { passive: false });
+    svg.addEventListener("touchmove", stop, { passive: false });
+    return () => {
+      svg.removeEventListener("touchstart", stop);
+      svg.removeEventListener("touchmove", stop);
+    };
+  }, []);
 
   // ---- pointer handling -------------------------------------------------
   const drag = useRef<{

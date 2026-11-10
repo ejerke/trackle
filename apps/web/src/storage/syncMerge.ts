@@ -1,4 +1,4 @@
-import { EMPTY_BOARD, betterSolve, type PuzzleProgress } from "@trackle/shared";
+import { EMPTY_BOARD, betterSolve, mergedTime, type PuzzleProgress } from "@trackle/shared";
 
 /**
  * Device-side merge rules for progress sync (ADR 0013). The server keeps the
@@ -33,6 +33,7 @@ export interface DeviceMerge {
  *    the account brings its finished track.
  *  - Help (ADR 0014) only ever adds up: the higher hint count and an answer
  *    shown on either side win; a shown answer brings the solution board.
+ *  - Time: the solve's time once solved, else the longer of the two.
  *  - Boards: a board saved from another device replaces this device's board
  *    only if this device has no unsaved edits. Unsaved work is never
  *    overwritten, and no device clocks are compared.
@@ -72,5 +73,6 @@ export function mergeOnDevice(local: PuzzleProgress | null, remote: PuzzleProgre
   if (!out.solvedAt && !out.revealedAt && remote.boardSavedAt && remote.boardSavedAt !== local.boardSavedAt && !local.boardDirty) {
     out = { ...out, board: remote.board, boardSavedAt: remote.boardSavedAt };
   }
-  return { local: out, push };
+  // Time rides along with the other facts; on its own it never triggers a push.
+  return { local: { ...out, timeMs: mergedTime(out, remote, local) }, push };
 }

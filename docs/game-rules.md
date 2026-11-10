@@ -30,7 +30,12 @@ A toolbar selects what a click or drag does:
 - Clues update live: a clue turns red when its row/column has too much track,
   and fades when it is exactly met. (This only counts; it never reveals whether
   the track is correct.)
-- **Check** sends the track to the server, which answers only correct or not.
+- There is no Check button: as soon as the track follows every rule it is sent
+  to the server, which answers only correct or not
+  ([ADR 0017](adr/0017-timed-solves.md)).
+- **The clock** above the board starts with the first move, pauses while the
+  page is in the background, and stops when the track is right. The solved
+  panel shows the time.
 - After solving, the page shows a countdown to the next puzzle (UTC midnight).
 
 Above the board, a bar picks the **difficulty** (each one has its own puzzle
@@ -59,7 +64,8 @@ as *answer shown*, never as solved. Both are counted: stats show "On your own"
   difficulty, marked solved / started / not played from this browser's
   progress. Only days somebody played have a puzzle.
 - **Stats** (`/stats`): per difficulty, puzzles solved, current and best
-  streak, first-try rate and average checks; plus random puzzles solved.
+  streak, and best and average time (puzzles solved without hints); plus
+  random puzzles solved.
   A **streak** counts daily puzzles solved *on their own UTC day*; solving
   old days in the archive counts as solved but doesn't build a streak.
 - Both are computed in the browser from saved progress

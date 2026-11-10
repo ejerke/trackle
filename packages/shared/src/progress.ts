@@ -30,10 +30,10 @@ export interface BoardState {
 
 export interface PuzzleProgress {
   /**
-   * 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
+   * 6: adds timeMs. 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
    * 3: adds puzzleFingerprint. 2: key has a `kind`. 1: key was { date, difficulty }.
    */
-  schemaVersion: 5;
+  schemaVersion: 6;
   key: PuzzleKey;
   /**
    * puzzleFingerprint() of the puzzle this board was drawn on, so it is never
@@ -46,7 +46,10 @@ export interface PuzzleProgress {
   startedAt: string;
   /** ISO timestamp of last change (client clock). */
   updatedAt: string;
-  /** Number of times the player pressed "Check". */
+  /**
+   * How many times the finished-looking track was sent to the server for
+   * checking. Since v6 that happens automatically, so this is almost always 1.
+   */
   checks: number;
   /** Set only after the server answered `correct: true`. */
   solvedAt: string | null;
@@ -63,9 +66,15 @@ export interface PuzzleProgress {
   hintsUsed: number;
   /** When the answer was shown, or null. A revealed puzzle can't be solved any more. */
   revealedAt: string | null;
+  /**
+   * Active solving time in milliseconds: the clock runs from the first move
+   * while the page is visible, and stops at the solve. Frozen once solved.
+   * 0 on a solved record means "not timed" (solved before v6).
+   */
+  timeMs: number;
 }
 
-export const CURRENT_SCHEMA_VERSION = 5 as const;
+export const CURRENT_SCHEMA_VERSION = 6 as const;
 
 /** Solved without any help: no hints and the answer never shown. */
 export function solvedUnaided(p: PuzzleProgress): boolean {
@@ -88,6 +97,7 @@ export function emptyProgress(key: PuzzleKey, fingerprint: string | null = null,
     boardDirty: false,
     hintsUsed: 0,
     revealedAt: null,
+    timeMs: 0,
   };
 }
 
@@ -116,6 +126,10 @@ export function migrateProgress(raw: unknown): PuzzleProgress | null {
   if (record.schemaVersion === 4) {
     // Hints and answers didn't exist before v5.
     record = { ...record, schemaVersion: 5, hintsUsed: 0, revealedAt: null };
+  }
+  if (record.schemaVersion === 5) {
+    // Untimed: unfinished boards start counting from the next move.
+    record = { ...record, schemaVersion: 6, timeMs: 0 };
   }
   if (record.schemaVersion !== CURRENT_SCHEMA_VERSION) return null; // unknown (e.g. newer) version
   return isProgressRecord(record) ? record : null;
@@ -149,7 +163,8 @@ export function isProgressRecord(value: unknown): value is PuzzleProgress {
     (p.boardSavedAt === null || typeof p.boardSavedAt === "string") &&
     typeof p.boardDirty === "boolean" &&
     typeof p.hintsUsed === "number" &&
-    (p.revealedAt === null || typeof p.revealedAt === "string")
+    (p.revealedAt === null || typeof p.revealedAt === "string") &&
+    typeof p.timeMs === "number"
   );
 }
 
@@ -171,13 +186,22 @@ export const EMPTY_BOARD: BoardState = Object.freeze({ edges: [], marks: {} }) a
 
 // ---- the account's merge rules (applied by the server) ----
 
+/**
+ * The time to keep when two versions of a record meet: a solve's time is
+ * final; otherwise the longer one (each device only ever adds to it).
+ */
+export function mergedTime(merged: PuzzleProgress, a: PuzzleProgress | null, b: PuzzleProgress): number {
+  if (merged.solvedAt) return merged.solvedAt === b.solvedAt ? b.timeMs : (a?.timeMs ?? b.timeMs);
+  return Math.max(a?.timeMs ?? 0, b.timeMs);
+}
+
 const earliest = (a: string | null, b: string | null) => (a && b ? (a < b ? a : b) : (a ?? b));
 
 /**
  * How the account combines incoming records (ADR 0013, 0014). Two kinds of writes:
  *
  *  - automatic (`mergeSummary`): account-level facts only: the solve (with
- *    its finished track), checks, hints, a shown answer, start time. An
+ *    its finished track and time), checks, hints, a shown answer, start time. An
  *    unfinished board sent this way is ignored, so it never reaches the
  *    account without a Save.
  *  - explicit Save (`saveBoard`): also stores the unfinished board.
@@ -213,7 +237,7 @@ export function mergeSummary(existing: PuzzleProgress | null, incoming: PuzzlePr
     // Newly shown answer: the board shows the solution from now on.
     merged = { ...merged, board: incoming.board, boardSavedAt: incoming.revealedAt };
   }
-  return merged;
+  return { ...merged, timeMs: mergedTime(merged, existing, incoming) };
 }
 
 /** Explicit Save: everything mergeSummary does, plus the board. A solved or revealed puzzle's board is final. */

@@ -5,6 +5,7 @@ import {
   isIsoDate,
   isRandomSeed,
   mergeSummary,
+  migrateProgress,
   puzzleFingerprint,
   puzzleKeyId,
   saveBoard,
@@ -16,6 +17,14 @@ import {
 import type { Db } from "../db/connection.ts";
 import { DIFFICULTIES } from "../puzzles/difficulty.ts";
 import type { PuzzleRepository } from "../puzzles/repository.ts";
+
+/**
+ * A stored record, upgraded to the current version: rows written by older
+ * code keep their old shape in record_json. null if it can't be understood.
+ */
+function parseStored(json: string): PuzzleProgress | null {
+  return migrateProgress(JSON.parse(json));
+}
 
 /**
  * Server side of progress sync (ADR 0013): storage, solve verification, key
@@ -38,13 +47,15 @@ export class ProgressSync {
       .prepare("SELECT record_json FROM user_progress WHERE user_id = ? AND key_id = ?")
       .pluck()
       .get(userId, puzzleKeyId(key)) as string | undefined;
-    return json ? (JSON.parse(json) as PuzzleProgress) : null;
+    return json ? parseStored(json) : null;
   }
 
   list(userId: number): PuzzleProgress[] {
     return (
       this.db.prepare("SELECT record_json FROM user_progress WHERE user_id = ?").pluck().all(userId) as string[]
-    ).map((json) => JSON.parse(json) as PuzzleProgress);
+    )
+      .map(parseStored)
+      .filter((p): p is PuzzleProgress => p !== null);
   }
 
   /** Automatic sync of account-level facts. Returns the stored version of each record. */
@@ -102,7 +113,7 @@ export class ProgressSync {
       .prepare("SELECT record_json FROM user_progress WHERE user_id = ? AND key_id = ?")
       .pluck()
       .get(userId, keyId) as string | undefined;
-    const stored = combine(json ? (JSON.parse(json) as PuzzleProgress) : null, record);
+    const stored = combine(json ? parseStored(json) : null, record);
     this.db
       .prepare(
         `INSERT INTO user_progress (user_id, key_id, record_json, updated_at, solved_at, hints_used, revealed_at)

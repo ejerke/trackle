@@ -2,6 +2,7 @@ import { difficultyName, utcDate } from "@trackle/shared";
 import { useEffect, useState } from "react";
 import { computeStats, type PlayerStats } from "../stats";
 import type { ProgressStore } from "../storage/progressStore";
+import { formatDuration } from "../time";
 import { Page } from "./Page";
 
 /** Personal statistics from this browser's saved progress. */
@@ -27,8 +28,8 @@ export function StatsPage({ store }: { store: ProgressStore }) {
                   <Stat label="On your own" value={d.unaided} />
                   <Stat label="Current streak" value={d.currentStreak} />
                   <Stat label="Best streak" value={d.bestStreak} />
-                  <Stat label="First try" value={d.solved ? `${Math.round((d.firstTry / d.solved) * 100)}%` : "–"} />
-                  <Stat label="Avg. checks" value={d.averageChecks === null ? "–" : d.averageChecks.toFixed(1)} />
+                  <Stat label="Best time" value={d.bestTimeMs === null ? "–" : formatDuration(d.bestTimeMs)} />
+                  <Stat label="Avg. time" value={d.averageTimeMs === null ? "–" : formatDuration(d.averageTimeMs)} />
                 </dl>
               </section>
             ))}
@@ -38,7 +39,7 @@ export function StatsPage({ store }: { store: ProgressStore }) {
           </p>
           <p className="notice">
             Streaks count daily puzzles solved on their own day (UTC); catching up in the{" "}
-            <a href="/archive">archive</a> counts as solved but not for streaks. Stats live in this browser only.
+            <a href="/archive">archive</a> counts as solved but not for streaks. Times count puzzles solved without hints. Stats live in this browser only.
           </p>
         </>
       )}

@@ -19,10 +19,10 @@ export interface DifficultyStats {
   /** Consecutive UTC days, up to today or yesterday, solved on the day itself. */
   currentStreak: number;
   bestStreak: number;
-  /** Average "Check" presses per solved puzzle; null with no solves. */
-  averageChecks: number | null;
-  /** Solved with a single check. */
-  firstTry: number;
+  /** Fastest time (ms) of the timed puzzles solved on your own; null with none. */
+  bestTimeMs: number | null;
+  /** Average time (ms) of the timed puzzles solved on your own; null with none. */
+  averageTimeMs: number | null;
 }
 
 export interface PlayerStats {
@@ -64,6 +64,8 @@ export function computeStats(records: readonly PuzzleProgress[], today: string):
     const solved = mine.filter((p) => p.solvedAt !== null);
     const onTheDay = new Set(mine.filter(solvedOnTheDay).map((p) => (p.key.kind === "daily" ? p.key.date : "")));
     const { current, best } = streaks(onTheDay, today);
+    // Times only count without help, and solves from before timing (timeMs 0) aren't timed.
+    const times = solved.filter((p) => solvedUnaided(p) && p.timeMs > 0).map((p) => p.timeMs);
     return {
       difficulty,
       played: mine.length,
@@ -72,8 +74,8 @@ export function computeStats(records: readonly PuzzleProgress[], today: string):
       revealed: mine.filter((p) => p.revealedAt !== null).length,
       currentStreak: current,
       bestStreak: best,
-      averageChecks: solved.length ? solved.reduce((sum, p) => sum + p.checks, 0) / solved.length : null,
-      firstTry: solved.filter((p) => p.checks === 1).length,
+      bestTimeMs: times.length ? Math.min(...times) : null,
+      averageTimeMs: times.length ? times.reduce((sum, t) => sum + t, 0) / times.length : null,
     };
   });
   const random = records.filter((p) => p.key.kind === "random");

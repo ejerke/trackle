@@ -29,10 +29,11 @@ const recordSchema = {
     "boardDirty",
     "hintsUsed",
     "revealedAt",
+    "timeMs",
   ],
   additionalProperties: false,
   properties: {
-    schemaVersion: { const: 5 },
+    schemaVersion: { const: 6 },
     key: {
       type: "object",
       required: ["kind", "difficulty"],
@@ -68,6 +69,8 @@ const recordSchema = {
     boardDirty: { type: "boolean" },
     hintsUsed: { type: "integer", minimum: 0, maximum: 10_000 },
     revealedAt: { anyOf: [timestamp, { type: "null" }] },
+    // Up to a year of active play on one puzzle.
+    timeMs: { type: "integer", minimum: 0, maximum: 31_536_000_000 },
   },
 } as const;
 

@@ -164,7 +164,7 @@ require a session (`401 { "error": "unauthorized" }` otherwise).
 | Endpoint | Body | Response |
 | -------- | ---- | -------- |
 | `GET /api/me/progress` | | `200 { records: PuzzleProgress[] }` |
-| `PUT /api/me/progress` | `{ records }` (≤ 200) | `200 { records }` as stored. **Automatic sync**: solves (with their finished track), checks, start time. Unfinished boards in these records are ignored. |
+| `PUT /api/me/progress` | `{ records }` (≤ 200) | `200 { records }` as stored. **Automatic sync**: solves (with their finished track and time), checks, start time. Unfinished boards in these records are ignored. |
 | `PUT /api/me/progress/board` | `{ record }` | `200 { record }` as stored. **Save button**: also stores the unfinished board, `boardSavedAt` = server time. A solved puzzle's board can't be replaced. |
 | `DELETE /api/me/progress/:keyId` | `{}` | `204` |
 

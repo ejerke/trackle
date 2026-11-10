@@ -97,13 +97,14 @@ describe("migrateProgress", () => {
     };
     expect(migrateProgress(v1)).toEqual({
       ...v1,
-      schemaVersion: 5,
+      schemaVersion: 6,
       key: { kind: "daily", date: "2026-11-10", difficulty: 1 },
       puzzleFingerprint: null,
       boardSavedAt: null,
       boardDirty: true, // it had a drawn segment that was never saved to an account
       hintsUsed: 0,
       revealedAt: null,
+      timeMs: 0,
     });
 
     // And it is found under the same storage key as before the upgrade.

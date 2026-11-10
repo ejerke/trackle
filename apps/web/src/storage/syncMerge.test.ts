@@ -78,3 +78,18 @@ describe("mergeOnDevice", () => {
     expect(mergeOnDevice(rec({ checks: 1 }), remote).push).toBe(false);
   });
 });
+
+describe("mergeOnDevice: time", () => {
+  const solve = { solvedAt: "2026-11-10T09:00:00.000Z", solvedCells: [[0]] };
+
+  it("takes the solve's time, whichever side solved", () => {
+    expect(mergeOnDevice(rec({ timeMs: 5_000 }), rec({ ...solve, timeMs: 60_000 })).local.timeMs).toBe(60_000);
+    expect(mergeOnDevice(rec({ ...solve, timeMs: 60_000 }), rec({ timeMs: 99_000 })).local.timeMs).toBe(60_000);
+  });
+
+  it("keeps the longer time while unsolved, without pushing just for that", () => {
+    const merged = mergeOnDevice(rec({ timeMs: 70_000 }), rec({ timeMs: 20_000 }));
+    expect(merged.local.timeMs).toBe(70_000);
+    expect(merged.push).toBe(false);
+  });
+});

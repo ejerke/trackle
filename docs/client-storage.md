@@ -31,7 +31,7 @@ type PuzzleKey =
   | { kind: "random"; seed: string; difficulty: number }; // "k3j9x2ab", 0
 
 interface PuzzleProgress {
-  schemaVersion: 5;
+  schemaVersion: 6;
   key: PuzzleKey;
   puzzleFingerprint: string | null; // which puzzle the board was drawn on
   board: {
@@ -40,13 +40,14 @@ interface PuzzleProgress {
   };
   startedAt: string;          // ISO, first interaction
   updatedAt: string;          // ISO, last change
-  checks: number;             // how many times "Check" was pressed
+  checks: number;             // how many times the finished track was checked
   solvedAt: string | null;    // set ONLY after the server answered correct: true
   solvedCells: number[][] | null; // the mask grid the server accepted
   boardSavedAt: string | null; // when this board was last saved to the account
   boardDirty: boolean;         // edits since then (device-local)
   hintsUsed: number;           // only ever grows
   revealedAt: string | null;   // answer shown: locked, never counts as solved
+  timeMs: number;              // active solving time; frozen at the solve, 0 = not timed
 }
 ```
 
@@ -58,7 +59,7 @@ are not stored; they come from the puzzle.
 
 - `solvedCells` keeps the accepted answer. When accounts arrive, the server can
   **re-verify** imported progress instead of trusting the browser's word.
-- `startedAt` / `checks` give stats something to work with. They come from
+- `startedAt` / `checks` / `timeMs` give stats something to work with. They come from
   the client clock, which is fine for personal stats (there are no
   leaderboards, [ADR 0015](adr/0015-no-leaderboards.md)).
 - `schemaVersion` allows reading old data after the format changes.
@@ -71,7 +72,8 @@ are not stored; they come from the puzzle.
 | 2 | key is `daily` or `random` | → 3: `puzzleFingerprint: null` |
 | 3 | adds `puzzleFingerprint` | → 4: `boardSavedAt: null`, `boardDirty` = anything drawn |
 | 4 | adds `boardSavedAt`, `boardDirty` (Save button) | → 5: `hintsUsed: 0`, `revealedAt: null` |
-| 5 | adds `hintsUsed`, `revealedAt` (hints and answers) | (current) |
+| 5 | adds `hintsUsed`, `revealedAt` (hints and answers) | → 6: `timeMs: 0` (not timed) |
+| 6 | adds `timeMs` (timed solves) | (current) |
 
 `migrateProgress()` walks old records up one version at a time, so the
 storage key layout (`v1`) did not need to change. Tested in
@@ -108,8 +110,8 @@ then random ones (most recently played first).
 
 ## Stats
 
-`apps/web/src/stats.ts` computes personal stats (solves, streaks, first-try
-rate, average checks) from `list()`. They're pure functions of the records, so
+`apps/web/src/stats.ts` computes personal stats (solves, streaks, best and
+average time) from `list()`. They're pure functions of the records, so
 they'll work unchanged on records synced from an account later.
 
 ## Preferences
@@ -141,7 +143,8 @@ the local store; components didn't change. The browser always autosaves the
 board locally, so reloads never lose work.
 
 - **Synced automatically**: solves (with their finished track), check
-  counts, hints used and a shown answer. Board edits alone send nothing.
+  counts, hints used and a shown answer; the solving time travels with them.
+  Board edits alone send nothing.
 - **Save button**: puts the unfinished board in the account, so another device
   can continue it. The record remembers `boardSavedAt` (which saved version the
   board is based on) and `boardDirty` (edits since).
@@ -159,8 +162,8 @@ Details and trade-offs: [ADR 0013](adr/0013-progress-sync.md).
 
 ## Stats
 
-`apps/web/src/stats.ts` computes personal stats (solves, streaks, first-try
-rate, average checks) from `list()`. They're pure functions of the records, so
+`apps/web/src/stats.ts` computes personal stats (solves, streaks, best and
+average time) from `list()`. They're pure functions of the records, so
 they'll work unchanged on records synced from an account later.
 
 ## Preferences

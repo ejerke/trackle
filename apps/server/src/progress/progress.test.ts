@@ -151,6 +151,26 @@ describe("progress sync API", () => {
   });
 });
 
+describe("records stored by older code", () => {
+  it("are upgraded when read, so merges never see missing fields", async () => {
+    await setup();
+    const token = await signIn("oldtimer");
+    // A v4 row, as written before hints existed: no hintsUsed/revealedAt/timeMs.
+    const v4: Record<string, unknown> = { ...drawn(["h:0:0"]), schemaVersion: 4, boardDirty: false };
+    delete v4.hintsUsed;
+    delete v4.revealedAt;
+    delete v4.timeMs;
+    db.prepare(
+      "INSERT INTO user_progress (user_id, key_id, record_json, updated_at) SELECT id, '2026-11-10:0', ?, ? FROM users",
+    ).run(JSON.stringify(v4), v4.updatedAt);
+
+    expect((await list(token))[0]).toMatchObject({ schemaVersion: 6, hintsUsed: 0, revealedAt: null, timeMs: 0 });
+    const res = await sync(token, [drawn([], { hintsUsed: 1, timeMs: 5_000 })]);
+    expect(res.statusCode).toBe(200);
+    expect((await list(token))[0]).toMatchObject({ hintsUsed: 1, timeMs: 5_000 });
+  });
+});
+
 describe("merge rules", () => {
   const base = (over: Partial<PuzzleProgress> = {}): PuzzleProgress => ({ ...emptyProgress(daily, "fp"), ...over });
 

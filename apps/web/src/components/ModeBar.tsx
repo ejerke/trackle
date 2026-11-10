@@ -1,7 +1,7 @@
 import { DIFFICULTY_NAMES } from "@trackle/shared";
 import { archiveUrl, dailyUrl, randomUrl } from "../routes";
 import { useAuth } from "../auth";
-import { rememberDifficulty } from "../storage/preferences";
+import { lastRandomSeed, rememberDifficulty } from "../storage/preferences";
 
 interface ModeBarProps {
   kind: "daily" | "random" | "archive";
@@ -10,19 +10,23 @@ interface ModeBarProps {
   date?: string | null;
 }
 
-/** Where picking difficulty `d` leads, staying on the same kind of page. */
+/**
+ * Where picking difficulty `d` leads, staying on the same kind of page. On
+ * random puzzles that's the last random puzzle at `d` (a new one only if
+ * there's none yet).
+ */
 function urlFor(kind: ModeBarProps["kind"], d: number, date?: string | null): string {
   if (kind === "daily") return dailyUrl(d, date);
   if (kind === "archive") return archiveUrl(d);
-  return randomUrl(d);
+  return randomUrl(d, lastRandomSeed(d) ?? undefined);
 }
 
 const LEVELS = Object.entries(DIFFICULTY_NAMES).map(([d, name]) => ({ difficulty: Number(d), name }));
 
 /**
  * Difficulty picker plus "Today" / "New random". On a daily page, picking a
- * difficulty shows that difficulty's daily puzzle; on a random page, a new
- * random puzzle of that difficulty. The choice is remembered for "/", and on
+ * difficulty shows that difficulty's daily puzzle; on a random page, the last
+ * random puzzle you had at that difficulty (a new one if none). The choice is remembered for "/", and on
  * the account when signed in.
  */
 export function ModeBar({ kind, difficulty, date }: ModeBarProps) {

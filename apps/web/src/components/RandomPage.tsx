@@ -2,6 +2,7 @@ import { difficultyName, type RandomPuzzleResponse } from "@trackle/shared";
 import { useEffect, useMemo, useState } from "react";
 import { ApiRequestError, checkRandomTrack, fetchRandomPuzzle, randomAnswer, randomHint } from "../api";
 import { dailyUrl, randomUrl } from "../routes";
+import { rememberRandomSeed } from "../storage/preferences";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
 import { Game } from "./Game";
 import { ModeBar } from "./ModeBar";
@@ -17,6 +18,9 @@ type LoadState =
 export function RandomPage({ difficulty, seed, store }: { difficulty: number; seed: string; store: ProgressStore }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const progressKey = useMemo<PuzzleKey>(() => ({ kind: "random", seed, difficulty }), [seed, difficulty]);
+
+  // This is now "the" random puzzle at this difficulty (ModeBar returns here).
+  useEffect(() => rememberRandomSeed(difficulty, seed), [difficulty, seed]);
 
   useEffect(() => {
     fetchRandomPuzzle(difficulty, seed)

@@ -121,6 +121,9 @@ account's choice wins, and an account that hasn't chosen yet adopts the
 browser's. Picking a difficulty sends it with `keepalive`, since the page
 navigates away immediately.
 
+`trackle:prefs:lastRandom` remembers the last random puzzle per difficulty,
+so switching difficulty on random puzzles returns to it (per browser).
+
 ## Robustness rules
 
 - Every `localStorage` access is wrapped in `try/catch`. Private browsing,

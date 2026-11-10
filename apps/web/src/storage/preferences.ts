@@ -1,4 +1,4 @@
-import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES } from "@trackle/shared";
+import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES, isRandomSeed } from "@trackle/shared";
 import { savePreferences } from "../api";
 
 /**
@@ -49,5 +49,36 @@ export function syncDifficultyWithAccount(accountChoice: number | null): void {
   } else {
     const local = storedDifficulty();
     if (local !== null) void savePreferences(local).catch((err) => console.warn("Could not save preference", err));
+  }
+}
+
+// ---- the last random puzzle per difficulty ----
+
+/**
+ * The random puzzle last opened at each difficulty, so switching
+ * Hard → Medium → Hard on random puzzles returns to the same Hard puzzle.
+ * Only "New random" makes a new one. Per browser.
+ */
+const LAST_RANDOM_KEY = "trackle:prefs:lastRandom";
+
+function readLastRandom(): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(window.localStorage.getItem(LAST_RANDOM_KEY) ?? "{}");
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function lastRandomSeed(difficulty: number): string | null {
+  const seed = readLastRandom()[String(difficulty)];
+  return typeof seed === "string" && isRandomSeed(seed) ? seed : null;
+}
+
+export function rememberRandomSeed(difficulty: number, seed: string): void {
+  try {
+    window.localStorage.setItem(LAST_RANDOM_KEY, JSON.stringify({ ...readLastRandom(), [difficulty]: seed }));
+  } catch {
+    // Not remembering is fine: switching difficulty then makes a new puzzle.
   }
 }

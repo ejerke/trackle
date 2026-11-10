@@ -36,7 +36,9 @@ A toolbar selects what a click or drag does:
 Above the board, a bar picks the **difficulty** (each one has its own puzzle
 every day; the choice is remembered) and switches between **Today** and
 **New random**. A random puzzle's link (`/random/<difficulty>/<seed>`) can be
-shared: it always shows the same puzzle.
+shared: it always shows the same puzzle. On random puzzles, switching
+difficulty returns to the last random puzzle you had at that difficulty; only
+**New random** makes a new one.
 
 Progress is saved in the browser, so reloading keeps the board and solved state
 (see [client-storage.md](client-storage.md)).

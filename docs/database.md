@@ -33,12 +33,21 @@ concurrent "create on first request" safe.
 Grids are JSON because they are always read and written whole. If something
 ever needs to be queried per cell, that is the moment to normalise.
 
+### `users` and `sessions`
+
+Defined in [0002_users_and_sessions.sql](../apps/server/migrations/0002_users_and_sessions.sql)
+([ADR 0012](adr/0012-accounts.md)).
+
+| Table | Columns | Notes |
+| ----- | ------- | ----- |
+| `users` | `id`, `username` (`UNIQUE COLLATE NOCASE`), `password_hash`, `created_at`, `password_changed_at` | hash is `scrypt$N$r$p$salt$hash`, never the password |
+| `sessions` | `token_hash` (PK), `user_id` → `users` `ON DELETE CASCADE`, `created_at`, `expires_at` | SHA-256 of the cookie token; expired rows are pruned on login |
+
 ### Expected future tables (not created yet)
 
 Sketch, so today's choices don't block them:
 
 ```sql
-users  (id INTEGER PRIMARY KEY, ..., created_at TEXT)
 solves (id INTEGER PRIMARY KEY,
         user_id   INTEGER NOT NULL REFERENCES users(id),
         puzzle_id INTEGER NOT NULL REFERENCES puzzles(id),

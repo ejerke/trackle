@@ -1,5 +1,10 @@
 import type {
+  ApiErrorCode,
   ArchiveResponse,
+  AuthResponse,
+  ChangePasswordRequest,
+  Credentials,
+  DeleteAccountRequest,
   CheckRequest,
   CheckResponse,
   LabPuzzleResponse,
@@ -9,11 +14,14 @@ import type {
 
 export class ApiRequestError extends Error {
   readonly status: number;
+  /** The server's `{ error }` code, when it sent one. */
+  readonly code: ApiErrorCode | null;
   /** From the Retry-After header on 429 responses. */
   readonly retryAfterSeconds: number | null;
-  constructor(status: number, message: string, retryAfterSeconds: number | null = null) {
+  constructor(status: number, message: string, code: ApiErrorCode | null = null, retryAfterSeconds: number | null = null) {
     super(message);
     this.status = status;
+    this.code = code;
     this.retryAfterSeconds = retryAfterSeconds;
   }
 }
@@ -25,12 +33,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const retryAfter = Number(res.headers.get("Retry-After"));
+    const body = (await res.json().catch(() => null)) as { error?: ApiErrorCode } | null;
     throw new ApiRequestError(
       res.status,
       `${init?.method ?? "GET"} ${path} -> ${res.status}`,
+      body?.error ?? null,
       Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : null,
     );
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
 
@@ -72,3 +83,14 @@ export function fetchLabPuzzle(difficulty: number, seed: string): Promise<LabPuz
 export function checkLabTrack(difficulty: number, seed: string, cells: number[][]): Promise<boolean> {
   return postCheck(`${labPath(difficulty, seed)}/check`, cells);
 }
+
+// ---- accounts ----
+
+const post = <T>(path: string, body: unknown) => request<T>(path, { method: "POST", body: JSON.stringify(body) });
+
+export const fetchMe = () => request<AuthResponse>("/api/auth/me");
+export const register = (c: Credentials) => post<AuthResponse>("/api/auth/register", c);
+export const login = (c: Credentials) => post<AuthResponse>("/api/auth/login", c);
+export const logout = () => post<void>("/api/auth/logout", {});
+export const changePassword = (r: ChangePasswordRequest) => post<void>("/api/auth/password", r);
+export const deleteAccount = (r: DeleteAccountRequest) => post<void>("/api/auth/delete-account", r);

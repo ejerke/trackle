@@ -54,6 +54,12 @@ Progress is saved in the browser, so reloading keeps the board and solved state
   ([client-storage.md](client-storage.md)), so they're per browser until
   accounts exist.
 
+## Accounts
+
+Optional: `/account` creates an account with a username and password (no
+email, so a forgotten password can't be reset). For now an account only signs
+you in; progress, streaks and stats still live in the browser.
+
 ## Difficulty
 
 Difficulty is an integer, `0` = easiest; higher numbers can be added later

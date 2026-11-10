@@ -4,9 +4,11 @@ import { clientIp } from "./clientIp.ts";
 import { RateLimiter, type RateLimitPolicy } from "./tokenBucket.ts";
 
 /**
- * Rate-limiting middleware for the API. Two layers:
+ * Rate-limiting middleware for the API. Layers:
  *
  *  - `api`: every /api/* request, per client. Generous; stops floods.
+ *  - `auth`: every password check (login, register, ...), per client. Strict;
+ *    makes guessing passwords slow.
  *  - `generation`: charged only when a request makes the server *generate* a
  *    puzzle (a random-puzzle cache miss, ~0.1-0.6 s of CPU each). Strict, per
  *    client, plus one bucket shared by all clients (`generationGlobal`) that
@@ -16,6 +18,8 @@ import { RateLimiter, type RateLimitPolicy } from "./tokenBucket.ts";
  */
 export interface RateLimitPolicies {
   api: RateLimitPolicy;
+  /** Sign-in, registration and password checks: slows down password guessing. */
+  auth: RateLimitPolicy;
   generation: RateLimitPolicy;
   generationGlobal: RateLimitPolicy;
 }
@@ -23,6 +27,8 @@ export interface RateLimitPolicies {
 export const DEFAULT_POLICIES: RateLimitPolicies = {
   // Bursts of 120, then 2 requests/s. A person never gets near this.
   api: { capacity: 120, refillPerSecond: 2 },
+  // 10 attempts at once, then one every 6 s (10/min).
+  auth: { capacity: 10, refillPerSecond: 1 / 6 },
   // 10 new random puzzles at once, then one every 6 s (10/min).
   generation: { capacity: 10, refillPerSecond: 1 / 6 },
   // All clients together: at most ~2 generations/s sustained (~20-60% of a core).
@@ -37,6 +43,11 @@ export interface RateLimitOptions {
 }
 
 export interface RateLimits {
+  /**
+   * Charge one password check (login, register, change, delete) to this
+   * client. Returns true if allowed; otherwise it has already sent the 429.
+   */
+  allowAuthAttempt(req: FastifyRequest, reply: FastifyReply): boolean;
   /**
    * Charge one puzzle generation to this request's client (and the global
    * budget). Returns true if allowed; otherwise it has already sent the 429.
@@ -55,6 +66,7 @@ export function registerRateLimits(app: FastifyInstance, options: RateLimitOptio
   const policies = { ...DEFAULT_POLICIES, ...options.policies };
   const clock = { now: options.now };
   const api = new RateLimiter(policies.api, clock);
+  const auth = new RateLimiter(policies.auth, clock);
   const generation = new RateLimiter(policies.generation, clock);
   const generationGlobal = new RateLimiter(policies.generationGlobal, clock);
   const keyOf = (req: FastifyRequest) => clientIp(req.socket.remoteAddress, req.headers, options.clientIpHeader);
@@ -69,6 +81,14 @@ export function registerRateLimits(app: FastifyInstance, options: RateLimitOptio
   });
 
   return {
+    allowAuthAttempt(req, reply) {
+      const client = keyOf(req);
+      const decision = auth.take(client);
+      if (decision.allowed) return true;
+      req.log.warn({ client, limit: "auth" }, "Rate limited");
+      deny(reply, decision.retryAfterSeconds);
+      return false;
+    },
     allowGeneration(req, reply) {
       const client = keyOf(req);
       const own = generation.take(client);

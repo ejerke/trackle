@@ -19,6 +19,8 @@ import { DailyPuzzles } from "./puzzles/dailyPuzzles.ts";
 import { DIFFICULTIES } from "./puzzles/difficulty.ts";
 import { RandomPuzzles } from "./puzzles/randomPuzzles.ts";
 import { PuzzleRepository } from "./puzzles/repository.ts";
+import { registerAuthRoutes } from "./auth/routes.ts";
+import type { ScryptParams } from "./auth/password.ts";
 import { registerRateLimits, type RateLimitOptions } from "./rateLimit/rateLimit.ts";
 import { checkBodySchema } from "./schemas.ts";
 
@@ -33,6 +35,10 @@ export interface AppOptions {
   enableLab?: boolean;
   /** Rate-limit settings (policies, client IP header). Limits are always on. */
   rateLimit?: RateLimitOptions;
+  /** Mark the session cookie Secure (HTTPS only). Default false; production sets it. */
+  secureCookies?: boolean;
+  /** Password hashing cost; tests use cheaper settings. */
+  passwordParams?: ScryptParams;
 }
 
 /** Build the Fastify app without listening, so tests can use app.inject(). */
@@ -66,6 +72,24 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   });
 
   const limits = registerRateLimits(app, options.rateLimit);
+
+  // CSRF defence in depth (with SameSite=Lax cookies): every API write must be
+  // JSON. A malicious page can make a browser POST a form cross-site, but a
+  // form can't send Content-Type: application/json.
+  app.addHook("onRequest", async (req, reply) => {
+    if (!req.url.startsWith("/api/") || req.method === "GET" || req.method === "HEAD") return;
+    if (!req.headers["content-type"]?.startsWith("application/json")) {
+      return reply.code(415).send({ error: "unsupported_media_type" } satisfies ApiError);
+    }
+  });
+
+  registerAuthRoutes(app, {
+    db: options.db,
+    now,
+    limits,
+    secureCookies: options.secureCookies ?? false,
+    passwordParams: options.passwordParams,
+  });
 
   app.get("/api/health", async () => ({ ok: true }));
 

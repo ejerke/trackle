@@ -42,6 +42,7 @@ Notes:
 | `DATABASE_PATH` | `apps/server/data/trackle.db` |
 | `WEB_DIST_DIR`  | `apps/web/dist`               |
 | `ENABLE_LAB`    | unset; `1` enables the dev-only puzzle lab (`npm run dev` sets it). Never in production. |
+| `COOKIE_SECURE` | `1`/`0`; default: on when `NODE_ENV=production`. Session cookie only over HTTPS. |
 | `CLIENT_IP_HEADER` | unset (use socket address). Production behind Cloudflare: `cf-connecting-ip`. Only trusted from loopback; see [ADR 0010](docs/adr/0010-rate-limiting.md). |
 
 ## Scripts (run from the repo root)

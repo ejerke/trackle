@@ -105,6 +105,26 @@ difficulties give `400 { "error": "invalid_difficulty" }`.
 
 Same body and responses as the daily check.
 
+## Accounts
+
+Username + password, no email ([ADR 0012](adr/0012-accounts.md)). The session
+is an `HttpOnly` cookie (`trackle_session`) set by register/login. **All API
+writes must send `Content-Type: application/json`** (else
+`415 { "error": "unsupported_media_type" }`). Password checks have their own
+rate limit.
+
+| Endpoint | Body | Success | Errors |
+| -------- | ---- | ------- | ------ |
+| `GET /api/auth/me` | | `200 { user: AccountUser \| null }` | |
+| `POST /api/auth/register` | `{ username, password }` | `201 { user }` + cookie | `400 invalid_username`, `400 invalid_password`, `409 username_taken` |
+| `POST /api/auth/login` | `{ username, password }` | `200 { user }` + cookie | `401 invalid_credentials` |
+| `POST /api/auth/logout` | `{}` | `204`, cookie cleared | |
+| `POST /api/auth/password` | `{ currentPassword, newPassword }` | `204`; other sessions ended | `401 unauthorized`, `401 invalid_credentials`, `400 invalid_password` |
+| `POST /api/auth/delete-account` | `{ password }` | `204`; user + sessions deleted | `401 unauthorized`, `401 invalid_credentials` |
+
+`AccountUser` is `{ id, username, createdAt }`. Usernames: 3–20 of
+`[A-Za-z0-9_]`, unique ignoring case. Passwords: 8–200 characters.
+
 ## `GET /api/health`
 
 `200 { "ok": true }`, for uptime checks.

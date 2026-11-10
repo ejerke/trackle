@@ -1,6 +1,8 @@
 # Proposal: accounts and leaderboards
 
-- Status: **Draft, needs decisions** (see [Questions](#questions))
+- Status: **Partly decided.** Sign-in: username + password, no email
+  ([ADR 0012](../adr/0012-accounts.md), built). Progress sync and leaderboards:
+  still open (questions 2–4).
 - Date: 2026-11-10
 
 Everything else on the roadmap is built. Accounts and leaderboards are held

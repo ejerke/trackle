@@ -17,6 +17,8 @@ export interface Config {
    * proxy (e.g. "cf-connecting-ip" behind Cloudflare). Unset: use the socket address.
    */
   clientIpHeader: string | undefined;
+  /** Session cookie only over HTTPS. Default: on when NODE_ENV=production. */
+  secureCookies: boolean;
 }
 
 /** All configuration comes from environment variables, with dev-friendly defaults. */
@@ -34,5 +36,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webDistDir: env.WEB_DIST_DIR ?? fileURLToPath(new URL("../../web/dist", import.meta.url)),
     enableLab: env.ENABLE_LAB === "1",
     clientIpHeader: env.CLIENT_IP_HEADER?.toLowerCase() || undefined,
+    secureCookies: env.COOKIE_SECURE ? env.COOKIE_SECURE === "1" : env.NODE_ENV === "production",
   };
 }

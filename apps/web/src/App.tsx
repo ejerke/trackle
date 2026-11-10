@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AccountPage } from "./components/AccountPage";
 import { ArchivePage } from "./components/ArchivePage";
 import { DailyPage } from "./components/DailyPage";
 import { Lab } from "./components/Lab";
@@ -20,6 +21,8 @@ export function App({ store }: { store: ProgressStore }) {
       return <ArchivePage difficulty={route.difficulty} store={store} />;
     case "stats":
       return <StatsPage store={store} />;
+    case "account":
+      return <AccountPage />;
     case "lab":
       return <Lab difficulty={route.difficulty} seed={route.seed} />;
     case "unknown":

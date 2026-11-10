@@ -17,6 +17,7 @@ describe("parseRoute", () => {
     expect(parseRoute("/archive", "?difficulty=2")).toEqual({ kind: "archive", difficulty: 2 });
     expect(parseRoute("/archive/", "")).toEqual({ kind: "archive", difficulty: null });
     expect(parseRoute("/stats", "")).toEqual({ kind: "stats" });
+    expect(parseRoute("/account", "")).toEqual({ kind: "account" });
   });
 
   it("rejects unknown paths, difficulties and seeds", () => {

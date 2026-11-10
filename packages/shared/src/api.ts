@@ -63,13 +63,64 @@ export interface LabPuzzleResponse {
   generationMs: number;
 }
 
+// ---- accounts (username + password, no email; ADR 0012) ----
+
+export interface AccountUser {
+  id: number;
+  /** As the user typed it; unique ignoring case. */
+  username: string;
+  createdAt: string;
+}
+
+/** GET /api/auth/me and the result of register/login. */
+export interface AuthResponse {
+  /** null when not signed in. */
+  user: AccountUser | null;
+}
+
+/** POST /api/auth/register and POST /api/auth/login */
+export interface Credentials {
+  username: string;
+  password: string;
+}
+
+/** POST /api/auth/password */
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+/** POST /api/auth/delete-account */
+export interface DeleteAccountRequest {
+  password: string;
+}
+
+export const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/;
+export const PASSWORD_MIN_LENGTH = 8;
+/** Caps hashing cost; long passphrases are still fine. */
+export const PASSWORD_MAX_LENGTH = 200;
+
+export function isValidUsername(username: string): boolean {
+  return USERNAME_PATTERN.test(username);
+}
+
+export function isValidPassword(password: string): boolean {
+  return password.length >= PASSWORD_MIN_LENGTH && password.length <= PASSWORD_MAX_LENGTH;
+}
+
 export type ApiErrorCode =
   | "not_found"
   | "invalid_date"
   | "invalid_body"
   | "invalid_difficulty"
   | "invalid_seed"
-  | "rate_limited";
+  | "rate_limited"
+  | "unsupported_media_type"
+  | "invalid_username"
+  | "invalid_password"
+  | "username_taken"
+  | "invalid_credentials"
+  | "unauthorized";
 
 export interface ApiError {
   error: ApiErrorCode;

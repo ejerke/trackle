@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import { useAuth } from "../auth";
 
 /** Common page frame: title, subtitle, content, and the how-to-play box. */
 export function Page({ subtitle, badge, children }: { subtitle?: ReactNode; badge?: string; children: ReactNode }) {
+  const { user } = useAuth();
   return (
     <main className="app">
       <header className="header">
@@ -14,6 +16,9 @@ export function Page({ subtitle, badge, children }: { subtitle?: ReactNode; badg
           <a href="/">Today</a>
           <a href="/archive">Archive</a>
           <a href="/stats">Stats</a>
+          <a href="/account" className="site-nav__account">
+            {user ? user.username : "Sign in"}
+          </a>
         </nav>
       </header>
       {children}

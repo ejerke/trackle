@@ -1,0 +1,232 @@
+import { fileURLToPath } from "node:url";
+import { DEFAULT_DIFFICULTY, type PuzzleResponse, type RandomPuzzleResponse } from "@trackle/shared";
+import type { FastifyInstance } from "fastify";
+import { afterEach, describe, expect, it } from "vitest";
+import { buildApp } from "./app.ts";
+import { openDatabase, type Db } from "./db/connection.ts";
+import { loadMigrations, migrate } from "./db/migrate.ts";
+import { generatePuzzle } from "./puzzles/generator.ts";
+import { PuzzleRepository } from "./puzzles/repository.ts";
+
+const migrationsDir = fileURLToPath(new URL("../migrations", import.meta.url));
+
+let app: FastifyInstance;
+let db: Db;
+let now = new Date("2026-11-10T12:00:00Z");
+
+async function setup() {
+  db = openDatabase(":memory:");
+  migrate(db, loadMigrations(migrationsDir));
+  app = await buildApp({ db, now: () => now });
+}
+
+afterEach(async () => {
+  await app?.close();
+  db?.close();
+  now = new Date("2026-11-10T12:00:00Z");
+});
+
+const solutionFor = (date: string, difficulty = DEFAULT_DIFFICULTY) =>
+  new PuzzleRepository(db).find(date, difficulty)!.solution;
+
+describe("GET /api/puzzles/today", () => {
+  it("creates today's puzzle once and returns the same one afterwards", async () => {
+    await setup();
+    const first = await app.inject("/api/puzzles/today");
+    expect(first.statusCode).toBe(200);
+    const body = first.json<PuzzleResponse>();
+    expect(body.puzzle.date).toBe("2026-11-10");
+    expect(body.puzzle.width).toBe(6);
+    expect(body.nextPuzzleAt).toBe("2026-11-11T00:00:00.000Z");
+
+    const second = await app.inject("/api/puzzles/today");
+    expect(second.json()).toEqual(body);
+    expect(db.prepare("SELECT COUNT(*) FROM puzzles").pluck().get()).toBe(1);
+  });
+
+  it("never includes the solution", async () => {
+    await setup();
+    const res = await app.inject("/api/puzzles/today");
+    expect(res.body).not.toMatch(/solution/i);
+    expect(Object.keys(res.json<PuzzleResponse>().puzzle).sort()).toEqual(
+      ["colClues", "date", "difficulty", "endpoints", "height", "hints", "rowClues", "width"].sort(),
+    );
+  });
+
+  it("follows UTC: just before midnight UTC is still the same day everywhere", async () => {
+    now = new Date("2026-11-10T23:59:00Z");
+    await setup();
+    expect((await app.inject("/api/puzzles/today")).json<PuzzleResponse>().puzzle.date).toBe("2026-11-10");
+  });
+});
+
+describe("GET /api/puzzles/:date", () => {
+  it("returns an existing past puzzle", async () => {
+    now = new Date("2026-11-09T08:00:00Z");
+    await setup();
+    await app.inject("/api/puzzles/today");
+    now = new Date("2026-11-10T08:00:00Z");
+    const res = await app.inject("/api/puzzles/2026-11-09");
+    expect(res.statusCode).toBe(200);
+    expect(res.json<PuzzleResponse>().puzzle.date).toBe("2026-11-09");
+  });
+
+  it("creates today's puzzle when requested by date", async () => {
+    await setup();
+    expect((await app.inject("/api/puzzles/2026-11-10")).statusCode).toBe(200);
+  });
+
+  it("refuses past days that were never played, and future days", async () => {
+    await setup();
+    expect((await app.inject("/api/puzzles/2026-11-09")).json()).toEqual({ error: "not_found" });
+    expect((await app.inject("/api/puzzles/2026-11-11")).statusCode).toBe(404);
+    expect(db.prepare("SELECT COUNT(*) FROM puzzles").pluck().get()).toBe(0);
+  });
+
+  it("rejects malformed dates", async () => {
+    await setup();
+    for (const bad of ["10-11-2026", "2026-02-30", "today2", "2026-1-1"]) {
+      const res = await app.inject(`/api/puzzles/${bad}`);
+      expect(res.statusCode, bad).toBe(400);
+    }
+  });
+});
+
+describe("POST /api/puzzles/:date/check", () => {
+  const check = (date: string, payload: unknown) =>
+    app.inject({ method: "POST", url: `/api/puzzles/${date}/check`, payload: payload as object });
+
+  it("accepts the correct track", async () => {
+    await setup();
+    await app.inject("/api/puzzles/today");
+    const res = await check("2026-11-10", { cells: solutionFor("2026-11-10") });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ correct: true });
+  });
+
+  it("rejects a wrong track without saying why", async () => {
+    await setup();
+    await app.inject("/api/puzzles/today");
+    const cells = solutionFor("2026-11-10").map((row) => row.map(() => 0));
+    expect((await check("2026-11-10", { cells })).json()).toEqual({ correct: false });
+  });
+
+  it("validates the request body", async () => {
+    await setup();
+    await app.inject("/api/puzzles/today");
+    expect((await check("2026-11-10", {})).json()).toEqual({ error: "invalid_body" });
+    expect((await check("2026-11-10", { cells: [[16]] })).statusCode).toBe(400);
+    expect((await check("2026-11-10", { cells: "nope" })).statusCode).toBe(400);
+    // Right types, wrong size: valid JSON, just not a correct track.
+    expect((await check("2026-11-10", { cells: [[0]] })).json()).toEqual({ correct: false });
+  });
+
+  it("does not create puzzles: checking an unplayed day is a 404", async () => {
+    await setup();
+    expect((await check("2026-11-10", { cells: [[0]] })).statusCode).toBe(404);
+  });
+});
+
+describe("other routes", () => {
+  it("has a health check and JSON 404s for unknown API routes", async () => {
+    await setup();
+    expect((await app.inject("/api/health")).json()).toEqual({ ok: true });
+    expect((await app.inject("/api/nope")).statusCode).toBe(404);
+  });
+});
+
+describe("lab routes (development only)", () => {
+  it("are off unless explicitly enabled", async () => {
+    await setup();
+    expect((await app.inject("/api/lab/1/lab-0")).statusCode).toBe(404);
+  });
+
+  it("generate any difficulty and seed without storing, and check by regenerating", async () => {
+    db = openDatabase(":memory:");
+    migrate(db, loadMigrations(migrationsDir));
+    app = await buildApp({ db, now: () => now, enableLab: true });
+
+    const res = await app.inject("/api/lab/0/some-seed");
+    expect(res.statusCode).toBe(200);
+    expect(res.json().metrics.tier).not.toBeUndefined();
+    expect(db.prepare("SELECT COUNT(*) FROM puzzles").pluck().get()).toBe(0);
+
+    const { solution } = generatePuzzle({ difficulty: 0, seed: "some-seed" });
+    const check = await app.inject({ method: "POST", url: "/api/lab/0/some-seed/check", payload: { cells: solution } });
+    expect(check.json()).toEqual({ correct: true });
+    expect((await app.inject("/api/lab/99/x")).statusCode).toBe(404); // unknown difficulty
+  });
+});
+
+describe("difficulties", () => {
+  it("serves Medium by default and a separate puzzle per difficulty", async () => {
+    await setup();
+    const medium = (await app.inject("/api/puzzles/today")).json<PuzzleResponse>().puzzle;
+    const easy = (await app.inject("/api/puzzles/today?difficulty=0")).json<PuzzleResponse>().puzzle;
+    expect(medium.difficulty).toBe(1);
+    expect(easy.difficulty).toBe(0);
+    expect(easy).not.toEqual(medium);
+    expect(db.prepare("SELECT COUNT(*) FROM puzzles").pluck().get()).toBe(2);
+    expect((await app.inject("/api/puzzles/2026-11-10?difficulty=0")).json<PuzzleResponse>().puzzle).toEqual(easy);
+  });
+
+  it("checks against the puzzle of the requested difficulty", async () => {
+    await setup();
+    await app.inject("/api/puzzles/today?difficulty=0");
+    const cells = solutionFor("2026-11-10", 0);
+    const url = "/api/puzzles/2026-11-10/check";
+    expect((await app.inject({ method: "POST", url: `${url}?difficulty=0`, payload: { cells } })).json()).toEqual({ correct: true });
+    // Medium for that day was never generated, and checking doesn't create it.
+    expect((await app.inject({ method: "POST", url, payload: { cells } })).statusCode).toBe(404);
+  });
+
+  it("rejects unknown difficulties", async () => {
+    await setup();
+    for (const d of ["7", "-1", "1.5", "easy", ""]) {
+      const res = await app.inject(`/api/puzzles/today?difficulty=${d}`);
+      expect(res.statusCode, d).toBe(400);
+      expect(res.json()).toEqual({ error: "invalid_difficulty" });
+    }
+  });
+});
+
+describe("random puzzles", () => {
+  it("are deterministic per difficulty and seed, and never stored", async () => {
+    await setup();
+    const a = await app.inject("/api/random/0/abc123");
+    expect(a.statusCode).toBe(200);
+    const body = a.json<RandomPuzzleResponse>();
+    expect(body.seed).toBe("abc123");
+    expect(body.puzzle.difficulty).toBe(0);
+    expect(a.body).not.toMatch(/solution/i);
+    expect((await app.inject("/api/random/0/abc123")).json()).toEqual(body);
+    expect((await app.inject("/api/random/0/xyz789")).json<RandomPuzzleResponse>().puzzle).not.toEqual(body.puzzle);
+    expect(db.prepare("SELECT COUNT(*) FROM puzzles").pluck().get()).toBe(0);
+  });
+
+  it("never reproduce a daily puzzle", async () => {
+    await setup();
+    const daily = (await app.inject("/api/puzzles/today?difficulty=0")).json<PuzzleResponse>().puzzle;
+    const { date: _date, ...dailyLayout } = daily;
+    const randomOne = (await app.inject("/api/random/0/abcd")).json<RandomPuzzleResponse>().puzzle;
+    expect(randomOne).not.toEqual(dailyLayout);
+  });
+
+  it("checks a track by regenerating the puzzle", async () => {
+    await setup();
+    const { generatePuzzle } = await import("./puzzles/generator.ts");
+    const { solution } = generatePuzzle({ difficulty: 0, seed: "random:abc123" });
+    const check = (cells: number[][]) =>
+      app.inject({ method: "POST", url: "/api/random/0/abc123/check", payload: { cells } });
+    expect((await check(solution)).json()).toEqual({ correct: true });
+    expect((await check(solution.map((r) => r.map(() => 0)))).json()).toEqual({ correct: false });
+  });
+
+  it("validates difficulty and seed", async () => {
+    await setup();
+    expect((await app.inject("/api/random/9/abcd")).json()).toEqual({ error: "invalid_difficulty" });
+    for (const seed of ["abc", "ABCD", "a-b-c-d", "x".repeat(17)]) {
+      expect((await app.inject(`/api/random/1/${seed}`)).json(), seed).toEqual({ error: "invalid_seed" });
+    }
+  });
+});

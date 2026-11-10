@@ -1,0 +1,20 @@
+# Architecture Decision Records
+
+An ADR is a short note recording **one** significant decision: the context, the
+choice, and its consequences. They are never rewritten after acceptance. If a
+decision changes, a new ADR supersedes the old one and the old one's status is
+updated to point to it.
+
+Template: copy [0000-template.md](0000-template.md) to the next number.
+
+| #    | Decision                                                            | Status   |
+| ---- | ------------------------------------------------------------------- | -------- |
+| 0001 | [Record architecture decisions](0001-record-architecture-decisions.md) | Accepted |
+| 0002 | [Monorepo with npm workspaces and TypeScript](0002-monorepo-typescript.md) | Accepted |
+| 0003 | [SQLite with plain-SQL migrations](0003-sqlite-plain-sql-migrations.md) | Accepted |
+| 0004 | [Server-authoritative checking; generator stays on the server](0004-server-authoritative-checking.md) | Accepted |
+| 0005 | [Daily puzzle by UTC date, generated on first request](0005-utc-daily-puzzle-on-demand.md) | Accepted |
+| 0006 | [Client-side rendering, no SSR](0006-client-side-rendering.md)       | Accepted |
+| 0007 | [Player progress behind an async store, localStorage first](0007-progress-store.md) | Accepted |
+| 0008 | [Difficulty by logic rating, deterministic generate-and-filter](0008-difficulty-by-logic-rating.md) | Accepted |
+| 0009 | [Random puzzles are identified by seed, not stored](0009-random-puzzles-by-seed.md) | Accepted |

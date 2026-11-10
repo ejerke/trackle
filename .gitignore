@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# SQLite database files (data, not code)
+apps/server/data/
+*.db
+*.db-shm
+*.db-wal
+
+.env
+.env.*
+.DS_Store

@@ -1,0 +1,22 @@
+{
+  "name": "@trackle/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ENABLE_LAB=1 node --watch --watch-path=src --watch-path=migrations --watch-path=../../packages/shared/src src/index.ts",
+    "start": "node src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lab": "node src/lab/lab.ts"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.7",
+    "@trackle/shared": "^0.0.0",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.12.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0"
+  }
+}

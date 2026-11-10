@@ -1,0 +1,76 @@
+import {
+  bitCount,
+  edgeCells,
+  fixedEdges,
+  lineCounts,
+  masksFromEdges,
+  type Cell,
+  type EdgeKey,
+  type LineCounts,
+  type PuzzleLayout,
+} from "@trackle/shared";
+import type { BoardState, CellMark } from "../storage/progressStore";
+
+/**
+ * Pure board-editing rules. Every function returns a new BoardState, or the
+ * *same* object when nothing changes, so callers can skip re-renders and saves.
+ */
+
+export type Mode = "track" | "isTrack" | "noTrack";
+
+export const cellKey = (c: Cell): string => `${c.row}:${c.col}`;
+
+/** Player edges plus edges fixed by hints. */
+export function allEdges(layout: PuzzleLayout, board: BoardState): Set<EdgeKey> {
+  const edges = fixedEdges(layout);
+  for (const e of board.edges) edges.add(e);
+  return edges;
+}
+
+/** The full mask grid (what gets drawn and what gets sent to the server). */
+export function boardMasks(layout: PuzzleLayout, board: BoardState): number[][] {
+  return masksFromEdges(layout, allEdges(layout, board));
+}
+
+/** Add or remove a player segment. Refuses to give a cell more than two segments. */
+export function setEdge(layout: PuzzleLayout, board: BoardState, key: EdgeKey, on: boolean): BoardState {
+  const present = board.edges.includes(key);
+  if (fixedEdges(layout).has(key) || present === on) return board;
+  if (!on) return { ...board, edges: board.edges.filter((e) => e !== key) };
+
+  const masks = boardMasks(layout, board);
+  const cells = edgeCells(key);
+  if (cells.some((c) => bitCount(masks[c.row]![c.col]!) >= 2)) return board;
+
+  // Laying track through a square overrides an earlier "no track" mark there.
+  const marks = { ...board.marks };
+  for (const c of cells) if (marks[cellKey(c)] === "empty") delete marks[cellKey(c)];
+  return { edges: [...board.edges, key], marks };
+}
+
+/** Set or clear a cell mark. "No track" is refused on squares that already have track. */
+export function setMark(layout: PuzzleLayout, board: BoardState, cell: Cell, mark: CellMark | null): BoardState {
+  const key = cellKey(cell);
+  if ((board.marks[key] ?? null) === mark) return board;
+  if (mark === "empty" && boardMasks(layout, board)[cell.row]![cell.col] !== 0) return board;
+  const marks = { ...board.marks };
+  if (mark === null) delete marks[key];
+  else marks[key] = mark;
+  return { ...board, marks };
+}
+
+/** Live clue counts: squares with track segments or a "track here" mark. */
+export function boardCounts(layout: PuzzleLayout, board: BoardState): LineCounts {
+  const masks = boardMasks(layout, board);
+  return lineCounts(
+    layout.width,
+    layout.height,
+    (r, c) => masks[r]![c] !== 0 || board.marks[`${r}:${c}`] === "track",
+  );
+}
+
+export type ClueStatus = "under" | "done" | "over";
+
+export function clueStatus(count: number, clue: number): ClueStatus {
+  return count > clue ? "over" : count === clue ? "done" : "under";
+}

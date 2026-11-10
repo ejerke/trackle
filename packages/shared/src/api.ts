@@ -1,0 +1,61 @@
+import type { PlayablePuzzle, PublicPuzzle } from "./types.ts";
+
+/** GET /api/puzzles/today and GET /api/puzzles/:date */
+export interface PuzzleResponse {
+  puzzle: PublicPuzzle;
+  /** ISO timestamp of the next UTC midnight, for the countdown. */
+  nextPuzzleAt: string;
+}
+
+/** GET /api/random/:difficulty/:seed */
+export interface RandomPuzzleResponse {
+  puzzle: PlayablePuzzle;
+  seed: string;
+}
+
+/** POST /api/puzzles/:date/check and POST /api/random/:difficulty/:seed/check */
+export interface CheckRequest {
+  /** height x width grid of direction masks, including the A/B outward bits. */
+  cells: number[][];
+}
+
+export interface CheckResponse {
+  correct: boolean;
+}
+
+/** How hard a puzzle is, as measured by the server's generator. Not secret. */
+export interface PuzzleMetrics {
+  /** Squares the full track occupies. */
+  trackCells: number;
+  /** Track squares the player has to work out (not given as hint or A/B). */
+  toPlace: number;
+  hints: number;
+  /** Rows/columns whose clue is 0 or the full line length. */
+  giveawayLines: number;
+  /** Hardest deduction tier needed (1 local, 2 connectivity, 3 trial), null = needs guessing. */
+  tier: 1 | 2 | 3 | null;
+  /** Share of initially unknown facts (squares and connections) that tier-1 rules alone decide, 0..1. */
+  tier1Progress: number;
+  tier2Steps: number;
+  tier3Steps: number;
+}
+
+/** GET /api/lab/:difficulty/:seed (development only). */
+export interface LabPuzzleResponse {
+  puzzle: PublicPuzzle;
+  seed: string;
+  metrics: PuzzleMetrics;
+  /** Candidates generated before one passed (or the limit was hit). */
+  attempts: number;
+  /** False if no candidate passed every filter and the best one was used. */
+  accepted: boolean;
+  /** Filters the returned puzzle fails (empty when accepted). */
+  violations: string[];
+  generationMs: number;
+}
+
+export type ApiErrorCode = "not_found" | "invalid_date" | "invalid_body" | "invalid_difficulty" | "invalid_seed";
+
+export interface ApiError {
+  error: ApiErrorCode;
+}

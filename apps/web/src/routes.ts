@@ -5,12 +5,16 @@ import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES, isIsoDate, isRandomSeed } from "@
  *   /                          today's daily puzzle (difficulty: ?difficulty=N, else the saved preference)
  *   /YYYY-MM-DD                that day's daily puzzle, if it was ever generated
  *   /random/<difficulty>/<seed> a random puzzle; the URL is the puzzle, so it can be shared
+ *   /archive                   past daily puzzles (?difficulty=N)
+ *   /stats                     personal statistics (from this browser's progress)
  *   /lab/<difficulty>/<seed>   development-only puzzle lab
  */
 export type Route =
   /** `date` null = today; `difficulty` null = not in the URL (use the saved preference). */
   | { kind: "daily"; date: string | null; difficulty: number | null }
   | { kind: "random"; difficulty: number; seed: string }
+  | { kind: "archive"; difficulty: number | null }
+  | { kind: "stats" }
   | { kind: "lab"; difficulty: number; seed: string }
   | { kind: "unknown" };
 
@@ -29,9 +33,12 @@ export function parseRoute(pathname: string, search: string): Route {
     return isKnownDifficulty(difficulty) && isRandomSeed(seed) ? { kind: "random", difficulty, seed } : { kind: "unknown" };
   }
 
+  if (path === "/stats") return { kind: "stats" };
+
   const param = new URLSearchParams(search).get("difficulty");
   const difficulty = param === null ? null : Number(param);
   if (difficulty !== null && !isKnownDifficulty(difficulty)) return { kind: "unknown" };
+  if (path === "/archive") return { kind: "archive", difficulty };
   if (path === "") return { kind: "daily", date: null, difficulty };
   const date = path.slice(1);
   return isIsoDate(date) ? { kind: "daily", date, difficulty } : { kind: "unknown" };
@@ -40,6 +47,10 @@ export function parseRoute(pathname: string, search: string): Route {
 export function dailyUrl(difficulty: number, date?: string | null): string {
   const query = difficulty === DEFAULT_DIFFICULTY ? "" : `?difficulty=${difficulty}`;
   return `/${date ?? ""}${query}`;
+}
+
+export function archiveUrl(difficulty: number): string {
+  return difficulty === DEFAULT_DIFFICULTY ? "/archive" : `/archive?difficulty=${difficulty}`;
 }
 
 export function randomUrl(difficulty: number, seed: string = newRandomSeed()): string {

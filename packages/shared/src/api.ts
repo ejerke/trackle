@@ -7,6 +7,15 @@ export interface PuzzleResponse {
   nextPuzzleAt: string;
 }
 
+/** GET /api/archive?difficulty=N: days that have a puzzle at this difficulty. */
+export interface ArchiveResponse {
+  difficulty: number;
+  /** Today's UTC date, so clients don't depend on their own clock. */
+  today: string;
+  /** Newest first. Only days someone visited have a puzzle (ADR 0005). */
+  dates: string[];
+}
+
 /** GET /api/random/:difficulty/:seed */
 export interface RandomPuzzleResponse {
   puzzle: PlayablePuzzle;

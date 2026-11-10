@@ -77,6 +77,15 @@ Checks a track. The body is the full board as a mask grid (see
   simply `{ "correct": false }`.
 - `404` if the puzzle does not exist. Checking never creates a puzzle.
 
+## `GET /api/archive`
+
+Days that have a daily puzzle at `?difficulty=N` (default Medium), newest
+first, never in the future. Only days someone visited have one (ADR 0005).
+
+```json
+200 { "difficulty": 1, "today": "2026-11-10", "dates": ["2026-11-10", "2026-11-09", ...] }
+```
+
 ## Random puzzles
 
 Not stored: `(difficulty, seed)` *is* the puzzle, regenerated on demand

@@ -16,3 +16,8 @@ export function isIsoDate(value: string): boolean {
 export function nextUtcMidnight(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
 }
+
+/** The ISO date `days` days after (or before, if negative) `date`. */
+export function addDays(date: string, days: number): string {
+  return utcDate(new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000));
+}

@@ -13,6 +13,12 @@ describe("parseRoute", () => {
     expect(parseRoute("/random/0/abcd1234", "")).toEqual({ kind: "random", difficulty: 0, seed: "abcd1234" });
   });
 
+  it("parses the archive and stats pages", () => {
+    expect(parseRoute("/archive", "?difficulty=2")).toEqual({ kind: "archive", difficulty: 2 });
+    expect(parseRoute("/archive/", "")).toEqual({ kind: "archive", difficulty: null });
+    expect(parseRoute("/stats", "")).toEqual({ kind: "stats" });
+  });
+
   it("rejects unknown paths, difficulties and seeds", () => {
     expect(parseRoute("/nope", "").kind).toBe("unknown");
     expect(parseRoute("/", "?difficulty=9").kind).toBe("unknown");

@@ -8,6 +8,7 @@ import { Countdown } from "./Countdown";
 import { Game } from "./Game";
 import { ModeBar } from "./ModeBar";
 import { Page } from "./Page";
+import { StreakNote } from "./StreakNote";
 
 type LoadState =
   | { status: "loading" }
@@ -75,6 +76,7 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
             check={(cells) => checkTrack(ready.puzzle.date, difficulty, cells)}
             afterSolve={
               <>
+                <StreakNote store={store} difficulty={difficulty} />
                 <Countdown target={ready.nextPuzzleAt} />
                 <a className="button" href={randomUrl(difficulty)}>
                   Play a random one

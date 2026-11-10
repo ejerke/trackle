@@ -51,6 +51,18 @@ export class PuzzleRepository {
     return row ? fromRow(row) : null;
   }
 
+  /** Dates (newest first) that have a puzzle at this difficulty, up to `until`. */
+  listDates(difficulty: number, until: string, limit = 1000): string[] {
+    return this.db
+      .prepare(
+        `SELECT puzzle_date FROM puzzles
+         WHERE difficulty = ? AND puzzle_date <= ?
+         ORDER BY puzzle_date DESC LIMIT ?`,
+      )
+      .pluck()
+      .all(difficulty, until, limit) as string[];
+  }
+
   /**
    * Insert unless a puzzle for that (date, difficulty) already exists. Safe
    * under concurrent first requests: the loser's insert is silently skipped.

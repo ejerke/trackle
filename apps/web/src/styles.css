@@ -415,3 +415,130 @@ a {
 .result__actions .countdown {
   flex-basis: 100%;
 }
+
+/* ---- site navigation ---- */
+.site-nav {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+}
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+}
+.site-nav a:hover {
+  color: var(--accent);
+}
+
+/* ---- archive ---- */
+.archive-month {
+  margin: 1rem 0 1.5rem;
+}
+.archive-month h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  text-align: center;
+}
+.archive-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.3rem;
+  max-width: 22rem;
+  margin: 0 auto;
+}
+.archive-weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.archive-day {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+.archive-day--none {
+  color: var(--border);
+}
+.archive-day--unplayed {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.archive-day--started {
+  background: var(--cell-marked);
+  color: var(--text);
+}
+.archive-day--solved {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.archive-day--today {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.archive-legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.archive-legend .archive-day {
+  width: 1.4rem;
+  margin-left: 0.6rem;
+}
+
+/* ---- stats ---- */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.75rem;
+}
+.stats-card {
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.stats-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.stats-card dl {
+  margin: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+.stats-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.stats-card dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.stats-card dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stats-random {
+  text-align: center;
+  margin: 1rem 0 0.25rem;
+}
+.streak {
+  flex-basis: 100%;
+  margin: 0;
+  font-weight: 600;
+}

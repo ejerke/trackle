@@ -45,6 +45,11 @@ export class DailyPuzzles {
     return this.repo.find(date, difficulty);
   }
 
+  /** Days with a puzzle at this difficulty, newest first. Never includes the future. */
+  archive(difficulty: number): string[] {
+    return this.repo.listDates(difficulty, this.today());
+  }
+
   /** Null if the puzzle doesn't exist. Never generates. */
   check(date: string, difficulty: number, cells: number[][], log?: Logger): boolean | null {
     const stored = date > this.today() ? null : this.repo.find(date, difficulty);

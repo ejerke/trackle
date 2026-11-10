@@ -148,6 +148,13 @@ The web app is a client-side rendered SPA; there is no SSR
 ([ADR 0006](adr/0006-client-side-rendering.md)). The board is an SVG, which makes
 drawing track segments and hit-testing edges straightforward.
 
+## Delivery
+
+CI (GitHub Actions) installs from the lockfile, typechecks, tests and builds
+every push. Production is one systemd service behind Caddy and Cloudflare,
+deployed with `deploy/deploy.sh`, with daily online SQLite backups:
+[deployment.md](deployment.md).
+
 ## Further reading
 
 - [api.md](api.md): HTTP endpoints

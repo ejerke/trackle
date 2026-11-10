@@ -290,3 +290,21 @@ describe("rate limiting", () => {
     expect((await app.inject("/2026-11-10")).statusCode).not.toBe(429);
   });
 });
+
+describe("GET /api/archive", () => {
+  it("lists days with a puzzle at the difficulty, newest first, never the future", async () => {
+    await setup();
+    for (const day of ["2026-11-08", "2026-11-10", "2026-11-09"]) {
+      now = new Date(`${day}T12:00:00Z`);
+      await app.inject("/api/puzzles/today");
+    }
+    await app.inject("/api/puzzles/today?difficulty=0"); // Easy, on the 9th
+    now = new Date("2026-11-09T12:00:00Z"); // the 10th is "the future" again
+
+    const medium = (await app.inject("/api/archive")).json();
+    expect(medium).toEqual({ difficulty: 1, today: "2026-11-09", dates: ["2026-11-09", "2026-11-08"] });
+    expect((await app.inject("/api/archive?difficulty=0")).json().dates).toEqual(["2026-11-09"]);
+    expect((await app.inject("/api/archive?difficulty=2")).json().dates).toEqual([]);
+    expect((await app.inject("/api/archive?difficulty=9")).statusCode).toBe(400);
+  });
+});

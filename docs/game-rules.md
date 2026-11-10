@@ -41,6 +41,19 @@ shared: it always shows the same puzzle.
 Progress is saved in the browser, so reloading keeps the board and solved state
 (see [client-storage.md](client-storage.md)).
 
+## Archive and stats
+
+- **Archive** (`/archive`): a calendar of past daily puzzles at the chosen
+  difficulty, marked solved / started / not played from this browser's
+  progress. Only days somebody played have a puzzle.
+- **Stats** (`/stats`): per difficulty, puzzles solved, current and best
+  streak, first-try rate and average checks; plus random puzzles solved.
+  A **streak** counts daily puzzles solved *on their own UTC day*; solving
+  old days in the archive counts as solved but doesn't build a streak.
+- Both are computed in the browser from saved progress
+  ([client-storage.md](client-storage.md)), so they're per browser until
+  accounts exist.
+
 ## Difficulty
 
 Difficulty is an integer, `0` = easiest; higher numbers can be added later

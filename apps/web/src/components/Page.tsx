@@ -10,6 +10,11 @@ export function Page({ subtitle, badge, children }: { subtitle?: ReactNode; badg
           {badge && <span className="lab-badge">{badge}</span>}
         </h1>
         {subtitle && <p className="header__date">{subtitle}</p>}
+        <nav className="site-nav" aria-label="Site">
+          <a href="/">Today</a>
+          <a href="/archive">Archive</a>
+          <a href="/stats">Stats</a>
+        </nav>
       </header>
       {children}
       <HowToPlay />

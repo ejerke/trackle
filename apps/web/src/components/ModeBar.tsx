@@ -1,12 +1,19 @@
 import { DIFFICULTY_NAMES } from "@trackle/shared";
-import { dailyUrl, randomUrl } from "../routes";
+import { archiveUrl, dailyUrl, randomUrl } from "../routes";
 import { savePreferredDifficulty } from "../storage/preferences";
 
 interface ModeBarProps {
-  kind: "daily" | "random";
+  kind: "daily" | "random" | "archive";
   difficulty: number;
   /** Keep the date when switching difficulty on an archive day. */
   date?: string | null;
+}
+
+/** Where picking difficulty `d` leads, staying on the same kind of page. */
+function urlFor(kind: ModeBarProps["kind"], d: number, date?: string | null): string {
+  if (kind === "daily") return dailyUrl(d, date);
+  if (kind === "archive") return archiveUrl(d);
+  return randomUrl(d);
 }
 
 const LEVELS = Object.entries(DIFFICULTY_NAMES).map(([d, name]) => ({ difficulty: Number(d), name }));
@@ -31,7 +38,7 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
             type="button"
             className="segmented__option"
             aria-pressed={d === difficulty}
-            onClick={() => d !== difficulty && go(kind === "daily" ? dailyUrl(d, date) : randomUrl(d), d)}
+            onClick={() => d !== difficulty && go(urlFor(kind, d, date), d)}
           >
             {name}
           </button>

@@ -9,6 +9,7 @@ import {
   type ApiError,
   type CheckRequest,
   type CheckResponse,
+  type ArchiveResponse,
   type PuzzleResponse,
   type RandomPuzzleResponse,
 } from "@trackle/shared";
@@ -100,6 +101,13 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       return body;
     },
   );
+
+  app.get<{ Querystring: { difficulty?: string } }>("/api/archive", async (req, reply) => {
+    const difficulty = parseDifficulty(req.query.difficulty);
+    if (difficulty === null) return reply.code(400).send(invalidDifficulty);
+    const body: ArchiveResponse = { difficulty, today: daily.today(), dates: daily.archive(difficulty) };
+    return body;
+  });
 
   // ---- random puzzles: not stored, (difficulty, seed) regenerates the puzzle ----
 

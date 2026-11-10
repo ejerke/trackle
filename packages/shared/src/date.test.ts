@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isIsoDate, nextUtcMidnight, utcDate } from "./date.ts";
+import { addDays, isIsoDate, nextUtcMidnight, utcDate } from "./date.ts";
 
 describe("dates", () => {
   it("uses the UTC date, not the local one", () => {
@@ -21,5 +21,12 @@ describe("dates", () => {
     expect(nextUtcMidnight(new Date("2026-11-10T12:00:00Z")).toISOString()).toBe("2026-11-11T00:00:00.000Z");
     expect(nextUtcMidnight(new Date("2026-12-31T23:59:59Z")).toISOString()).toBe("2027-01-01T00:00:00.000Z");
     expect(nextUtcMidnight(new Date("2026-11-10T00:00:00Z")).toISOString()).toBe("2026-11-11T00:00:00.000Z");
+  });
+
+  it("adds days across month, year and leap-day boundaries", () => {
+    expect(addDays("2026-11-10", 1)).toBe("2026-11-11");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2028-03-01", -1)).toBe("2028-02-29");
+    expect(addDays("2026-11-10", -10)).toBe("2026-10-31");
   });
 });

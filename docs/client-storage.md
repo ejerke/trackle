@@ -87,6 +87,12 @@ then random ones (most recently played first).
 - The `v1` in the key prefix changes only if the *layout* changes. Changes to
   the record shape bump `schemaVersion` and go through `migrateProgress()`.
 
+## Stats
+
+`apps/web/src/stats.ts` computes personal stats (solves, streaks, first-try
+rate, average checks) from `list()`. They're pure functions of the records, so
+they'll work unchanged on records synced from an account later.
+
 ## Preferences
 
 The last chosen difficulty is kept in `trackle:prefs:difficulty`

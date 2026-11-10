@@ -1,4 +1,5 @@
 import type {
+  ArchiveResponse,
   CheckRequest,
   CheckResponse,
   LabPuzzleResponse,
@@ -46,6 +47,10 @@ async function postCheck(path: string, cells: number[][]): Promise<boolean> {
 
 export function checkTrack(date: string, difficulty: number, cells: number[][]): Promise<boolean> {
   return postCheck(`/api/puzzles/${date}/check?difficulty=${difficulty}`, cells);
+}
+
+export function fetchArchive(difficulty: number): Promise<ArchiveResponse> {
+  return request<ArchiveResponse>(`/api/archive?difficulty=${difficulty}`);
 }
 
 export function fetchRandomPuzzle(difficulty: number, seed: string): Promise<RandomPuzzleResponse> {

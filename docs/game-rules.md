@@ -57,8 +57,12 @@ Progress is saved in the browser, so reloading keeps the board and solved state
 ## Accounts
 
 Optional: `/account` creates an account with a username and password (no
-email, so a forgotten password can't be reset). For now an account only signs
-you in; progress, streaks and stats still live in the browser.
+email, so a forgotten password can't be reset). While signed in, solves,
+streaks and stats sync to every device you sign in on, and signing up imports
+what you'd already solved in that browser. An unfinished puzzle stays on the
+device (autosaved) until you press **Save** under it; then other devices can
+continue it. Signing out removes your progress from the browser (it stays in
+the account).
 
 ## Difficulty
 

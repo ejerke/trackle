@@ -58,7 +58,10 @@ const passwordOnlySchema = {
  *   POST /api/auth/register, /login, /logout, /password, /delete-account
  *   GET  /api/auth/me
  */
-export function registerAuthRoutes(app: FastifyInstance, options: AuthOptions): void {
+export function registerAuthRoutes(
+  app: FastifyInstance,
+  options: AuthOptions,
+): { currentUser: (req: FastifyRequest) => AccountUser | null } {
   const accounts = new Accounts(options.db, options.now);
   const params = options.passwordParams ?? DEFAULT_PARAMS;
   // Verifying against this when a username doesn't exist makes "no such user"
@@ -154,4 +157,6 @@ export function registerAuthRoutes(app: FastifyInstance, options: AuthOptions): 
       return reply.code(204).send();
     },
   );
+
+  return { currentUser };
 }

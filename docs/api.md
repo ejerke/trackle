@@ -122,8 +122,25 @@ rate limit.
 | `POST /api/auth/password` | `{ currentPassword, newPassword }` | `204`; other sessions ended | `401 unauthorized`, `401 invalid_credentials`, `400 invalid_password` |
 | `POST /api/auth/delete-account` | `{ password }` | `204`; user + sessions deleted | `401 unauthorized`, `401 invalid_credentials` |
 
-`AccountUser` is `{ id, username, createdAt }`. Usernames: 3–20 of
-`[A-Za-z0-9_]`, unique ignoring case. Passwords: 8–200 characters.
+`AccountUser` is `{ id, username, createdAt }`.
+
+## Progress sync (signed in)
+
+The signed-in player's progress records (`PuzzleProgress` from
+`@trackle/shared`, schema v4), see [ADR 0013](adr/0013-progress-sync.md). All
+require a session (`401 { "error": "unauthorized" }` otherwise).
+
+| Endpoint | Body | Response |
+| -------- | ---- | -------- |
+| `GET /api/me/progress` | | `200 { records: PuzzleProgress[] }` |
+| `PUT /api/me/progress` | `{ records }` (≤ 200) | `200 { records }` as stored. **Automatic sync**: solves (with their finished track), checks, start time. Unfinished boards in these records are ignored. |
+| `PUT /api/me/progress/board` | `{ record }` | `200 { record }` as stored. **Save button**: also stores the unfinished board, `boardSavedAt` = server time. A solved puzzle's board can't be replaced. |
+| `DELETE /api/me/progress/:keyId` | `{}` | `204` |
+
+Records are validated (shape, sizes, ISO timestamps, a real date or seed, a
+known difficulty); an invalid record rejects the request with
+`400 invalid_body`. A daily record claiming a solve is re-checked against the
+stored puzzle; if `solvedCells` don't solve it, the solve is dropped.
 
 ## `GET /api/health`
 

@@ -21,7 +21,12 @@ interface GameProps {
 }
 
 export function Game({ puzzle, progressKey, store, check: checkWithServer, afterSolve }: GameProps) {
-  const { progress, updateBoard, recordCheck, clearBoard } = usePuzzleProgress(store, progressKey, puzzle);
+  const { progress, updateBoard, recordCheck, clearBoard, canSaveToAccount, saveToAccount } = usePuzzleProgress(
+    store,
+    progressKey,
+    puzzle,
+  );
+  const [saving, setSaving] = useState<"idle" | "saving" | "error">("idle");
   const [mode, setMode] = useState<Mode>("track");
   const [check, setCheck] = useState<CheckState>("idle");
   const [confirmClear, setConfirmClear] = useState(false);
@@ -52,6 +57,16 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, after
     }
   };
 
+  const onSave = async () => {
+    setSaving("saving");
+    try {
+      await saveToAccount();
+      setSaving("idle");
+    } catch {
+      setSaving("error");
+    }
+  };
+
   const onClear = () => {
     if (!confirmClear) return setConfirmClear(true);
     clearBoard();
@@ -78,6 +93,17 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, after
             <button type="button" className="button" onClick={onClear} disabled={check === "checking"}>
               {confirmClear ? "Really clear?" : "Clear"}
             </button>
+            {canSaveToAccount && (
+              <button
+                type="button"
+                className="button"
+                onClick={onSave}
+                disabled={saving === "saving" || !progress.boardDirty}
+                title="Save this board to your account, to continue on another device"
+              >
+                {saving === "saving" ? "Saving…" : progress.boardDirty ? "Save" : "Saved"}
+              </button>
+            )}
             <button
               type="button"
               className="button button--primary"
@@ -87,6 +113,17 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, after
               {check === "checking" ? "Checking…" : "Check"}
             </button>
           </div>
+          {canSaveToAccount && (
+            <p className="save-status">
+              {saving === "error"
+                ? "Couldn't save. Try again."
+                : progress.boardDirty
+                  ? "Unsaved changes. Saved boards continue on your other devices."
+                  : progress.boardSavedAt
+                    ? `Saved to your account at ${new Date(progress.boardSavedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}.`
+                    : "Nothing to save yet."}
+            </p>
+          )}
           <p className="message" role="status" aria-live="polite">
             {check === "wrong" && "Not quite. Something doesn't fit yet."}
             {check === "error" && "Couldn't reach the server. Try again."}

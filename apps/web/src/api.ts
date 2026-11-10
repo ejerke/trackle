@@ -5,6 +5,9 @@ import type {
   ChangePasswordRequest,
   Credentials,
   DeleteAccountRequest,
+  ProgressListResponse,
+  ProgressSaveResponse,
+  PuzzleProgress,
   CheckRequest,
   CheckResponse,
   LabPuzzleResponse,
@@ -94,3 +97,29 @@ export const login = (c: Credentials) => post<AuthResponse>("/api/auth/login", c
 export const logout = () => post<void>("/api/auth/logout", {});
 export const changePassword = (r: ChangePasswordRequest) => post<void>("/api/auth/password", r);
 export const deleteAccount = (r: DeleteAccountRequest) => post<void>("/api/auth/delete-account", r);
+
+// ---- progress sync (signed in) ----
+
+export const fetchProgress = async () => (await request<ProgressListResponse>("/api/me/progress")).records;
+
+/** Automatic sync of solves/checks. `keepalive` lets the request finish while the page is closing. */
+export async function syncProgress(records: PuzzleProgress[], keepalive = false): Promise<PuzzleProgress[]> {
+  const res = await request<ProgressListResponse>("/api/me/progress", {
+    method: "PUT",
+    body: JSON.stringify({ records }),
+    keepalive,
+  });
+  return res.records;
+}
+
+/** The Save button: store this board in the account. */
+export async function saveProgressBoard(record: PuzzleProgress): Promise<PuzzleProgress> {
+  const res = await request<ProgressSaveResponse>("/api/me/progress/board", {
+    method: "PUT",
+    body: JSON.stringify({ record }),
+  });
+  return res.record;
+}
+
+export const deleteProgress = (keyId: string) =>
+  request<void>(`/api/me/progress/${encodeURIComponent(keyId)}`, { method: "DELETE", body: "{}" });

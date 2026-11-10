@@ -43,17 +43,19 @@ Defined in [0002_users_and_sessions.sql](../apps/server/migrations/0002_users_an
 | `users` | `id`, `username` (`UNIQUE COLLATE NOCASE`), `password_hash`, `created_at`, `password_changed_at` | hash is `scrypt$N$r$p$salt$hash`, never the password |
 | `sessions` | `token_hash` (PK), `user_id` → `users` `ON DELETE CASCADE`, `created_at`, `expires_at` | SHA-256 of the cookie token; expired rows are pruned on login |
 
+### `user_progress`
+
+Defined in [0003_user_progress.sql](../apps/server/migrations/0003_user_progress.sql)
+([ADR 0013](adr/0013-progress-sync.md)). One row per (user, puzzle):
+`user_id` → `users` `ON DELETE CASCADE`, `key_id` (e.g. `2026-11-10:1`),
+`record_json` (the browser's record), and `updated_at` / `solved_at` copied out
+of it for querying. Primary key `(user_id, key_id)`.
+
 ### Expected future tables (not created yet)
 
-Sketch, so today's choices don't block them:
-
-```sql
-solves (id INTEGER PRIMARY KEY,
-        user_id   INTEGER NOT NULL REFERENCES users(id),
-        puzzle_id INTEGER NOT NULL REFERENCES puzzles(id),
-        solved_at TEXT NOT NULL, duration_ms INTEGER, checks INTEGER,
-        UNIQUE (user_id, puzzle_id))
-```
+Leaderboard/group tables, once decided (see the
+[proposal](proposals/accounts-and-leaderboards.md)). Verified solve times can
+come from `user_progress.solved_at` for daily puzzles.
 
 ## Migrations
 

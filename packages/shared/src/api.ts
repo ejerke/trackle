@@ -1,3 +1,4 @@
+import type { PuzzleProgress } from "./progress.ts";
 import type { PlayablePuzzle, PublicPuzzle } from "./types.ts";
 
 /** GET /api/puzzles/today and GET /api/puzzles/:date */
@@ -93,6 +94,29 @@ export interface ChangePasswordRequest {
 /** POST /api/auth/delete-account */
 export interface DeleteAccountRequest {
   password: string;
+}
+
+/** GET /api/me/progress, and the merged result of PUT /api/me/progress. */
+export interface ProgressListResponse {
+  records: PuzzleProgress[];
+}
+
+/**
+ * PUT /api/me/progress (at most 200 records): automatic sync of account-level
+ * facts. Unfinished boards in these records are ignored by the server.
+ */
+export interface ProgressSyncRequest {
+  records: PuzzleProgress[];
+}
+
+/** PUT /api/me/progress/board: the player pressed Save. */
+export interface ProgressSaveRequest {
+  record: PuzzleProgress;
+}
+
+export interface ProgressSaveResponse {
+  /** As stored; boardSavedAt is the server's time of this save. */
+  record: PuzzleProgress;
 }
 
 export const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/;

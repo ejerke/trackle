@@ -21,3 +21,4 @@ Template: copy [0000-template.md](0000-template.md) to the next number.
 | 0010 | [In-process token-bucket rate limiting, keyed on the real client IP](0010-rate-limiting.md) | Accepted |
 | 0011 | [Hard difficulty; propagate-and-branch uniqueness checks](0011-hard-difficulty.md) | Accepted |
 | 0012 | [Username + password accounts with cookie sessions](0012-accounts.md) | Accepted |
+| 0013 | [Sync progress to the account, local-first](0013-progress-sync.md) | Accepted |

@@ -1,32 +1,63 @@
 import type { AccountUser } from "@trackle/shared";
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { fetchMe } from "./api";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { fetchMe, logout } from "./api";
+import type { SyncedProgressStore } from "./storage/syncedProgressStore";
 
 /**
- * Who is signed in, for any component that needs to know. The session itself
- * is an HttpOnly cookie, invisible to JavaScript; this only mirrors
- * GET /api/auth/me.
+ * Who is signed in, and the sign-in/out transitions that also switch progress
+ * sync on and off (ADR 0013). The session itself is an HttpOnly cookie,
+ * invisible to JavaScript; this mirrors GET /api/auth/me.
  */
 interface AuthState {
-  /** undefined while loading, null when signed out. */
-  user: AccountUser | null | undefined;
-  setUser(user: AccountUser | null): void;
+  /** null when signed out. */
+  user: AccountUser | null;
+  /** After a successful login/register: merge this browser's progress with the account's. */
+  signedIn(user: AccountUser): Promise<void>;
+  /** Send pending progress, end the session, remove the account's progress from this browser. */
+  signOut(): Promise<void>;
+  /** The account was deleted: stop syncing, keep the browser's copy. */
+  accountDeleted(): void;
 }
 
-const AuthContext = createContext<AuthState>({ user: undefined, setUser: () => {} });
+const AuthContext = createContext<AuthState | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<AccountUser | null | undefined>(undefined);
-  const setUser = useCallback((u: AccountUser | null) => setUserState(u), []);
+export function AuthProvider({ store, children }: { store: SyncedProgressStore; children: ReactNode }) {
+  // undefined until we know who's signed in *and* their progress is synced, so
+  // no page ever renders with stale progress.
+  const [user, setUser] = useState<AccountUser | null | undefined>(undefined);
 
   useEffect(() => {
-    fetchMe().then(
-      (res) => setUserState(res.user),
-      () => setUserState(null), // offline or server error: act signed out
-    );
-  }, []);
+    void (async () => {
+      const me = await fetchMe().then((res) => res.user, () => null); // offline/server error: act signed out
+      if (me) await store.signIn(me.id).catch((err) => console.warn("Progress sync failed", err));
+      setUser(me);
+    })();
+  }, [store]);
 
-  return <AuthContext.Provider value={{ user, setUser }}>{children}</AuthContext.Provider>;
+  if (user === undefined) return <p className="status">Loading…</p>;
+
+  const state: AuthState = {
+    user,
+    async signedIn(u) {
+      await store.signIn(u.id).catch((err) => console.warn("Progress sync failed", err));
+      setUser(u);
+    },
+    async signOut() {
+      await store.flush().catch(() => {});
+      await logout().catch(() => {});
+      await store.signOut();
+      setUser(null);
+    },
+    accountDeleted() {
+      store.forgetAccount();
+      setUser(null);
+    },
+  };
+  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
 }
 
-export const useAuth = (): AuthState => useContext(AuthContext);
+export function useAuth(): AuthState {
+  const state = useContext(AuthContext);
+  if (!state) throw new Error("useAuth outside AuthProvider");
+  return state;
+}

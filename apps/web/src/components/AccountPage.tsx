@@ -6,7 +6,7 @@ import {
   type ApiErrorCode,
 } from "@trackle/shared";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { ApiRequestError, changePassword, deleteAccount, login, logout, register } from "../api";
+import { ApiRequestError, changePassword, deleteAccount, login, register } from "../api";
 import { useAuth } from "../auth";
 import { Page } from "./Page";
 
@@ -28,7 +28,6 @@ export function AccountPage() {
   const { user } = useAuth();
   return (
     <Page subtitle="Account">
-      {user === undefined && <p className="status">Loading…</p>}
       {user === null && <SignIn />}
       {user && <SignedIn username={user.username} createdAt={user.createdAt} />}
     </Page>
@@ -38,7 +37,7 @@ export function AccountPage() {
 // ---- signed out ----
 
 function SignIn() {
-  const { setUser } = useAuth();
+  const { signedIn } = useAuth();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -53,7 +52,7 @@ function SignIn() {
     setError(null);
     try {
       const res = await (mode === "login" ? login : register)({ username, password });
-      setUser(res.user);
+      await signedIn(res.user!);
     } catch (err) {
       setError(messageFor(err));
     } finally {
@@ -120,7 +119,7 @@ function SignIn() {
 // ---- signed in ----
 
 function SignedIn({ username, createdAt }: { username: string; createdAt: string }) {
-  const { setUser } = useAuth();
+  const { signOut } = useAuth();
   const since = new Date(createdAt).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
 
   return (
@@ -129,16 +128,11 @@ function SignedIn({ username, createdAt }: { username: string; createdAt: string
         Signed in as <b>{username}</b> · member since {since}
       </p>
       <p className="notice">
-        Accounts don't sync your progress yet; streaks and stats still live in this browser.
+        Your solves, streaks and stats sync to every device you sign in on. To continue an unfinished puzzle on
+        another device, press <b>Save</b> under it. Signing out removes your progress from this browser (it stays
+        in your account).
       </p>
-      <button
-        type="button"
-        className="button"
-        onClick={async () => {
-          await logout().catch(() => {});
-          setUser(null);
-        }}
-      >
+      <button type="button" className="button" onClick={() => void signOut()}>
         Sign out
       </button>
       <ChangePassword />
@@ -187,7 +181,7 @@ function ChangePassword() {
 }
 
 function DeleteAccount() {
-  const { setUser } = useAuth();
+  const { accountDeleted } = useAuth();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -206,7 +200,7 @@ function DeleteAccount() {
     e.preventDefault();
     try {
       await deleteAccount({ password });
-      setUser(null);
+      accountDeleted();
     } catch (err) {
       setError(messageFor(err));
     }
@@ -215,7 +209,9 @@ function DeleteAccount() {
   return (
     <form className="form form--section" onSubmit={onSubmit}>
       <h2>Delete account</h2>
-      <p className="form__hint">This permanently deletes your account. Progress in this browser stays.</p>
+      <p className="form__hint">
+        This permanently deletes your account and the progress saved in it. The copy in this browser stays.
+      </p>
       <Field label="Password">
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
       </Field>

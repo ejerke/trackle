@@ -1,0 +1,94 @@
+import {
+  isIsoDate,
+  isRandomSeed,
+  mergeSummary,
+  puzzleKeyId,
+  saveBoard,
+  validateTrack,
+  type PuzzleProgress,
+} from "@trackle/shared";
+import type { Db } from "../db/connection.ts";
+import { DIFFICULTIES } from "../puzzles/difficulty.ts";
+import type { PuzzleRepository } from "../puzzles/repository.ts";
+
+/**
+ * Server side of progress sync (ADR 0013): storage, solve verification, key
+ * validation. The merge rules themselves (mergeSummary, saveBoard) live in
+ * @trackle/shared so the browser's tests can use the very same functions.
+ */
+export class ProgressSync {
+  private readonly db: Db;
+  private readonly puzzles: PuzzleRepository;
+  private readonly now: () => Date;
+
+  constructor(db: Db, puzzles: PuzzleRepository, now: () => Date) {
+    this.db = db;
+    this.puzzles = puzzles;
+    this.now = now;
+  }
+
+  list(userId: number): PuzzleProgress[] {
+    return (
+      this.db.prepare("SELECT record_json FROM user_progress WHERE user_id = ?").pluck().all(userId) as string[]
+    ).map((json) => JSON.parse(json) as PuzzleProgress);
+  }
+
+  /** Automatic sync of account-level facts. Returns the stored version of each record. */
+  sync(userId: number, incoming: PuzzleProgress[]): PuzzleProgress[] {
+    return this.db.transaction(() =>
+      incoming.map((record) => this.write(userId, record, (existing, r) => mergeSummary(existing, r))),
+    )();
+  }
+
+  /** Explicit Save of one record, board included. Returns the stored version. */
+  save(userId: number, record: PuzzleProgress): PuzzleProgress {
+    const now = this.now();
+    return this.db.transaction(() => this.write(userId, record, (existing, r) => saveBoard(existing, r, now)))();
+  }
+
+  delete(userId: number, keyId: string): void {
+    this.db.prepare("DELETE FROM user_progress WHERE user_id = ? AND key_id = ?").run(userId, keyId);
+  }
+
+  private write(
+    userId: number,
+    raw: PuzzleProgress,
+    combine: (existing: PuzzleProgress | null, incoming: PuzzleProgress) => PuzzleProgress,
+  ): PuzzleProgress {
+    const record = this.verified(raw);
+    const keyId = puzzleKeyId(record.key);
+    const json = this.db
+      .prepare("SELECT record_json FROM user_progress WHERE user_id = ? AND key_id = ?")
+      .pluck()
+      .get(userId, keyId) as string | undefined;
+    const stored = combine(json ? (JSON.parse(json) as PuzzleProgress) : null, record);
+    this.db
+      .prepare(
+        `INSERT INTO user_progress (user_id, key_id, record_json, updated_at, solved_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (user_id, key_id) DO UPDATE SET
+           record_json = excluded.record_json, updated_at = excluded.updated_at, solved_at = excluded.solved_at`,
+      )
+      .run(userId, keyId, JSON.stringify(stored), stored.updatedAt, stored.solvedAt);
+    return stored;
+  }
+
+  /**
+   * A daily solve only counts if its saved answer solves the stored puzzle; a
+   * failed check drops the solve. Random puzzles aren't stored server-side, so
+   * their solves can't be checked and aren't trusted beyond personal stats.
+   */
+  private verified(record: PuzzleProgress): PuzzleProgress {
+    if (!record.solvedAt || record.key.kind !== "daily") return record;
+    const puzzle = this.puzzles.find(record.key.date, record.key.difficulty);
+    const ok = puzzle !== null && record.solvedCells !== null && validateTrack(puzzle.puzzle, record.solvedCells).ok;
+    return ok ? record : { ...record, solvedAt: null, solvedCells: null };
+  }
+}
+
+/** Keys must name a real kind of puzzle: an ISO date or valid seed, at a known difficulty. */
+export function isValidSyncKey(record: PuzzleProgress): boolean {
+  const { key } = record;
+  if (DIFFICULTIES[key.difficulty] === undefined) return false;
+  if (key.kind === "daily") return isIsoDate(key.date) && !("seed" in key);
+  return isRandomSeed(key.seed) && !("date" in key);
+}

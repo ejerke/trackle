@@ -20,6 +20,8 @@ import { DIFFICULTIES } from "./puzzles/difficulty.ts";
 import { RandomPuzzles } from "./puzzles/randomPuzzles.ts";
 import { PuzzleRepository } from "./puzzles/repository.ts";
 import { registerAuthRoutes } from "./auth/routes.ts";
+import { ProgressSync } from "./progress/progressSync.ts";
+import { registerProgressRoutes } from "./progress/routes.ts";
 import type { ScryptParams } from "./auth/password.ts";
 import { registerRateLimits, type RateLimitOptions } from "./rateLimit/rateLimit.ts";
 import { checkBodySchema } from "./schemas.ts";
@@ -45,7 +47,8 @@ export interface AppOptions {
 export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   const now = options.now ?? (() => new Date());
   const app = Fastify({ logger: options.logger ?? false });
-  const daily = new DailyPuzzles(new PuzzleRepository(options.db), now);
+  const puzzleRepository = new PuzzleRepository(options.db);
+  const daily = new DailyPuzzles(puzzleRepository, now);
   const random = new RandomPuzzles();
 
   const puzzleResponse = (puzzle: PuzzleResponse["puzzle"]): PuzzleResponse => ({
@@ -83,13 +86,14 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     }
   });
 
-  registerAuthRoutes(app, {
+  const { currentUser } = registerAuthRoutes(app, {
     db: options.db,
     now,
     limits,
     secureCookies: options.secureCookies ?? false,
     passwordParams: options.passwordParams,
   });
+  registerProgressRoutes(app, new ProgressSync(options.db, puzzleRepository, now), currentUser);
 
   app.get("/api/health", async () => ({ ok: true }));
 

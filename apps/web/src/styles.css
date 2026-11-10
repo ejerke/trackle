@@ -624,3 +624,17 @@ a {
   background: var(--bad);
   color: #fff;
 }
+
+/* ---- save to account ---- */
+.actions {
+  flex-wrap: wrap;
+}
+.actions .button {
+  min-width: 6rem;
+}
+.save-status {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}

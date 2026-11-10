@@ -19,6 +19,17 @@ describe("LocalProgressStore", () => {
     expect(await store.get(key)).toEqual(progress);
   });
 
+  it("clears all progress but leaves other keys alone", async () => {
+    const storage = new MemoryStorage();
+    storage.setItem("trackle:prefs:difficulty", "2");
+    const store = new LocalProgressStore(storage);
+    await store.save(emptyProgress(key));
+    await store.save(emptyProgress({ kind: "random", seed: "abcd", difficulty: 1 }));
+    await store.clear();
+    expect(await store.list()).toEqual([]);
+    expect(storage.getItem("trackle:prefs:difficulty")).toBe("2");
+  });
+
   it("deletes one puzzle's progress", async () => {
     const store = new LocalProgressStore(new MemoryStorage());
     await store.save(emptyProgress(key));
@@ -86,9 +97,11 @@ describe("migrateProgress", () => {
     };
     expect(migrateProgress(v1)).toEqual({
       ...v1,
-      schemaVersion: 3,
+      schemaVersion: 4,
       key: { kind: "daily", date: "2026-11-10", difficulty: 1 },
       puzzleFingerprint: null,
+      boardSavedAt: null,
+      boardDirty: true, // it had a drawn segment that was never saved to an account
     });
 
     // And it is found under the same storage key as before the upgrade.

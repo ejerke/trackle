@@ -31,7 +31,7 @@ type PuzzleKey =
   | { kind: "random"; seed: string; difficulty: number }; // "k3j9x2ab", 0
 
 interface PuzzleProgress {
-  schemaVersion: 3;
+  schemaVersion: 4;
   key: PuzzleKey;
   puzzleFingerprint: string | null; // which puzzle the board was drawn on
   board: {
@@ -43,6 +43,8 @@ interface PuzzleProgress {
   checks: number;             // how many times "Check" was pressed
   solvedAt: string | null;    // set ONLY after the server answered correct: true
   solvedCells: number[][] | null; // the mask grid the server accepted
+  boardSavedAt: string | null; // when this board was last saved to the account
+  boardDirty: boolean;         // edits since then (device-local)
 }
 ```
 
@@ -65,7 +67,8 @@ are not stored; they come from the puzzle.
 | ------- | ------ | --------------- |
 | 1 | key `{ date, difficulty }` | → 2: key gets `kind: "daily"` |
 | 2 | key is `daily` or `random` | → 3: `puzzleFingerprint: null` |
-| 3 | adds `puzzleFingerprint` | (current) |
+| 3 | adds `puzzleFingerprint` | → 4: `boardSavedAt: null`, `boardDirty` = anything drawn |
+| 4 | adds `boardSavedAt`, `boardDirty` (Save button) | (current) |
 
 `migrateProgress()` walks old records up one version at a time, so the
 storage key layout (`v1`) did not need to change. Tested in
@@ -122,15 +125,68 @@ to move to an account, so it uses `localStorage` directly (still guarded).
 - Board saves are debounced (~300 ms) so a drag doesn't write on every move.
 - A solved puzzle's board is locked; `solvedAt` is never cleared by the UI.
 
-## Path to accounts
+## Sync with accounts (built)
 
-When accounts are added, nothing in the components changes:
+While signed in, `SyncedProgressStore` (`storage/syncedProgressStore.ts`) wraps
+the local store; components didn't change. The browser always autosaves the
+board locally, so reloads never lose work.
 
-1. Add `RemoteProgressStore` (talks to `/api/me/progress`).
-2. Add `SyncedProgressStore`, which wraps local + remote: reads local first
-   (fast, offline), writes both, and lets the server win on conflict for
-   `solvedAt`.
-3. On first login, `local.list()` is posted to an import endpoint. The server
-   re-checks each `solvedCells` against the stored solution and creates `solves`
-   rows (see [database.md](database.md#expected-future-tables-not-created-yet)).
-4. The app picks the store at startup: logged in → synced, otherwise → local.
+- **Synced automatically**: solves (with their finished track) and check
+  counts. Board edits alone send nothing.
+- **Save button**: puts the unfinished board in the account, so another device
+  can continue it. The record remembers `boardSavedAt` (which saved version the
+  board is based on) and `boardDirty` (edits since).
+- **Page load / sign-in**: `mergeOnDevice` (`storage/syncMerge.ts`) combines
+  this browser with the account: the better solve wins (`betterSolve`); a board
+  saved elsewhere replaces the local one only if the local one has no unsaved
+  edits. No device clocks are compared.
+- **Sign-in** imports this browser's anonymous solves and checks.
+- **Sign-out** removes the account's progress from the browser.
+  `trackle:sync:owner` records whose progress the browser holds, so a
+  different account never inherits or uploads it.
+- **Account deletion** keeps the browser's copy.
+
+Details and trade-offs: [ADR 0013](adr/0013-progress-sync.md).
+
+## Stats
+
+`apps/web/src/stats.ts` computes personal stats (solves, streaks, first-try
+rate, average checks) from `list()`. They're pure functions of the records, so
+they'll work unchanged on records synced from an account later.
+
+## Preferences
+
+The last chosen difficulty is kept in `trackle:prefs:difficulty`
+(`storage/preferences.ts`). It's a per-browser convenience that will never need
+to move to an account, so it uses `localStorage` directly (still guarded).
+
+## Robustness rules
+
+- Every `localStorage` access is wrapped in `try/catch`. Private browsing,
+  disabled storage or a full quota fall back to an in-memory store for the
+  session; the game still works, it just won't remember.
+- Invalid JSON or an unknown `schemaVersion` is treated as "no progress"
+  (and logged with `console.warn`), never a crash.
+- Board saves are debounced (~300 ms) so a drag doesn't write on every move.
+- A solved puzzle's board is locked; `solvedAt` is never cleared by the UI.
+
+## Sync with accounts (built)
+
+While signed in, `SyncedProgressStore` (`storage/syncedProgressStore.ts`) wraps
+the local store and mirrors it to the server; components didn't change. Local
+stays the source the UI uses, so play is instant and works offline.
+
+- **Saves**: local immediately; to the server after a 1.5 s pause (solves at
+  once, everything pending when the page is hidden). Failed sends are retried.
+- **Page load / sign-in**: fetch the account's records, upload local ones the
+  server lacks or has a worse version of, mirror the merged result locally.
+  The UI renders after this.
+- **Merge rule** (`pickProgress`, shared with the server): solve beats
+  unsolved; earlier solve beats later; else newest edit wins.
+- **Sign-in** imports this browser's anonymous progress into the account.
+- **Sign-out** removes the account's progress from the browser.
+  `trackle:sync:owner` records whose progress the browser holds, so a
+  different account never inherits or uploads it.
+- **Account deletion** keeps the browser's copy.
+
+Details and trade-offs: [ADR 0013](adr/0013-progress-sync.md).

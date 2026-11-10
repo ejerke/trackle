@@ -19,6 +19,10 @@ export interface PuzzleProgressApi {
   /** Record a server check result. Saved immediately. */
   recordCheck(correct: boolean, cells: number[][]): void;
   clearBoard(): void;
+  /** Whether the store can save to an account right now (signed in). */
+  canSaveToAccount: boolean;
+  /** Save the current board to the account; marks it saved unless edited meanwhile. */
+  saveToAccount(): Promise<void>;
 }
 
 /**
@@ -83,9 +87,14 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
   }, [store, id, fingerprint]);
 
   useEffect(() => {
+    // pagehide: tab closed or navigated away; visibilitychange: phones often
+    // background a page without ever firing pagehide.
+    const onHidden = () => document.visibilityState === "hidden" && flush();
     window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHidden);
     return () => {
       window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHidden);
       flush();
     };
   }, [flush]);
@@ -96,7 +105,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
       if (!current || current.solvedAt) return;
       const board = fn(current.board);
       if (board === current.board) return;
-      commit({ ...current, board, updatedAt: new Date().toISOString() }, false);
+      commit({ ...current, board, boardDirty: true, updatedAt: new Date().toISOString() }, false);
     },
     [commit],
   );
@@ -122,5 +131,23 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
 
   const clearBoard = useCallback(() => updateBoard(() => ({ edges: [], marks: {} })), [updateBoard]);
 
-  return { progress, updateBoard, recordCheck, clearBoard };
+  const saveToAccount = useCallback(async () => {
+    const current = latest.current;
+    if (!current || !store.saveToAccount) return;
+    flush();
+    const stored = await store.saveToAccount(current);
+    const now = latest.current!;
+    // Edits made while the request was in flight stay unsaved.
+    const unchanged = JSON.stringify(now.board) === JSON.stringify(current.board);
+    commit({ ...now, boardSavedAt: stored.boardSavedAt, boardDirty: unchanged ? false : now.boardDirty }, true);
+  }, [store, flush, commit]);
+
+  return {
+    progress,
+    updateBoard,
+    recordCheck,
+    clearBoard,
+    canSaveToAccount: Boolean(store.signedIn && store.saveToAccount),
+    saveToAccount,
+  };
 }

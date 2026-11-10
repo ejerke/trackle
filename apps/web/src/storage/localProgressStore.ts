@@ -1,10 +1,7 @@
-import {
-  CURRENT_SCHEMA_VERSION,
-  puzzleKeyId,
-  type PuzzleKey,
-  type ProgressStore,
-  type PuzzleProgress,
-} from "./progressStore";
+import { migrateProgress, puzzleKeyId, type PuzzleKey, type PuzzleProgress } from "@trackle/shared";
+import type { ProgressStore } from "./progressStore";
+
+export { migrateProgress };
 
 /**
  * The subset of the Web Storage API we use. `window.localStorage` satisfies it,
@@ -23,50 +20,6 @@ const PREFIX = "trackle:progress:v1:";
 
 export function storageKey(key: PuzzleKey): string {
   return PREFIX + puzzleKeyId(key);
-}
-
-/**
- * Upgrade older records to the current shape. Returns null for anything that
- * can't be understood, which callers treat as "no progress".
- */
-export function migrateProgress(raw: unknown): PuzzleProgress | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  let record = raw as Record<string, unknown>;
-  // Each step upgrades one version, so any old record walks up to the current one.
-  if (record.schemaVersion === 1) {
-    // v1 keys were always daily puzzles: { date, difficulty }.
-    record = { ...record, schemaVersion: 2, key: { kind: "daily", ...(record.key as object) } };
-  }
-  if (record.schemaVersion === 2) {
-    // v2 records don't know which puzzle they were drawn on.
-    record = { ...record, schemaVersion: 3, puzzleFingerprint: null };
-  }
-  if (record.schemaVersion !== CURRENT_SCHEMA_VERSION) return null; // unknown (e.g. newer) version
-  return isCurrentProgress(record) ? record : null;
-}
-
-function isValidKey(key: unknown): key is PuzzleKey {
-  const k = key as Partial<Record<string, unknown>> | null;
-  if (typeof k !== "object" || k === null || typeof k.difficulty !== "number") return false;
-  if (k.kind === "daily") return typeof k.date === "string";
-  if (k.kind === "random") return typeof k.seed === "string";
-  return false;
-}
-
-function isCurrentProgress(value: unknown): value is PuzzleProgress {
-  const p = value as PuzzleProgress;
-  return (
-    isValidKey(p.key) &&
-    (p.puzzleFingerprint === null || typeof p.puzzleFingerprint === "string") &&
-    Array.isArray(p.board?.edges) &&
-    typeof p.board?.marks === "object" &&
-    p.board.marks !== null &&
-    typeof p.startedAt === "string" &&
-    typeof p.updatedAt === "string" &&
-    typeof p.checks === "number" &&
-    (p.solvedAt === null || typeof p.solvedAt === "string") &&
-    (p.solvedCells === null || Array.isArray(p.solvedCells))
-  );
 }
 
 export class LocalProgressStore implements ProgressStore {
@@ -94,6 +47,20 @@ export class LocalProgressStore implements ProgressStore {
       this.storage.removeItem(storageKey(key));
     } catch (err) {
       console.warn("Could not delete progress", err);
+    }
+  }
+
+  /** Remove every progress record (used when signing out). Leaves other keys alone. */
+  async clear(): Promise<void> {
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < this.storage.length; i++) {
+        const k = this.storage.key(i);
+        if (k?.startsWith(PREFIX)) keys.push(k);
+      }
+      for (const k of keys) this.storage.removeItem(k);
+    } catch (err) {
+      console.warn("Could not clear progress", err);
     }
   }
 
@@ -167,15 +134,15 @@ export class MemoryStorage implements KeyValueStorage {
  * Pick the best available storage. Accessing `window.localStorage` can itself
  * throw (e.g. blocked site data), so probe it with a real write.
  */
-export function createProgressStore(): ProgressStore {
+export function createBrowserStorage(): KeyValueStorage {
   try {
     const ls = window.localStorage;
     const probe = "trackle:probe";
     ls.setItem(probe, "1");
     ls.removeItem(probe);
-    return new LocalProgressStore(ls);
+    return ls;
   } catch {
     console.warn("localStorage unavailable; progress will not persist this session");
-    return new LocalProgressStore(new MemoryStorage());
+    return new MemoryStorage();
   }
 }

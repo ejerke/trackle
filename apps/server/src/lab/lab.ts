@@ -5,6 +5,7 @@
  *   npm run lab -- --difficulty 1 --count 200
  *   npm run lab -- --difficulty 1 --raw          # unfiltered candidates: what would each filter reject?
  *   npm run lab -- --difficulty 1 --show 5 --solution
+ *   npm run lab -- --difficulty 2 --raw --width 7 --height 7   # try another grid size
  *
  * Every puzzle printed comes with its seed; play it at
  * http://localhost:5173/lab/<difficulty>/<seed> while `npm run dev` is running.
@@ -24,6 +25,8 @@ const { values } = parseArgs({
     show: { type: "string", default: "3" },
     raw: { type: "boolean", default: false },
     solution: { type: "boolean", default: false },
+    width: { type: "string" },
+    height: { type: "string" },
   },
 });
 
@@ -31,6 +34,8 @@ const difficulty = Number(values.difficulty);
 const count = Number(values.count);
 const show = Number(values.show);
 const profile = profileFor(difficulty);
+const width = values.width ? Number(values.width) : profile.width;
+const height = values.height ? Number(values.height) : profile.height;
 
 interface Sample {
   seed: string;
@@ -49,13 +54,13 @@ for (let i = 0; i < count; i++) {
   const t = performance.now();
   if (values.raw) {
     // A single unfiltered candidate, built exactly like the generator's attempt 0.
-    const { layout, solution } = generateCandidate(attemptRng(seed, 0), profile.width, profile.height, profile.extraHints);
+    const { layout, solution } = generateCandidate(attemptRng(seed, 0), width, height, profile.extraHints);
     const metrics = measure(layout);
     const failed = violations(profile.filters, metrics);
     samples.push({ seed, metrics, ms: performance.now() - t, attempts: 1, accepted: failed.length === 0, failed });
     if (shown.length < show) shown.push(describe(seed, metrics, failed) + "\n" + renderPuzzle(layout, values.solution ? solution : undefined));
   } else {
-    const g = generatePuzzle({ difficulty, seed });
+    const g = generatePuzzle({ difficulty, seed, width, height });
     samples.push({ seed, metrics: g.metrics, ms: performance.now() - t, attempts: g.attempts, accepted: g.accepted, failed: g.violations });
     if (shown.length < show) shown.push(describe(seed, g.metrics, g.violations) + "\n" + renderPuzzle(g.layout, values.solution ? g.solution : undefined));
   }
@@ -83,7 +88,7 @@ const table = (rows: [string, number[]][]) => {
 };
 const pct = (n: number) => `${((n / samples.length) * 100).toFixed(0)}%`;
 
-console.log(`\n${profile.name} (difficulty ${difficulty}) · ${samples.length} ${values.raw ? "raw candidates" : "puzzles"} · seeds ${values.prefix}0..${values.prefix}${count - 1}\n`);
+console.log(`\n${profile.name} (difficulty ${difficulty}) · ${width}x${height} · ${samples.length} ${values.raw ? "raw candidates" : "puzzles"} · seeds ${values.prefix}0..${values.prefix}${count - 1}\n`);
 
 const accepted = samples.filter((s) => s.accepted).length;
 console.log(values.raw ? `Would pass all filters: ${accepted} (${pct(accepted)})` : `Accepted: ${accepted} (${pct(accepted)}), fell back to best candidate: ${samples.length - accepted}`);

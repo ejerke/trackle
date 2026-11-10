@@ -35,6 +35,7 @@ export const DEFAULT_DIFFICULTY = 1;
 export const DIFFICULTY_NAMES: Readonly<Record<number, string>> = {
   0: "Easy",
   1: "Medium",
+  2: "Hard",
 };
 
 export function difficultyName(difficulty: number): string {

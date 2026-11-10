@@ -94,8 +94,11 @@ Why it works this way: [ADR 0008](adr/0008-difficulty-by-logic-rating.md).
 1. **Path**: random self-avoiding walk between two border cells, each end
    pointing outward, 35–70% of the grid area long.
 2. **Clues**: count track cells per row and column.
-3. **Uniqueness**: the brute-force solver (`solver.ts`) counts solutions,
-   stopping at 2. While there is more than one, reveal a random track cell as a hint.
+3. **Uniqueness**: count solutions (stopping at 2) with propagate-and-branch
+   (`countSolutions` in `logic.ts`: apply the tier 1–2 rules, branch on an
+   unknown edge only when stuck). While there is more than one, reveal a random
+   track cell as a hint. The slower brute-force `solver.ts` is kept as an
+   independent cross-check in tests ([ADR 0011](adr/0011-hard-difficulty.md)).
 4. **Minimise**: drop each hint not needed for uniqueness.
 5. **Extras**: add the profile's `extraHints`.
 
@@ -117,8 +120,9 @@ limit and filters on those metrics:
 
 | Level | Profile |
 | ----- | ------- |
-| 0 Easy | original generator: minimal hints + 2, no filters |
-| 1 Medium (daily) | no extra hints; tier exactly 2; tier 1 decides ≤ 60%; ≤ 1 giveaway line; 16–26 track squares |
+| 0 Easy | 6×6; original generator: minimal hints + 2, no filters |
+| 1 Medium (default) | 6×6; no extra hints; tier exactly 2; tier 1 decides ≤ 60%; ≤ 1 giveaway line; 16–26 track squares |
+| 2 Hard | 7×7; ≤ 2 hints; tier exactly 3, at least 2 trial steps; tier 1 decides ≤ 40%; no giveaway lines; 22–34 track squares |
 
 **Generate-and-filter**: attempt *n* builds a candidate with the RNG for
 `${seed}#${n}` and returns the first that passes every filter. Cheap filters

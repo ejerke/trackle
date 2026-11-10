@@ -16,9 +16,9 @@ import {
   type PuzzleMetrics,
 } from "@trackle/shared";
 import { cheapViolations, profileFor, violations } from "./difficulty.ts";
+import { countSolutions } from "./logic.ts";
 import { giveawayLines, measure } from "./metrics.ts";
 import { createRng, type Rng } from "./rng.ts";
-import { solve } from "./solver.ts";
 
 /**
  * SERVER ONLY. Bump when the algorithm or a difficulty profile changes in a
@@ -118,7 +118,7 @@ function completeCandidate(rng: Rng, width: number, height: number, path: Random
     endpoints: [start, end],
     hints: [],
   };
-  const isUnique = (hints: Hint[]) => solve({ ...base, hints }, 2).count === 1;
+  const isUnique = (hints: Hint[]) => hasUniqueSolution({ ...base, hints });
   const hintFor = (cell: Cell): Hint => ({ ...cell, piece: solution[cell.row]![cell.col]! });
 
   // Candidate hint cells: track cells other than A and B, in random order.
@@ -139,6 +139,15 @@ function completeCandidate(rng: Rng, width: number, height: number, path: Random
 
   hints.sort((x, y) => x.row - y.row || x.col - y.col);
   return { layout: { ...base, hints }, solution };
+}
+
+/**
+ * Exactly one solution? Uses the propagate-and-branch counter in logic.ts.
+ * It gives the same answer as the brute-force solver.ts (checked in tests),
+ * so the generated puzzles are unchanged; it is just much faster on large grids.
+ */
+export function hasUniqueSolution(layout: PuzzleLayout): boolean {
+  return countSolutions(layout, 2) === 1;
 }
 
 type Cell = { row: number; col: number };

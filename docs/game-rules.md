@@ -2,7 +2,7 @@
 
 ## Rules
 
-1. The grid (6 × 6 for the daily puzzle; the code supports other sizes) has two
+1. The grid (6 × 6 for Easy and Medium, 7 × 7 for Hard) has two
    track ends, **A** and **B**, on its border. Each end points out of the grid.
 2. Complete a single track from A to B.
 3. The clue above each column and to the right of each row is the number of
@@ -51,5 +51,6 @@ without schema changes. Each level has its own daily puzzle; the default is
 | ----- | ---------- |
 | 0 Easy | Some hint pieces; much of the grid follows from obvious line counts |
 | 1 Medium | No spare hints; needs "don't close a loop" reasoning, but never guessing |
+| 2 Hard | 7×7; no row or column gives itself away; needs "if this were track, something breaks" reasoning several times, but never guessing |
 
 How levels are defined and measured: [architecture.md](architecture.md#puzzle-generation).

@@ -7,9 +7,10 @@ import { solve } from "./solver.ts";
 const seeds = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}-${i}`);
 const EASY = 0;
 const MEDIUM = 1;
+const HARD = 2;
 
 describe("generatePuzzle", () => {
-  it.each([EASY, MEDIUM])("is deterministic for difficulty %i: same seed, same puzzle", (difficulty) => {
+  it.each([EASY, MEDIUM, HARD])("is deterministic for difficulty %i: same seed, same puzzle", (difficulty) => {
     const a = generatePuzzle({ difficulty, seed: "same" });
     const b = generatePuzzle({ difficulty, seed: "same" });
     expect(a).toEqual(b);
@@ -25,6 +26,7 @@ describe("generatePuzzle", () => {
   describe.each([
     [EASY, seeds("easy", 40)],
     [MEDIUM, seeds("medium", 15)],
+    [HARD, seeds("hard", 15)],
   ])("difficulty %i", (difficulty, testSeeds) => {
     it.each(testSeeds)("is valid and has exactly one solution (%s)", (seed) => {
       const { layout, solution } = generatePuzzle({ difficulty, seed });
@@ -44,6 +46,17 @@ describe("generatePuzzle", () => {
       expect(g.metrics.tier).toBe(2);
     }
   }, 30_000); // Medium generation takes ~100 ms per puzzle
+
+  it("only returns Hard puzzles that need trial reasoning but never guessing", () => {
+    for (const seed of seeds("hard-filters", 10)) {
+      const g = generatePuzzle({ difficulty: HARD, seed });
+      expect(g.accepted).toBe(true);
+      expect(g.layout.width).toBe(7);
+      expect(violations(profileFor(HARD).filters, g.metrics)).toEqual([]);
+      expect(g.metrics.tier).toBe(3);
+      expect(g.metrics.giveawayLines).toBe(0);
+    }
+  }, 30_000);
 
   it("uses a single unfiltered attempt for Easy", () => {
     const g = generatePuzzle({ difficulty: EASY, seed: "easy" });

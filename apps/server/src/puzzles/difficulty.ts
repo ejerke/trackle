@@ -34,6 +34,8 @@ export interface DifficultyFilters {
   maxTier1Progress?: number;
   /** Allowed hardest tiers (null = needs guessing). */
   tiers?: Array<PuzzleMetrics["tier"]>;
+  /** Require at least this many tier-3 (trial) deductions. */
+  minTier3Steps?: number;
 }
 
 export const DIFFICULTIES: readonly DifficultyProfile[] = [
@@ -63,6 +65,22 @@ export const DIFFICULTIES: readonly DifficultyProfile[] = [
       tiers: [2],
     },
   },
+  {
+    // First draft; tune with `npm run lab -- --difficulty 2`.
+    name: "Hard",
+    width: 7,
+    height: 7,
+    extraHints: 0,
+    maxAttempts: 3000,
+    filters: {
+      trackCells: [22, 34],
+      maxGiveawayLines: 0,
+      maxHints: 2,
+      maxTier1Progress: 0.4,
+      tiers: [3],
+      minTier3Steps: 2,
+    },
+  },
 ];
 
 export function profileFor(difficulty: number): DifficultyProfile {
@@ -88,5 +106,6 @@ export function violations(f: DifficultyFilters, m: PuzzleMetrics): string[] {
   if (f.maxHints !== undefined && m.hints > f.maxHints) v.push("hints");
   if (f.maxTier1Progress !== undefined && m.tier1Progress > f.maxTier1Progress) v.push("tier1Progress");
   if (f.tiers && !f.tiers.includes(m.tier)) v.push("tier");
+  if (f.minTier3Steps !== undefined && m.tier3Steps < f.minTier3Steps) v.push("tier3Steps");
   return v;
 }

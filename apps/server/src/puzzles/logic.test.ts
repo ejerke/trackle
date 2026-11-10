@@ -1,7 +1,8 @@
-import { E, N, S, W, type PuzzleLayout } from "@trackle/shared";
+import { E, N, S, W, validateTrack, type PuzzleLayout } from "@trackle/shared";
 import { describe, expect, it } from "vitest";
 import { attemptRng, generateCandidate } from "./generator.ts";
-import { rateLogic } from "./logic.ts";
+import { countSolutions, decidedMasks, rateLogic } from "./logic.ts";
+import { solve } from "./solver.ts";
 
 describe("rateLogic", () => {
   // The most important property: a rule may never deduce something false.
@@ -106,5 +107,51 @@ describe("rateLogic", () => {
       hints: [{ row: 1, col: 0, piece: N | S }],
     };
     expect(rateLogic(layout).cells).toEqual([[1], [1], [1]]);
+  });
+});
+
+describe("countSolutions", () => {
+  // Two independent algorithms (propagate-and-branch vs plain depth-first
+  // search) must agree, including on puzzles with several solutions. Hints are
+  // dropped to create many non-unique layouts.
+  it("agrees with the brute-force solver on unique and non-unique puzzles", () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < 150; i++) {
+      const size = 4 + (i % 3); // 4x4, 5x5, 6x6
+      const { layout } = generateCandidate(attemptRng(`count-${i}`, 0), size, size, 0);
+      for (const hints of [layout.hints, []]) {
+        const variant = { ...layout, hints };
+        const expected = solve(variant, 3).count;
+        expect(countSolutions(variant, 3), `count-${i} with ${hints.length} hints`).toBe(expected);
+        seen.add(expected);
+      }
+    }
+    expect(seen).toContain(1);
+    expect(seen).toContain(3); // the test really covers ambiguous puzzles
+  });
+
+  it("returns 0 for contradictory puzzles", () => {
+    const impossible: PuzzleLayout = {
+      width: 2,
+      height: 2,
+      rowClues: [2, 1],
+      colClues: [2, 1],
+      endpoints: [
+        { row: 0, col: 0, dir: W },
+        { row: 0, col: 1, dir: E },
+      ],
+      hints: [],
+    };
+    expect(countSolutions(impossible)).toBe(0);
+  });
+
+  it("only ever decides valid tracks", () => {
+    for (let i = 0; i < 100; i++) {
+      const { layout, solution } = generateCandidate(attemptRng(`decided-${i}`, 0), 6, 6, 0);
+      const masks = decidedMasks(layout);
+      if (masks === null) continue; // tiers 1-2 alone didn't finish
+      expect(validateTrack(layout, masks)).toEqual({ ok: true });
+      expect(masks).toEqual(solution);
+    }
   });
 });

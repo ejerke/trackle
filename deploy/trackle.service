@@ -11,8 +11,9 @@ Wants=network-online.target
 Type=simple
 User=trackle
 Group=trackle
-WorkingDirectory=/opt/trackle
+WorkingDirectory=/opt/trackle/current
 
+# `current` is a symlink to the live release (deploy/deploy.sh switches it).
 # Node 24 runs the TypeScript sources directly (no build step for the server).
 # Adjust the path if node lives elsewhere (`command -v node`).
 ExecStart=/usr/bin/node apps/server/src/index.ts

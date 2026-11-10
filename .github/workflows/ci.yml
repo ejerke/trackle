@@ -33,3 +33,22 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Continuous deployment: a commit on master that passed every check above is
+  # pushed to the `production` branch. The server polls that branch and deploys
+  # it (deploy/trackle-deploy.timer), so GitHub never needs access to the server.
+  promote:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # No --force: production only ever moves forward along master. To keep
+      # the server on an older commit, use `deploy.sh <commit>` there, which
+      # pauses automatic deploys (docs/deployment.md#rolling-back).
+      - run: git push origin HEAD:refs/heads/production

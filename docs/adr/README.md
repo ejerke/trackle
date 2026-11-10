@@ -24,3 +24,4 @@ Template: copy [0000-template.md](0000-template.md) to the next number.
 | 0013 | [Sync progress to the account, local-first](0013-progress-sync.md) | Accepted |
 | 0014 | [Hints and answers, recorded so "solved it yourself" means something](0014-hints-and-answers.md) | Accepted |
 | 0015 | [No leaderboards: personal stats on the honor system](0015-no-leaderboards.md) | Accepted |
+| 0016 | [Pull-based continuous deployment of CI-approved commits](0016-pull-based-continuous-deployment.md) | Accepted |

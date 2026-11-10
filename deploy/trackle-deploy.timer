@@ -1,0 +1,12 @@
+# Check for a new production commit one minute after the previous check ended.
+#   sudo systemctl enable --now trackle-deploy.timer
+#   sudo systemctl disable --now trackle-deploy.timer   # turn CD off
+[Unit]
+Description=Poll for Trackle deploys
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,21 @@
+# Continuous deployment: deploy origin/production if it moved since the last
+# deploy. Triggered every minute by trackle-deploy.timer; does nothing when
+# there's nothing new, deploys are paused (HOLD) or that commit already failed.
+#   journalctl -u trackle-deploy      # what it did
+[Unit]
+Description=Deploy Trackle if CI promoted a new commit
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=trackle
+Group=trackle
+# Runs the script from the release that's live now. Release folders never
+# change, so a deploy can't rewrite the script while it runs.
+ExecStart=/opt/trackle/current/deploy/deploy.sh --auto
+# node, npm and git must be on this PATH (edit if node lives elsewhere).
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+# npm ci + tests + build on a small machine.
+TimeoutStartSec=20min
+# No NoNewPrivileges here: the script needs sudo for `systemctl restart trackle`.

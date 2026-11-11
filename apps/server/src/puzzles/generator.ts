@@ -118,8 +118,8 @@ export function generateCandidate(
  * Clues from the path, then hints: reveal cells until the solution is unique,
  * drop every hint that isn't needed, then add `extraHints` more.
  *
- * With crossings, a coin flip decides whether the crossing is given as a
- * hint, or the player has to find where the track crosses itself.
+ * Crossings are always given as hints (drawn as bridges): players can't
+ * build a crossing themselves.
  */
 function completeCandidate(
   rng: Rng,
@@ -144,10 +144,9 @@ function completeCandidate(
   const hintFor = (cell: Cell): Hint => ({ ...cell, piece: solution[cell.row]![cell.col]! });
   const key = (c: Cell) => `${c.row}:${c.col}`;
 
-  // Crossing squares are either all given up front or never given.
+  // Crossing squares are always given up front.
   const crossingCells = [...new Map(cells.filter((c) => solution[c.row]![c.col] === CROSSING).map((c) => [key(c), c])).values()];
-  const giveCrossings = crossingCells.length > 0 && rng.next() < 0.5;
-  const forced = giveCrossings ? crossingCells.map(hintFor) : [];
+  const forced = crossingCells.map(hintFor);
   const isUnique = (hints: Hint[]) => hasUniqueSolution({ ...base, hints: [...forced, ...hints] });
 
   // Candidate hint cells: track cells other than A, B and crossings, in random order.

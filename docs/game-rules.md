@@ -14,8 +14,8 @@
    - **Crossings** (Insane): the puzzle says how many times the track crosses
      itself. A crossing (┼) is a square the track passes twice, straight over
      at right angles; it counts once in its row and column. A and B's squares
-     are never crossings. Half the time a crossing is given as a hint; the
-     other half the player must work out where it is.
+     are never crossings. Crossings are always given as hints and drawn as a
+     bridge; players can't build one themselves.
 5. Some squares may be given as **hints**: their piece is fixed and part of the
    solution.
 6. Every puzzle has exactly one solution.
@@ -50,7 +50,9 @@ every day; the choice is remembered) and switches between **Today** and
 **New random**. A random puzzle's link (`/random/<difficulty>/<seed>`) can be
 shared: it always shows the same puzzle. On random puzzles, switching
 difficulty returns to the last random puzzle you had at that difficulty; only
-**New random** makes a new one.
+**New random** makes new ones. Since it sits beside all the difficulties, it
+starts over for all of them: each difficulty gets a new puzzle the next time
+it's picked, and keeps it from then on.
 
 Progress is saved in the browser, so reloading keeps the board and solved state
 (see [client-storage.md](client-storage.md)).
@@ -105,7 +107,7 @@ generator makes each level's puzzles is in
 | 0 Easy | A short, gently winding track; line counts and "two exits per square" solve the whole thing |
 | 1 Medium | No spare hints; needs "don't close a loop" reasoning, but never guessing |
 | 2 Hard | 8×8, a long track, at most one piece given; no row or column gives itself away; needs "if this were track, something breaks" reasoning many times, but never guessing |
-| 4 Insane | Hard's demands, plus the track crosses itself once (given or not) |
+| 4 Insane | Hard's demands, plus the track crosses itself once, over a given bridge |
 | 3 Super-duper hard | A joke: 9×9 and no hints, but the track is (almost) a straight line |
 
 How levels are defined and measured: [architecture.md](architecture.md#puzzle-generation).

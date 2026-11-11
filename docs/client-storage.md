@@ -125,6 +125,7 @@ navigates away immediately.
 
 `trackle:prefs:lastRandom` remembers the last random puzzle per difficulty,
 so switching difficulty on random puzzles returns to it (per browser).
+**New random** removes the whole key, so every difficulty gets a new puzzle.
 
 ## Robustness rules
 

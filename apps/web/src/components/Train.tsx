@@ -1,11 +1,13 @@
-import { DELTA, type Dir, type PuzzleLayout } from "@trackle/shared";
+import { DELTA, opposite, type Dir, type PuzzleLayout } from "@trackle/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RouteStep } from "../board/model";
 
 /**
  * A little train that runs along a finished track, from A to B, as a
- * celebration. It drives the SVG directly from requestAnimationFrame rather
- * than through React state, so a run costs no re-renders.
+ * celebration. Until then its engine waits on A's stub, outside the grid, so
+ * it's clear which end it starts from. It drives the SVG directly from
+ * requestAnimationFrame rather than through React state, so a run costs no
+ * re-renders.
  */
 
 type Point = { x: number; y: number };
@@ -18,16 +20,21 @@ const MAX_MS = 9000;
 const CAR_GAP = 0.06;
 /** Wagons behind the engine and tender. */
 const WAGONS = 4;
-/** Steam: a new puff this often, each lasting PUFF_MS. */
-const PUFF_EVERY_MS = 95;
-const PUFF_MS = 950;
-const PUFFS = Math.ceil(PUFF_MS / PUFF_EVERY_MS) + 1;
 /** Where the chimney sits on the engine, ahead of its centre. */
 const CHIMNEY_X = 0.21;
 /** Cars fade in/out over this distance at the stub tips. */
 const FADE = 0.35;
-/** How far the endpoint stubs reach out of the grid (matches Board's STUB). */
-const STUB = 0.45;
+/** How far B's stub reaches out of the grid. */
+export const STUB = 0.45;
+/** A's stub is longer: the engine waits on it, clear of the grid. */
+export const A_STUB = 0.75;
+/** Where the waiting engine's centre is, measured out from the grid edge. */
+const PARKED_OUT = 0.39;
+/** The parked engine's distance along the route path (which starts at A's stub tip). */
+const PARKED_AT = A_STUB - PARKED_OUT;
+
+/** Length of endpoint i's stub (0 = A). */
+export const stubLength = (i: number) => (i === 0 ? A_STUB : STUB);
 
 const sideMidpoint = (row: number, col: number, d: Dir): Point => ({
   x: col + 0.5 + DELTA[d][1] * 0.5,
@@ -38,7 +45,7 @@ const sideMidpoint = (row: number, col: number, d: Dir): Point => ({
 export function routePath(layout: PuzzleLayout, steps: RouteStep[]): string {
   const [a, b] = layout.endpoints;
   const aEdge = sideMidpoint(a.row, a.col, a.dir);
-  const start = { x: aEdge.x + DELTA[a.dir][1] * STUB, y: aEdge.y + DELTA[a.dir][0] * STUB };
+  const start = { x: aEdge.x + DELTA[a.dir][1] * A_STUB, y: aEdge.y + DELTA[a.dir][0] * A_STUB };
   let d = `M${start.x} ${start.y}L${aEdge.x} ${aEdge.y}`;
   for (const { cell, from, to } of steps) {
     const p1 = sideMidpoint(cell.row, cell.col, from);
@@ -205,39 +212,56 @@ function Car({ kind }: { kind: CarKind }) {
   }
 }
 
-interface Puff {
-  x: number;
-  y: number;
-  dx: number;
-  dy: number;
-  born: number;
+/** The engine waiting on A's stub, facing into the grid. */
+function parkedTransform(layout: PuzzleLayout): string {
+  const a = layout.endpoints[0];
+  const edge = sideMidpoint(a.row, a.col, a.dir);
+  const [dr, dc] = DELTA[a.dir];
+  const [ir, ic] = DELTA[opposite(a.dir)];
+  const angle = (Math.atan2(ir, ic) * 180) / Math.PI;
+  return `translate(${edge.x + dc * PARKED_OUT} ${edge.y + dr * PARKED_OUT}) rotate(${angle})`;
 }
 
-export function Train({ layout, steps }: { layout: PuzzleLayout; steps: RouteStep[] }) {
+/**
+ * With no route, just the engine waiting at A. Given a route (the track is
+ * finished), the whole train sets off from there. Remount (change `key`) to
+ * run again.
+ */
+export function Train({ layout, steps }: { layout: PuzzleLayout; steps: RouteStep[] | null }) {
+  if (!steps) {
+    return (
+      <g className="train train--parked" aria-hidden="true">
+        <g transform={parkedTransform(layout)}>
+          <Car kind="engine" />
+        </g>
+      </g>
+    );
+  }
+  return <RunningTrain layout={layout} steps={steps} />;
+}
+
+function RunningTrain({ layout, steps }: { layout: PuzzleLayout; steps: RouteStep[] }) {
   const d = useMemo(() => routePath(layout, steps), [layout, steps]);
   const pathRef = useRef<SVGPathElement>(null);
   const carRefs = useRef<(SVGGElement | null)[]>([]);
-  const puffRefs = useRef<(SVGCircleElement | null)[]>([]);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
     const path = pathRef.current;
     if (!path) return;
     const length = path.getTotalLength();
-    // The engine travels until the last car has left through B.
-    const travel = length + OFFSETS[OFFSETS.length - 1]!;
+    // The engine sets off from where it was parked and travels until the
+    // last car has left through B.
+    const travel = length + OFFSETS[OFFSETS.length - 1]! - PARKED_AT;
     const duration = Math.min(MAX_MS, Math.max(MIN_MS, (travel / SPEED) * 1000));
-    const puffs: (Puff | null)[] = Array.from({ length: PUFFS }, () => null);
-    let nextPuff = 0;
-    let lastPuffAt = -Infinity;
     let frame = 0;
     let startedAt: number | null = null;
 
-    /** Positions one car; returns its heading (radians) and opacity, or null when off the track. */
+    /** Positions one car `at` this far along the path (hidden when off it). */
     const place = (car: SVGGElement, at: number) => {
       if (at < 0 || at > length) {
         car.setAttribute("opacity", "0");
-        return null;
+        return;
       }
       const p = path.getPointAtLength(at);
       const ahead = path.getPointAtLength(Math.min(length, at + 0.02));
@@ -246,52 +270,15 @@ export function Train({ layout, steps }: { layout: PuzzleLayout; steps: RouteSte
       const opacity = Math.min(1, at / FADE, (length - at) / FADE);
       car.setAttribute("opacity", String(opacity));
       car.setAttribute("transform", `translate(${p.x} ${p.y}) rotate(${(angle * 180) / Math.PI})`);
-      return { p, angle, opacity };
     };
 
     const tick = (now: number) => {
       startedAt ??= now;
       const t = Math.min(1, (now - startedAt) / duration);
-      const head = easeInOut(t) * travel;
-      let engine: ReturnType<typeof place> = null;
-      carRefs.current.forEach((car, i) => {
-        if (!car) return;
-        const placed = place(car, head - OFFSETS[i]!);
-        if (i === 0) engine = placed;
-      });
+      const head = PARKED_AT + easeInOut(t) * travel;
+      carRefs.current.forEach((car, i) => car && place(car, head - OFFSETS[i]!));
 
-      // Steam: puff from the chimney while the engine is on the board.
-      const e = engine as ReturnType<typeof place>;
-      if (e && e.opacity > 0.5 && t < 1 && now - lastPuffAt >= PUFF_EVERY_MS) {
-        lastPuffAt = now;
-        const spread = (Math.random() - 0.5) * 0.12;
-        puffs[nextPuff] = {
-          x: e.p.x + Math.cos(e.angle) * CHIMNEY_X,
-          y: e.p.y + Math.sin(e.angle) * CHIMNEY_X,
-          // Drift backwards a little, as if left behind, and to one side.
-          dx: -Math.cos(e.angle) * 0.12 - Math.sin(e.angle) * spread,
-          dy: -Math.sin(e.angle) * 0.12 + Math.cos(e.angle) * spread,
-          born: now,
-        };
-        nextPuff = (nextPuff + 1) % PUFFS;
-      }
-      let steaming = false;
-      puffs.forEach((puff, i) => {
-        const el = puffRefs.current[i];
-        if (!el) return;
-        const age = puff ? (now - puff.born) / PUFF_MS : 1;
-        if (!puff || age >= 1) {
-          el.setAttribute("opacity", "0");
-          return;
-        }
-        steaming = true;
-        el.setAttribute("cx", String(puff.x + puff.dx * age));
-        el.setAttribute("cy", String(puff.y + puff.dy * age));
-        el.setAttribute("r", String(0.035 + 0.13 * Math.sqrt(age)));
-        el.setAttribute("opacity", String(0.6 * (1 - age) ** 1.5));
-      });
-
-      if (t < 1 || steaming) frame = requestAnimationFrame(tick);
+      if (t < 1) frame = requestAnimationFrame(tick);
       else setDone(true);
     };
     frame = requestAnimationFrame(tick);
@@ -306,15 +293,17 @@ export function Train({ layout, steps }: { layout: PuzzleLayout; steps: RouteSte
       {CARS.map((kind, i) => i)
         .reverse()
         .map((i) => (
-          <g key={i} ref={(el) => void (carRefs.current[i] = el)} opacity={0}>
+          // The engine starts where it was parked, so swapping from the parked
+          // engine shows no gap before the first frame.
+          <g
+            key={i}
+            ref={(el) => void (carRefs.current[i] = el)}
+            opacity={i === 0 ? 1 : 0}
+            transform={i === 0 ? parkedTransform(layout) : undefined}
+          >
             <Car kind={CARS[i]!} />
           </g>
         ))}
-      <g className="train__steam">
-        {Array.from({ length: PUFFS }, (_, i) => (
-          <circle key={i} ref={(el) => void (puffRefs.current[i] = el)} r={0} opacity={0} className="train__puff" />
-        ))}
-      </g>
     </g>
   );
 }

@@ -40,11 +40,14 @@ export function boardMasks(layout: PuzzleLayout, board: BoardState): number[][] 
 }
 
 /**
- * Most segments a square may hold: two, or four (a crossing) on puzzles that
- * have crossings. A and B's squares never cross.
+ * Most segments a square may hold: two. Crossings (bridges) are always given
+ * as hints, so players never build one; the only exception is a puzzle made
+ * before that rule, which tells of more crossings than it gives. A and B's
+ * squares never cross.
  */
 function maxSegments(layout: PuzzleLayout, cell: Cell): number {
-  if (!layout.crossings) return 2;
+  const given = layout.hints.filter((h) => h.piece === CROSSING).length;
+  if ((layout.crossings ?? 0) <= given) return 2;
   return layout.endpoints.some((ep) => ep.row === cell.row && ep.col === cell.col) ? 2 : 4;
 }
 

@@ -1,7 +1,7 @@
 import { LEVELS, LEVEL_ORDER } from "@trackle/shared";
 import { archiveUrl, dailyUrl, randomUrl } from "../routes";
 import { useAuth } from "../auth";
-import { lastRandomSeed, rememberDifficulty } from "../storage/preferences";
+import { forgetRandomSeeds, lastRandomSeed, rememberDifficulty } from "../storage/preferences";
 
 interface ModeBarProps {
   kind: "daily" | "random" | "archive";
@@ -24,8 +24,10 @@ function urlFor(kind: ModeBarProps["kind"], d: number, date?: string | null): st
 /**
  * Difficulty picker plus "Today" / "New random". On a daily page, picking a
  * difficulty shows that difficulty's daily puzzle; on a random page, the last
- * random puzzle you had at that difficulty (a new one if none). The choice is remembered for "/", and on
- * the account when signed in.
+ * random puzzle you had at that difficulty (a new one if none). "New random"
+ * sits beside all the difficulties, so it starts a new random puzzle for each
+ * of them, not just this one. The choice is remembered for "/", and on the
+ * account when signed in.
  */
 export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
   const { user } = useAuth();
@@ -65,7 +67,14 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
         >
           Today
         </button>
-        <button type="button" className="segmented__option" onClick={() => go(randomUrl(difficulty), difficulty)}>
+        <button
+          type="button"
+          className="segmented__option"
+          onClick={() => {
+            forgetRandomSeeds();
+            go(randomUrl(difficulty), difficulty);
+          }}
+        >
           <svg viewBox="0 0 20 20" aria-hidden="true" className="segmented__icon">
             <path
               d="M15.5 6.5A6 6 0 1 0 16 12M16 3v4h-4"

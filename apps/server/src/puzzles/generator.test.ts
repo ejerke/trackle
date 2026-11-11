@@ -92,19 +92,15 @@ describe("generatePuzzle", () => {
     }
   });
 
-  it("makes Insane tracks cross once, sometimes given and sometimes to find", () => {
-    let given = 0;
-    const n = 12;
-    for (const seed of seeds("insane-filters", n)) {
+  it("makes Insane tracks cross once, always given as a hint", () => {
+    for (const seed of seeds("insane-filters", 12)) {
       const g = generatePuzzle({ difficulty: INSANE, seed });
       expect(g.accepted).toBe(true);
       expect(g.layout.crossings).toBe(1);
       expect(g.metrics.tier).toBe(3);
       expect(g.solution.flat().filter((m) => m === CROSSING)).toHaveLength(1);
-      if (g.layout.hints.some((h) => h.piece === CROSSING)) given++;
+      expect(g.layout.hints.filter((h) => h.piece === CROSSING)).toHaveLength(1);
     }
-    expect(given).toBeGreaterThan(0);
-    expect(given).toBeLessThan(n);
   }, 30_000);
 
   it("leaves the crossing count out of puzzles without crossings", () => {

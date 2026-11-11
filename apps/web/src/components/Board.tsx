@@ -1,8 +1,8 @@
-import { DELTA, DIRS, E, N, S, W, edgeBetween, edgeCells, inBounds, type Cell, type Dir, type PuzzleLayout } from "@trackle/shared";
+import { CROSSING, DELTA, DIRS, E, N, S, W, edgeBetween, edgeCells, inBounds, type Cell, type Dir, type PuzzleLayout } from "@trackle/shared";
 import { useEffect, useMemo, useRef, type PointerEvent } from "react";
 import { allEdges, boardCounts, boardMasks, cellKey, clueStatus, setEdge, setMark, traceRoute, type Mode } from "../board/model";
 import type { BoardState, CellMark } from "../storage/progressStore";
-import { Train } from "./Train";
+import { A_STUB, STUB, Train, stubLength } from "./Train";
 
 export interface Highlight {
   tone: "hint" | "mistake";
@@ -24,15 +24,17 @@ interface BoardProps {
 
 // Board geometry, in SVG units where one cell = 1. The margins are as tight
 // as what's drawn there allows, since the board scales to the screen width:
-// left/bottom only hold A/B stubs (0.45 long) and their labels; top/right
-// hold the clues. The train may run a little past them (overflow is visible).
+// left/bottom only hold A/B stubs and their labels; top/right hold the clues.
+// A's stub is longer (the engine waits on it), so A's side gets a little more
+// room. The train may run a little past them (overflow is visible).
 const LEFT = 0.6;
 const TOP = 1.15;
 const RIGHT = 1.2;
-/** Clues sit this far outside the grid, just clear of an A/B stub's tip. */
-const CLUE_OFFSET = 0.85;
-const STUB = 0.45;
 const BOTTOM = 0.6;
+/** Clues sit this far outside the grid, just clear of a (B-length) stub's tip. */
+const CLUE_OFFSET = 0.85;
+/** Extra room on A's side for its longer stub. */
+const A_EXTRA = A_STUB - STUB;
 /** A tap closer than this to a cell side toggles the segment across that side. */
 const TAP_EDGE_DISTANCE = 0.32;
 
@@ -92,8 +94,32 @@ function Rails({ d, kind, gap }: { d: string; kind: "player" | "fixed"; gap: str
   );
 }
 
+/**
+ * A crossing, drawn as a bridge: the north-south track runs underneath, the
+ * east-west track over a deck with flared parapets (the map symbol for a bridge).
+ */
+function Bridge({ cell, kind, gap }: { cell: Cell; kind: "player" | "fixed"; gap: string }) {
+  const x = cell.col;
+  const y = cell.row + 0.5;
+  const parapet = (side: 1 | -1) =>
+    `M${x + 0.02} ${y + side * 0.42}L${x + 0.13} ${y + side * 0.31}H${x + 0.87}L${x + 0.98} ${y + side * 0.42}`;
+  return (
+    <g className="bridge">
+      <Rails d={`M${x + 0.5} ${cell.row}V${cell.row + 1}`} kind={kind} gap={gap} />
+      <rect x={x + 0.12} y={y - 0.26} width={0.76} height={0.66} rx={0.06} className="bridge__shadow" />
+      <rect x={x + 0.1} y={y - 0.31} width={0.8} height={0.62} className="bridge__deck" />
+      <Rails d={`M${x} ${y}H${x + 1}`} kind={kind} gap="var(--bridge)" />
+      <path d={parapet(-1)} className="bridge__parapet" />
+      <path d={parapet(1)} className="bridge__parapet" />
+    </g>
+  );
+}
+
 export function Board({ layout, board, mode, locked, onChange, highlight, trainRun = 0 }: BoardProps) {
   const { width, height } = layout;
+  const aSide = layout.endpoints[0].dir;
+  const extra = (side: Dir) => (aSide === side ? A_EXTRA : 0);
+  const [left, top, right, bottom] = [LEFT + extra(W), TOP + extra(N), RIGHT + extra(E), BOTTOM + extra(S)];
   const svgRef = useRef<SVGSVGElement>(null);
   const boardRef = useRef(board);
   boardRef.current = board;
@@ -233,7 +259,7 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
     <svg
       ref={svgRef}
       className={`board board--${mode}${locked ? " board--locked" : ""}`}
-      viewBox={`${-LEFT} ${-TOP} ${width + LEFT + RIGHT} ${height + TOP + BOTTOM}`}
+      viewBox={`${-left} ${-top} ${width + left + right} ${height + top + bottom}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -270,7 +296,8 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
       {layout.endpoints.map((ep, i) => {
         const edge = midpoint(ep, ep.dir);
         const [dr, dc] = DELTA[ep.dir];
-        const tip = { x: edge.x + dc * STUB, y: edge.y + dr * STUB };
+        const stub = stubLength(i);
+        const tip = { x: edge.x + dc * stub, y: edge.y + dr * stub };
         const vertical = ep.dir === N || ep.dir === S;
         const label = {
           x: edge.x + dc * 0.24 + (vertical ? 0.46 : 0),
@@ -296,14 +323,9 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
           const key = edgeBetween(cell, { row: cell.row + DELTA[d][0], col: cell.col + DELTA[d][1] });
           return key !== null && playerEdges.has(key);
         });
-        return (
-          <Rails
-            key={`t${cellKey(cell)}`}
-            d={piecePath(cell, m)}
-            kind={fixed || !anyPlayer ? "fixed" : "player"}
-            gap={fillFor(cell)}
-          />
-        );
+        const kind = fixed || !anyPlayer ? "fixed" : "player";
+        if (m === CROSSING) return <Bridge key={`t${cellKey(cell)}`} cell={cell} kind={kind} gap={fillFor(cell)} />;
+        return <Rails key={`t${cellKey(cell)}`} d={piecePath(cell, m)} kind={kind} gap={fillFor(cell)} />;
       })}
 
       {/* Hint squares get a subtle corner tick so they read as "given". */}
@@ -343,15 +365,15 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
         );
       })}
 
-      {route && <Train key={trainRun} layout={layout} steps={route} />}
+      <Train key={route ? trainRun : "parked"} layout={layout} steps={route} />
 
       {layout.colClues.map((clue, c) => (
-        <text key={`cc${c}`} x={c + 0.5} y={-CLUE_OFFSET} className={`clue clue--${clueStatus(counts.cols[c]!, clue)}`}>
+        <text key={`cc${c}`} x={c + 0.5} y={-CLUE_OFFSET - extra(N)} className={`clue clue--${clueStatus(counts.cols[c]!, clue)}`}>
           {clue}
         </text>
       ))}
       {layout.rowClues.map((clue, r) => (
-        <text key={`rc${r}`} x={width + CLUE_OFFSET} y={r + 0.5} className={`clue clue--${clueStatus(counts.rows[r]!, clue)}`}>
+        <text key={`rc${r}`} x={width + CLUE_OFFSET + extra(E)} y={r + 0.5} className={`clue clue--${clueStatus(counts.rows[r]!, clue)}`}>
           {clue}
         </text>
       ))}

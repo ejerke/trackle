@@ -50,8 +50,8 @@ export function HowToPlay() {
               branches or crosses itself.
             </li>
             <li>
-              Except on <b>Insane</b>: there the track crosses itself once, straight over at right angles. Draw all four
-              sides of that square. Sometimes the crossing is given; sometimes you have to find it.
+              Except on <b>Insane</b>: there the track crosses itself once, straight over a bridge. The bridge is
+              given; you can't build one yourself.
             </li>
             <li>The numbers say how many squares in each column (top) and row (right) contain track.</li>
             <li>Pieces with a corner tick are given and can't be changed.</li>

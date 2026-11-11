@@ -106,8 +106,8 @@ const GENERATION: readonly GenerationSettings[] = [
     filters: {},
   },
   {
-    // Insane: Hard's demands plus one crossing; half the time it's given as a
-    // hint, half the time the player must find it.
+    // Insane: Hard's demands plus one crossing, always given as a hint (a
+    // bridge). maxHints counts it, so: at most 2 hints besides the bridge.
     extraHints: 0,
     maxAttempts: 3000,
     pathStyle: "wander",
@@ -115,7 +115,7 @@ const GENERATION: readonly GenerationSettings[] = [
     filters: {
       trackCells: [28, 44],
       maxGiveawayLines: 0,
-      maxHints: 2,
+      maxHints: 3,
       maxTier1Progress: 0.2,
       tiers: [3],
       minTier3Steps: 8,

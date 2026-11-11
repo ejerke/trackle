@@ -57,7 +57,8 @@ export function syncDifficultyWithAccount(accountChoice: number | null): void {
 /**
  * The random puzzle last opened at each difficulty, so switching
  * Hard → Medium → Hard on random puzzles returns to the same Hard puzzle.
- * Only "New random" makes a new one. Per browser.
+ * Only "New random" makes new ones: it forgets them all, so each difficulty
+ * gets a new puzzle the next time it's picked (which is then kept). Per browser.
  */
 const LAST_RANDOM_KEY = "trackle:prefs:lastRandom";
 
@@ -80,5 +81,14 @@ export function rememberRandomSeed(difficulty: number, seed: string): void {
     window.localStorage.setItem(LAST_RANDOM_KEY, JSON.stringify({ ...readLastRandom(), [difficulty]: seed }));
   } catch {
     // Not remembering is fine: switching difficulty then makes a new puzzle.
+  }
+}
+
+/** "New random": every difficulty starts over with a new random puzzle. */
+export function forgetRandomSeeds(): void {
+  try {
+    window.localStorage.removeItem(LAST_RANDOM_KEY);
+  } catch {
+    // Then switching difficulty returns to the old puzzles; harmless.
   }
 }

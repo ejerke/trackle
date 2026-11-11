@@ -126,12 +126,20 @@ const crossSolution = [
 describe("board model with crossings", () => {
   const drawn = (edges: string[]) => edges.reduce((b, e) => setEdge(crossLayout, b, e, true), empty);
 
-  it("lets a square take four segments only on puzzles with crossings", () => {
-    const four = drawn(["h:1:0", "h:1:1", "v:0:1", "v:1:1"]);
-    expect(boardMasks(crossLayout, four)[1]![1]).toBe(N | E | S | W);
+  it("never lets players build a crossing when the crossings are given", () => {
+    const bridged = { ...crossLayout, hints: [{ row: 1, col: 1, piece: N | E | S | W }] };
+    expect(boardMasks(bridged, empty)[1]![1]).toBe(N | E | S | W);
+    // (0,1) already holds its E-S curve; a third segment is refused.
+    const curve = ["h:0:1", "v:0:1"].reduce((b, e) => setEdge(bridged, b, e, true), empty);
+    expect(setEdge(bridged, curve, "h:0:0", true)).toBe(curve);
     const plain = { ...crossLayout, crossings: undefined };
     const two = ["h:1:0", "h:1:1", "v:0:1"].reduce((b, e) => setEdge(plain, b, e, true), empty);
     expect(boardMasks(plain, two)[1]![1]).toBe(E | W);
+  });
+
+  it("still lets players cross on older puzzles whose crossing isn't given", () => {
+    const four = drawn(["h:1:0", "h:1:1", "v:0:1", "v:1:1"]);
+    expect(boardMasks(crossLayout, four)[1]![1]).toBe(N | E | S | W);
   });
 
   it("never lets A or B's square cross", () => {

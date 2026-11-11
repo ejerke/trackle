@@ -29,7 +29,8 @@
   --train-wood: #9a6a3c;
   --train-log-end: #e2c08e;
   --train-tank: #8d97a0;
-  --smoke: #a39a8c;
+  --bridge: #e4d3b3;
+  --bridge-shadow: rgba(60, 45, 25, 0.28);
   --radius: 10px;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -66,7 +67,8 @@
     --train-wood: #a8784a;
     --train-log-end: #e8c896;
     --train-tank: #a7b1ba;
-    --smoke: #e9e4da;
+    --bridge: #4a4339;
+    --bridge-shadow: rgba(0, 0, 0, 0.45);
   }
 }
 
@@ -273,6 +275,21 @@ a {
   stroke: var(--rail-fixed);
 }
 
+/* A crossing is a bridge: one track passes under the other. */
+.bridge__shadow {
+  fill: var(--bridge-shadow);
+}
+.bridge__deck {
+  fill: var(--bridge);
+}
+.bridge__parapet {
+  fill: none;
+  stroke: var(--rail-fixed);
+  stroke-width: 0.05;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* ---- celebration train ---- */
 .train {
   pointer-events: none;
@@ -323,6 +340,10 @@ a {
   fill: var(--train-lamp);
   opacity: 0.22;
 }
+/* Waiting at A: lamp off, so nothing reaches into the grid. */
+.train--parked .train__beam {
+  display: none;
+}
 .train__cab {
   fill: var(--train-cab);
 }
@@ -368,9 +389,6 @@ a {
 }
 .train__tank {
   fill: var(--train-tank);
-}
-.train__puff {
-  fill: var(--smoke);
 }
 
 .clue {

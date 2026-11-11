@@ -1,4 +1,4 @@
-import { LEVELS } from "@trackle/shared";
+import { LEVELS, LEVEL_ORDER } from "@trackle/shared";
 import { archiveUrl, dailyUrl, randomUrl } from "../routes";
 import { useAuth } from "../auth";
 import { lastRandomSeed, rememberDifficulty } from "../storage/preferences";
@@ -37,7 +37,7 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
   return (
     <nav className="mode-bar" aria-label="Puzzle selection">
       <div className="segmented" role="group" aria-label="Difficulty">
-        {LEVELS.map(({ name, shortName }, d) => (
+        {LEVEL_ORDER.map((d) => ({ d, ...LEVELS[d]! })).map(({ d, name, shortName }) => (
           <button
             key={d}
             type="button"

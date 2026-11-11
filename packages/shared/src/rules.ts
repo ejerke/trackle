@@ -1,4 +1,4 @@
-import { DELTA, DIRS, bitCount, inBounds, opposite, type Dir } from "./grid.ts";
+import { CROSSING, DELTA, DIRS, bitCount, inBounds, opposite, type Dir } from "./grid.ts";
 import type { PuzzleLayout } from "./types.ts";
 
 export interface LineCounts {
@@ -33,6 +33,7 @@ export type TrackError =
   | "missing_endpoint"
   | "hint_mismatch"
   | "clue_mismatch"
+  | "crossing_mismatch"
   | "not_connected";
 
 export type TrackValidation = { ok: true } | { ok: false; error: TrackError };
@@ -53,13 +54,17 @@ export function validateTrack(layout: PuzzleLayout, cells: number[][]): TrackVal
   const isEndpoint = (r: number, c: number, d: Dir): boolean =>
     layout.endpoints.some((ep) => ep.row === r && ep.col === c && ep.dir === d);
 
+  const isEndpointCell = (r: number, c: number): boolean => layout.endpoints.some((ep) => ep.row === r && ep.col === c);
+
   let trackCells = 0;
+  let crossings = 0;
   for (let r = 0; r < height; r++) {
     for (let c = 0; c < width; c++) {
       const m = at(r, c);
       if (!Number.isInteger(m) || m < 0 || m > 15) return fail("invalid_cell");
       if (m === 0) continue;
-      if (bitCount(m) !== 2) return fail("invalid_cell");
+      if (m === CROSSING && !isEndpointCell(r, c)) crossings++;
+      else if (bitCount(m) !== 2) return fail("invalid_cell");
       trackCells++;
       for (const d of DIRS) {
         if (!(m & d)) continue;
@@ -87,9 +92,13 @@ export function validateTrack(layout: PuzzleLayout, cells: number[][]): TrackVal
   if (!sameAs(counts.rows, layout.rowClues) || !sameAs(counts.cols, layout.colClues)) {
     return fail("clue_mismatch");
   }
+  if (crossings !== (layout.crossings ?? 0)) return fail("crossing_mismatch");
 
-  // Walk from A. Every cell has degree 2 and the only exits are A and B, so the
-  // walk must end at B; it is a single track iff it visits every track cell.
+  // Walk from A, straight on over crossings. Each pass through a square is
+  // used at most once and the only exits are A and B, so the walk must end at
+  // B; it is a single track iff it makes every pass: one per square, two per
+  // crossing.
+  const passes = trackCells + crossings;
   const [a, b] = layout.endpoints;
   let row = a.row;
   let col = a.col;
@@ -97,13 +106,14 @@ export function validateTrack(layout: PuzzleLayout, cells: number[][]): TrackVal
   let visited = 0;
   for (;;) {
     visited++;
-    const out = (at(row, col) & ~cameFrom) as Dir;
+    const m = at(row, col);
+    const out = (m === CROSSING ? opposite(cameFrom) : m & ~cameFrom) as Dir;
     if (row === b.row && col === b.col && out === b.dir) break;
     const [dr, dc] = DELTA[out];
     row += dr;
     col += dc;
     cameFrom = opposite(out);
-    if (!inBounds(width, height, row, col) || visited > trackCells) return fail("not_connected");
+    if (!inBounds(width, height, row, col) || visited > passes) return fail("not_connected");
   }
-  return visited === trackCells ? { ok: true } : fail("not_connected");
+  return visited === passes ? { ok: true } : fail("not_connected");
 }

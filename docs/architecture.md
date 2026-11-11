@@ -128,6 +128,17 @@ metrics above):
 | 1 Medium (default) | 6×6; no extra hints; tier exactly 2; tier 1 decides ≤ 60%; ≤ 1 giveaway line; 16–26 track squares |
 | 2 Hard | 8×8; ≤ 1 hint; tier exactly 3, at least 8 trial steps; tier 1 decides ≤ 20%; no giveaway lines; 28–44 track squares |
 | 3 Super-duper hard | 9×9; `pathStyle: "straight"`: edge to opposite edge with at most one one-square jog; no filters |
+| 4 Insane | Hard's filters (≤ 2 hints) plus `crossings: 1`: the random walk must cross itself once; a coin flip decides whether the crossing is a hint |
+
+Levels are numbered in the order they were added; `LEVEL_ORDER` (shared)
+is the order pickers and stats show them in.
+
+**Crossings** (ADR 0019). A crossing square has all four sides (mask 15) and
+counts once in the clues. The deductive solver follows track per square
+*side* rather than per square, so the two passes over a crossing are separate
+pieces; a square that might still become a crossing only joins its exits when
+they are straight across. The brute-force solver may re-enter a straight at
+right angles.
 
 **Generate-and-filter**: attempt *n* builds a candidate with the RNG for
 `${seed}#${n}` and returns the first that passes every filter. Cheap filters

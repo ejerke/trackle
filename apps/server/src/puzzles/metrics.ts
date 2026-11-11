@@ -1,4 +1,4 @@
-import { E, N, S, W, type PuzzleLayout, type PuzzleMetrics } from "@trackle/shared";
+import { CROSSING, E, N, S, W, type PuzzleLayout, type PuzzleMetrics } from "@trackle/shared";
 import { rateLogic } from "./logic.ts";
 
 /** Clues of 0 or the full line length: they decide a whole line at a glance. */
@@ -9,11 +9,11 @@ export function giveawayLines(layout: Pick<PuzzleLayout, "width" | "height" | "r
   );
 }
 
-/** Corner pieces in a solution: every track square that isn't a straight. */
+/** Corner pieces in a solution: every track square that isn't a straight or a crossing. */
 export function countTurns(solution: number[][]): number {
   let turns = 0;
   for (const row of solution) {
-    for (const m of row) if (m !== 0 && m !== (N | S) && m !== (E | W)) turns++;
+    for (const m of row) if (m !== 0 && m !== CROSSING && m !== (N | S) && m !== (E | W)) turns++;
   }
   return turns;
 }

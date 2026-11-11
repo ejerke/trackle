@@ -1,4 +1,4 @@
-import { DIFFICULTY_NAMES, addDays, solvedUnaided } from "@trackle/shared";
+import { LEVEL_ORDER, addDays, solvedUnaided } from "@trackle/shared";
 import type { PuzzleProgress } from "./storage/progressStore";
 
 /**
@@ -59,7 +59,7 @@ export function streaks(days: ReadonlySet<string>, today: string): { current: nu
 }
 
 export function computeStats(records: readonly PuzzleProgress[], today: string): PlayerStats {
-  const daily = Object.keys(DIFFICULTY_NAMES).map(Number).map((difficulty): DifficultyStats => {
+  const daily = LEVEL_ORDER.map((difficulty): DifficultyStats => {
     const mine = records.filter((p) => p.key.kind === "daily" && p.key.difficulty === difficulty);
     const solved = mine.filter((p) => p.solvedAt !== null);
     const onTheDay = new Set(mine.filter(solvedOnTheDay).map((p) => (p.key.kind === "daily" ? p.key.date : "")));

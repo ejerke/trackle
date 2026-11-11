@@ -95,3 +95,58 @@ describe("traceRoute", () => {
     expect(traceRoute(layout, broken)).toBeNull();
   });
 });
+
+/*
+ * 3x3 with one crossing at (1,1). A enters (1,0) from the west, the track
+ * runs east over (1,1), up, back west, and down over (1,1) to B below (2,1).
+ *
+ *   .  ┌─┐
+ *   A ─┼─┘
+ *   .  │ .
+ *      B
+ */
+const crossLayout: PuzzleLayout = {
+  width: 3,
+  height: 3,
+  rowClues: [2, 3, 1],
+  colClues: [1, 3, 2],
+  endpoints: [
+    { row: 1, col: 0, dir: W },
+    { row: 2, col: 1, dir: S },
+  ],
+  hints: [],
+  crossings: 1,
+};
+const crossSolution = [
+  [0, E | S, S | W],
+  [W | E, N | E | S | W, W | N],
+  [0, N | S, 0],
+];
+
+describe("board model with crossings", () => {
+  const drawn = (edges: string[]) => edges.reduce((b, e) => setEdge(crossLayout, b, e, true), empty);
+
+  it("lets a square take four segments only on puzzles with crossings", () => {
+    const four = drawn(["h:1:0", "h:1:1", "v:0:1", "v:1:1"]);
+    expect(boardMasks(crossLayout, four)[1]![1]).toBe(N | E | S | W);
+    const plain = { ...crossLayout, crossings: undefined };
+    const two = ["h:1:0", "h:1:1", "v:0:1"].reduce((b, e) => setEdge(plain, b, e, true), empty);
+    expect(boardMasks(plain, two)[1]![1]).toBe(E | W);
+  });
+
+  it("never lets A or B's square cross", () => {
+    // A's square already has its stub; one more segment makes two.
+    const b = drawn(["h:1:0", "v:0:0", "v:1:0"]);
+    expect(b.edges).toEqual(["h:1:0"]);
+  });
+
+  it("drives straight over a crossing, passing it twice", () => {
+    const route = traceRoute(crossLayout, crossSolution)!;
+    expect(route).toHaveLength(7);
+    const over = route.filter((s) => s.cell.row === 1 && s.cell.col === 1);
+    expect(over.map((s) => [s.from, s.to])).toEqual([
+      [W, E],
+      [N, S],
+    ]);
+  });
+});

@@ -21,6 +21,8 @@ interface PuzzleJson {
   colClues: number[];
   endpoints: [Endpoint, Endpoint];
   hints: Hint[];
+  /** Only stored when the puzzle has crossings. */
+  crossings?: number;
 }
 
 interface PuzzleRow {
@@ -74,6 +76,7 @@ export class PuzzleRepository {
       colClues: puzzle.colClues,
       endpoints: puzzle.endpoints,
       hints: puzzle.hints,
+      ...(puzzle.crossings ? { crossings: puzzle.crossings } : {}),
     };
     this.db
       .prepare(

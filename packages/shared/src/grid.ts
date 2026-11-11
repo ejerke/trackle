@@ -30,6 +30,9 @@ export function bitCount(mask: number): number {
   return n;
 }
 
+/** All four sides: two tracks crossing straight over each other (N-S and E-W). */
+export const CROSSING = N | E | S | W;
+
 /** True for the six valid pieces: two straights and four curves. */
 export function isPiece(mask: number): boolean {
   return mask >= 0 && mask <= 15 && bitCount(mask) === 2;

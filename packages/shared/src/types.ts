@@ -11,7 +11,7 @@ export interface Endpoint {
 export interface Hint {
   row: number;
   col: number;
-  /** Two-bit direction mask. */
+  /** Direction mask: two bits, or CROSSING. */
   piece: number;
 }
 
@@ -26,6 +26,12 @@ export interface PuzzleLayout {
   /** [A, B]. */
   endpoints: [Endpoint, Endpoint];
   hints: Hint[];
+  /**
+   * How many crossings the solution has: squares where the track crosses
+   * itself straight over (piece CROSSING). Absent means none. Told to the
+   * player, like the clues.
+   */
+  crossings?: number;
 }
 
 /** A layout plus its difficulty: everything the client needs to play. */

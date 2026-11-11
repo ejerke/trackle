@@ -1,4 +1,5 @@
 import {
+  CROSSING,
   DELTA,
   bitCount,
   edgeBetween,
@@ -38,7 +39,16 @@ export function boardMasks(layout: PuzzleLayout, board: BoardState): number[][] 
   return masksFromEdges(layout, allEdges(layout, board));
 }
 
-/** Add or remove a player segment. Refuses to give a cell more than two segments. */
+/**
+ * Most segments a square may hold: two, or four (a crossing) on puzzles that
+ * have crossings. A and B's squares never cross.
+ */
+function maxSegments(layout: PuzzleLayout, cell: Cell): number {
+  if (!layout.crossings) return 2;
+  return layout.endpoints.some((ep) => ep.row === cell.row && ep.col === cell.col) ? 2 : 4;
+}
+
+/** Add or remove a player segment. Refuses to give a square more segments than it may hold. */
 export function setEdge(layout: PuzzleLayout, board: BoardState, key: EdgeKey, on: boolean): BoardState {
   const present = board.edges.includes(key);
   if (fixedEdges(layout).has(key) || present === on) return board;
@@ -46,7 +56,7 @@ export function setEdge(layout: PuzzleLayout, board: BoardState, key: EdgeKey, o
 
   const masks = boardMasks(layout, board);
   const cells = edgeCells(key);
-  if (cells.some((c) => bitCount(masks[c.row]![c.col]!) >= 2)) return board;
+  if (cells.some((c) => bitCount(masks[c.row]![c.col]!) >= maxSegments(layout, c))) return board;
 
   // Laying track through a square overrides an earlier "no track" mark there.
   const marks = { ...board.marks };
@@ -110,7 +120,8 @@ export interface RouteStep {
 }
 
 /**
- * Follow the track from endpoint A to endpoint B, square by square. Returns
+ * Follow the track from endpoint A to endpoint B, square by square (straight
+ * on over crossings, which are passed twice). Returns
  * null if the track doesn't run unbroken from A to B (e.g. it isn't finished).
  */
 export function traceRoute(layout: PuzzleLayout, masks: number[][]): RouteStep[] | null {
@@ -118,11 +129,11 @@ export function traceRoute(layout: PuzzleLayout, masks: number[][]): RouteStep[]
   const steps: RouteStep[] = [];
   let cell: Cell = { row: a.row, col: a.col };
   let from: Dir = a.dir;
-  const limit = layout.width * layout.height;
+  const limit = layout.width * layout.height * 2;
   while (steps.length < limit) {
     const mask = masks[cell.row]?.[cell.col] ?? 0;
-    if (!(mask & from) || bitCount(mask) !== 2) return null;
-    const to = (mask & ~from) as Dir;
+    if (!(mask & from) || (bitCount(mask) !== 2 && mask !== CROSSING)) return null;
+    const to = (mask === CROSSING ? opposite(from) : mask & ~from) as Dir;
     steps.push({ cell, from, to });
     if (cell.row === b.row && cell.col === b.col && to === b.dir) return steps;
     const [dr, dc] = DELTA[to];

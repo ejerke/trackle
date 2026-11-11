@@ -49,6 +49,10 @@ export function HowToPlay() {
               Build one track from <b>A</b> to <b>B</b>. It can go straight or turn 90° inside a square, but never
               branches or crosses itself.
             </li>
+            <li>
+              Except on <b>Insane</b>: there the track crosses itself once, straight over at right angles. Draw all four
+              sides of that square. Sometimes the crossing is given; sometimes you have to find it.
+            </li>
             <li>The numbers say how many squares in each column (top) and row (right) contain track.</li>
             <li>Pieces with a corner tick are given and can't be changed.</li>
             <li>

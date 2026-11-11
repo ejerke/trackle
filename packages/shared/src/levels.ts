@@ -35,7 +35,13 @@ export const LEVELS: readonly Level[] = [
   { name: "Hard", width: 8, height: 8, hintLimit: 3, showAnswer: false },
   // A joke: the hardest-sounding level is (almost) a straight line.
   { name: "Super-duper hard", shortName: "Super-duper", width: 9, height: 9, hintLimit: 0, showAnswer: false },
+  // The track crosses itself once.
+  { name: "Insane", width: 8, height: 8, hintLimit: 3, showAnswer: false },
 ];
+
+/** Order of levels in pickers and lists: Insane before the joke level. */
+export const LEVEL_ORDER: readonly number[] = [0, 1, 2, 4, 3];
+if (LEVEL_ORDER.length !== LEVELS.length) throw new Error("LEVEL_ORDER must list every level");
 
 /** The difficulty served when the player hasn't chosen one. */
 export const DEFAULT_DIFFICULTY = 1;

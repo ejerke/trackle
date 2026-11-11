@@ -477,6 +477,14 @@ button,
   font-weight: 500;
 }
 
+/* A fact about this puzzle, e.g. that its track crosses itself. */
+.puzzle-note {
+  margin: 0.4rem 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .message {
   min-height: 1.5em;
   text-align: center;

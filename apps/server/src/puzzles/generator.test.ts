@@ -1,7 +1,8 @@
-import { validateTrack } from "@trackle/shared";
+import { CROSSING, validateTrack } from "@trackle/shared";
 import { describe, expect, it } from "vitest";
 import { DIFFICULTIES, profileFor, violations } from "./difficulty.ts";
 import { generatePuzzle } from "./generator.ts";
+import { countSolutions } from "./logic.ts";
 import { countTurns } from "./metrics.ts";
 import { solve } from "./solver.ts";
 
@@ -10,9 +11,10 @@ const EASY = 0;
 const MEDIUM = 1;
 const HARD = 2;
 const SUPER_DUPER = 3;
+const INSANE = 4;
 
 describe("generatePuzzle", () => {
-  it.each([EASY, MEDIUM, HARD, SUPER_DUPER])("is deterministic for difficulty %i: same seed, same puzzle", (difficulty) => {
+  it.each([EASY, MEDIUM, HARD, SUPER_DUPER, INSANE])("is deterministic for difficulty %i: same seed, same puzzle", (difficulty) => {
     const a = generatePuzzle({ difficulty, seed: "same" });
     const b = generatePuzzle({ difficulty, seed: "same" });
     expect(a).toEqual(b);
@@ -24,19 +26,27 @@ describe("generatePuzzle", () => {
     expect(a.solution).not.toEqual(b.solution);
   });
 
-  // The most important property of the whole project.
+  // The most important property of the whole project. Checked with the
+  // independent brute-force solver where it's fast enough; on 8x8 tracks it
+  // can take many seconds, so those use the propagate-and-branch counter,
+  // which logic.test.ts checks against brute force on hundreds of layouts.
   describe.each([
-    [EASY, seeds("easy", 40)],
-    [MEDIUM, seeds("medium", 15)],
-    [HARD, seeds("hard", 15)],
-    [SUPER_DUPER, seeds("super", 20)],
-  ])("difficulty %i", (difficulty, testSeeds) => {
+    [EASY, seeds("easy", 40), "brute force"],
+    [MEDIUM, seeds("medium", 15), "brute force"],
+    [SUPER_DUPER, seeds("super", 20), "brute force"],
+    [HARD, seeds("hard", 15), "counter"],
+    [INSANE, seeds("insane", 15), "counter"],
+  ])("difficulty %i", (difficulty, testSeeds, check) => {
     it.each(testSeeds)("is valid and has exactly one solution (%s)", (seed) => {
       const { layout, solution } = generatePuzzle({ difficulty, seed });
       expect(validateTrack(layout, solution)).toEqual({ ok: true });
-      const result = solve(layout, 2);
-      expect(result.count).toBe(1);
-      expect(result.solutions[0]).toEqual(solution);
+      if (check === "brute force") {
+        const result = solve(layout, 2);
+        expect(result.count).toBe(1);
+        expect(result.solutions[0]).toEqual(solution);
+      } else {
+        expect(countSolutions(layout, 2)).toBe(1);
+      }
       for (const h of layout.hints) expect(solution[h.row]![h.col]).toBe(h.piece);
     });
   });
@@ -79,6 +89,27 @@ describe("generatePuzzle", () => {
       expect(g.layout.width).toBe(9);
       expect(countTurns(g.solution)).toBeLessThanOrEqual(2);
       expect(g.metrics.tier).toBe(1);
+    }
+  });
+
+  it("makes Insane tracks cross once, sometimes given and sometimes to find", () => {
+    let given = 0;
+    const n = 12;
+    for (const seed of seeds("insane-filters", n)) {
+      const g = generatePuzzle({ difficulty: INSANE, seed });
+      expect(g.accepted).toBe(true);
+      expect(g.layout.crossings).toBe(1);
+      expect(g.metrics.tier).toBe(3);
+      expect(g.solution.flat().filter((m) => m === CROSSING)).toHaveLength(1);
+      if (g.layout.hints.some((h) => h.piece === CROSSING)) given++;
+    }
+    expect(given).toBeGreaterThan(0);
+    expect(given).toBeLessThan(n);
+  }, 30_000);
+
+  it("leaves the crossing count out of puzzles without crossings", () => {
+    for (const difficulty of [EASY, MEDIUM, HARD, SUPER_DUPER]) {
+      expect(generatePuzzle({ difficulty, seed: "no-cross" }).layout).not.toHaveProperty("crossings");
     }
   });
 

@@ -43,13 +43,32 @@ const midpoint = (cell: Cell, d: Dir): Point => ({
   y: cell.row + 0.5 + DELTA[d][0] * 0.5,
 });
 
-/** SVG path for one cell's track: a straight, a quarter-circle curve, or a half-length stub. */
+/**
+ * SVG path for one cell's track: a straight, a quarter-circle curve, or a
+ * half-length stub. Three or four segments (a crossing, or one being drawn)
+ * are straights across plus stubs for what's left over.
+ */
 function piecePath(cell: Cell, mask: number): string {
   const dirs = DIRS.filter((d) => mask & d);
   const center = { x: cell.col + 0.5, y: cell.row + 0.5 };
-  if (dirs.length === 1) {
-    const p = midpoint(cell, dirs[0]!);
+  const stub = (d: Dir) => {
+    const p = midpoint(cell, d);
     return `M${center.x} ${center.y}L${p.x} ${p.y}`;
+  };
+  if (dirs.length === 1) return stub(dirs[0]!);
+  if (dirs.length > 2) {
+    const parts: string[] = [];
+    let rest = mask;
+    for (const axis of [N | S, E | W]) {
+      if ((mask & axis) !== axis) continue;
+      const [a, b] = DIRS.filter((d) => axis & d) as [Dir, Dir];
+      const p1 = midpoint(cell, a);
+      const p2 = midpoint(cell, b);
+      parts.push(`M${p1.x} ${p1.y}L${p2.x} ${p2.y}`);
+      rest &= ~axis;
+    }
+    for (const d of DIRS) if (rest & d) parts.push(stub(d));
+    return parts.join("");
   }
   const [d1, d2] = dirs as [Dir, Dir];
   const p1 = midpoint(cell, d1);

@@ -17,9 +17,10 @@ interface PublicPuzzle {
   colClues: number[];                    // length = width, left to right
   endpoints: [Endpoint, Endpoint];       // A, B
   hints: Hint[];
+  crossings?: number;                    // times the track crosses itself; absent = 0
 }
 interface Endpoint { row: number; col: number; dir: Dir }   // dir points out of the grid
-interface Hint     { row: number; col: number; piece: number } // 2-bit direction mask
+interface Hint     { row: number; col: number; piece: number } // 2-bit direction mask, or 15 = crossing
 ```
 
 ## Rate limits
@@ -96,7 +97,7 @@ For a signed-in player the server records the help on the account.
 200 { "kind": "complete" }                                     // already the solution (not counted)
 ```
 
-Hard allows 3 hints per puzzle and Super-duper hard none (`hintLimit` in `LEVELS`). For a signed-in
+Hard and Insane allow 3 hints per puzzle and Super-duper hard none (`hintLimit` in `LEVELS`). For a signed-in
 player the server enforces it: the next request gets
 `403 { "error": "hint_limit" }`. Signed out, the browser enforces it.
 

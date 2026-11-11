@@ -2,13 +2,20 @@
 
 ## Rules
 
-1. The grid (6 × 6 for Easy and Medium, 7 × 7 for Hard) has two
+1. The grid (6 × 6 for Easy and Medium, 8 × 8 for Hard and Insane, 9 × 9 for
+   Super-duper hard) has two
    track ends, **A** and **B**, on its border. Each end points out of the grid.
 2. Complete a single track from A to B.
 3. The clue above each column and to the right of each row is the number of
    squares in that column/row that contain track.
 4. A square holds at most one piece: a **straight** (─ or │) or a **90° curve**
-   (└ ┌ ┐ ┘). The track never branches, crosses itself, or forms loops.
+   (└ ┌ ┐ ┘). The track never branches or forms loops, and doesn't cross
+   itself, except:
+   - **Crossings** (Insane): the puzzle says how many times the track crosses
+     itself. A crossing (┼) is a square the track passes twice, straight over
+     at right angles; it counts once in its row and column. A and B's squares
+     are never crossings. Half the time a crossing is given as a hint; the
+     other half the player must work out where it is.
 5. Some squares may be given as **hints**: their piece is fixed and part of the
    solution.
 6. Every puzzle has exactly one solution.
@@ -52,7 +59,7 @@ Progress is saved in the browser, so reloading keeps the board and solved state
 
 Under the board: **Hint** first points out a mistake if there is one (a wrong
 segment, or a "no track" mark on a track square, highlighted in red);
-otherwise it places the next piece logic would work out. Hard allows 3 hints
+otherwise it places the next piece logic would work out. Hard and Insane allow 3 hints
 per puzzle and Super-duper hard none; Easy and Medium are unlimited. **Show answer** (Easy and Medium
 only; asks for confirmation) shows the whole solution; the puzzle then counts
 as *answer shown*, never as solved. Both are counted: stats show "On your own"
@@ -98,6 +105,7 @@ generator makes each level's puzzles is in
 | 0 Easy | A short, gently winding track; line counts and "two exits per square" solve the whole thing |
 | 1 Medium | No spare hints; needs "don't close a loop" reasoning, but never guessing |
 | 2 Hard | 8×8, a long track, at most one piece given; no row or column gives itself away; needs "if this were track, something breaks" reasoning many times, but never guessing |
+| 4 Insane | Hard's demands, plus the track crosses itself once (given or not) |
 | 3 Super-duper hard | A joke: 9×9 and no hints, but the track is (almost) a straight line |
 
 How levels are defined and measured: [architecture.md](architecture.md#puzzle-generation).

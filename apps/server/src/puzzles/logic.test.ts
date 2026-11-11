@@ -5,7 +5,7 @@ import { countSolutions, decidedMasks, rateLogic } from "./logic.ts";
 import { solve } from "./solver.ts";
 
 /** Unfiltered random-walk candidates with no extra hints. */
-const RAW = { extraHints: 0, pathStyle: "wander" } as const;
+const RAW = { extraHints: 0, pathStyle: "wander", crossings: 0 } as const;
 
 describe("rateLogic", () => {
   // The most important property: a rule may never deduce something false.
@@ -155,6 +155,44 @@ describe("countSolutions", () => {
       if (masks === null) continue; // tiers 1-2 alone didn't finish
       expect(validateTrack(layout, masks)).toEqual({ ok: true });
       expect(masks).toEqual(solution);
+    }
+  });
+});
+
+describe("crossings", () => {
+  const CROSSING_RAW = { extraHints: 0, pathStyle: "wander", crossings: 1 } as const;
+
+  // The same two properties as above, on tracks that cross themselves.
+  it("is sound and agrees with the brute-force solver (150 crossing puzzles)", () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < 150; i++) {
+      const size = 5 + (i % 2);
+      const { layout, solution } = generateCandidate(attemptRng(`cross-${i}`, 0), size, size, CROSSING_RAW);
+      expect(validateTrack(layout, solution)).toEqual({ ok: true });
+      const rating = rateLogic(layout);
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const known = rating.cells[r]![c]!;
+          if (known !== 0) expect(known === 1, `cross-${i} cell ${r},${c}`).toBe(solution[r]![c] !== 0);
+        }
+      }
+      for (const hints of [layout.hints, []]) {
+        const variant = { ...layout, hints };
+        const expected = solve(variant, 3);
+        expect(countSolutions(variant, 3), `cross-${i} with ${hints.length} hints`).toBe(expected.count);
+        for (const s of expected.solutions) expect(validateTrack(variant, s)).toEqual({ ok: true });
+        seen.add(expected.count);
+      }
+    }
+    expect(seen).toContain(1);
+    expect(seen).toContain(3);
+  });
+
+  it("only ever decides valid crossing tracks", () => {
+    for (let i = 0; i < 60; i++) {
+      const { layout, solution } = generateCandidate(attemptRng(`cross-decided-${i}`, 0), 6, 6, CROSSING_RAW);
+      const masks = decidedMasks(layout);
+      if (masks !== null) expect(masks).toEqual(solution);
     }
   });
 });

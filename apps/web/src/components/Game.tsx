@@ -214,6 +214,14 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
         trainRun={trainRun}
       />
 
+      {!!puzzle.crossings && (
+        <p className="puzzle-note">
+          {puzzle.crossings === 1
+            ? "The track crosses itself once: straight over, at right angles."
+            : `The track crosses itself ${puzzle.crossings} times: straight over, at right angles.`}
+        </p>
+      )}
+
       {solved ? (
         <div className="result result--solved" role="status">
           <p className="result__title">{progress.hintsUsed === 0 ? "Track complete!" : "Track complete"}</p>

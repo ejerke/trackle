@@ -1,4 +1,5 @@
 import {
+  CROSSING,
   DELTA,
   DIRS,
   E,
@@ -28,7 +29,8 @@ import { createRng, type Rng } from "./rng.ts";
  * v1: single random path, minimal hints + extras.
  * v2: difficulty profiles; generate-and-filter with logic rating.
  * v3: Easy filtered to tier 1 and few turns; Hard on 8x8; Super-duper hard
- *     (straight paths).
+ *     (straight paths). Insane (crossings) added later without a bump: it
+ *     is a new level, and the other levels' puzzles didn't change.
  */
 export const GENERATOR_VERSION = 3;
 
@@ -77,7 +79,7 @@ export function generatePuzzle(options: GenerateOptions): GeneratedPuzzle {
 
   for (let attempt = 0; attempt < profile.maxAttempts; attempt++) {
     const rng = attemptRng(options.seed, attempt);
-    const path = makePath(profile.pathStyle, rng, width, height);
+    const path = makePath(profile, rng, width, height);
 
     // Cheap filters first: most candidates are rejected before the expensive
     // uniqueness and logic steps. (Attempt 0 is always fully evaluated so
@@ -85,14 +87,14 @@ export function generatePuzzle(options: GenerateOptions): GeneratedPuzzle {
     if (best) {
       const counts = lineCounts(width, height, (r, c) => path.cells.some((p) => p.row === r && p.col === c));
       const quick = {
-        trackCells: path.cells.length,
+        trackCells: counts.rows.reduce((sum, x) => sum + x, 0),
         giveawayLines: giveawayLines({ width, height, rowClues: counts.rows, colClues: counts.cols }),
         turns: countTurns(pathToMasks(width, height, path.cells, path.start.dir, path.end.dir)),
       };
       if (cheapViolations(profile.filters, quick).length > 0) continue;
     }
 
-    const candidate = completeCandidate(rng, width, height, path, profile.extraHints);
+    const candidate = completeCandidate(rng, width, height, path, profile);
     const metrics = measure(candidate.layout, candidate.solution);
     const failed = violations(profile.filters, metrics);
     const result: GeneratedPuzzle = { ...candidate, metrics, attempts: attempt + 1, accepted: failed.length === 0, violations: failed };
@@ -107,16 +109,25 @@ export function generateCandidate(
   rng: Rng,
   width: number,
   height: number,
-  settings: Pick<GenerationSettings, "extraHints" | "pathStyle">,
+  settings: Pick<GenerationSettings, "extraHints" | "pathStyle" | "crossings">,
 ): Candidate {
-  return completeCandidate(rng, width, height, makePath(settings.pathStyle, rng, width, height), settings.extraHints);
+  return completeCandidate(rng, width, height, makePath(settings, rng, width, height), settings);
 }
 
 /**
  * Clues from the path, then hints: reveal cells until the solution is unique,
  * drop every hint that isn't needed, then add `extraHints` more.
+ *
+ * With crossings, a coin flip decides whether the crossing is given as a
+ * hint, or the player has to find where the track crosses itself.
  */
-function completeCandidate(rng: Rng, width: number, height: number, path: RandomPath, extraHints: number): Candidate {
+function completeCandidate(
+  rng: Rng,
+  width: number,
+  height: number,
+  path: RandomPath,
+  settings: Pick<GenerationSettings, "extraHints" | "crossings">,
+): Candidate {
   const { cells, start, end } = path;
   const solution = pathToMasks(width, height, cells, start.dir, end.dir);
   const counts = lineCounts(width, height, (r, c) => solution[r]![c] !== 0);
@@ -128,12 +139,21 @@ function completeCandidate(rng: Rng, width: number, height: number, path: Random
     colClues: counts.cols,
     endpoints: [start, end],
     hints: [],
+    ...(settings.crossings > 0 ? { crossings: settings.crossings } : {}),
   };
-  const isUnique = (hints: Hint[]) => hasUniqueSolution({ ...base, hints });
   const hintFor = (cell: Cell): Hint => ({ ...cell, piece: solution[cell.row]![cell.col]! });
+  const key = (c: Cell) => `${c.row}:${c.col}`;
 
-  // Candidate hint cells: track cells other than A and B, in random order.
-  const candidates = rng.shuffle(cells.slice(1, -1));
+  // Crossing squares are either all given up front or never given.
+  const crossingCells = [...new Map(cells.filter((c) => solution[c.row]![c.col] === CROSSING).map((c) => [key(c), c])).values()];
+  const giveCrossings = crossingCells.length > 0 && rng.next() < 0.5;
+  const forced = giveCrossings ? crossingCells.map(hintFor) : [];
+  const isUnique = (hints: Hint[]) => hasUniqueSolution({ ...base, hints: [...forced, ...hints] });
+
+  // Candidate hint cells: track cells other than A, B and crossings, in random order.
+  const inner = cells.slice(1, -1);
+  const distinct = crossingCells.length === 0 ? inner : [...new Map(inner.map((c) => [key(c), c])).values()];
+  const candidates = rng.shuffle(crossingCells.length === 0 ? distinct : distinct.filter((c) => solution[c.row]![c.col] !== CROSSING));
 
   let hints: Hint[] = [];
   let next = 0;
@@ -144,9 +164,9 @@ function completeCandidate(rng: Rng, width: number, height: number, path: Random
     if (isUnique(without)) hints = without;
   }
 
-  const used = new Set(hints.map((h) => `${h.row}:${h.col}`));
-  const unused = candidates.filter((c) => !used.has(`${c.row}:${c.col}`));
-  hints.push(...unused.slice(0, extraHints).map(hintFor));
+  const used = new Set(hints.map(key));
+  const unused = candidates.filter((c) => !used.has(key(c)));
+  hints.push(...forced, ...unused.slice(0, settings.extraHints).map(hintFor));
 
   hints.sort((x, y) => x.row - y.row || x.col - y.col);
   return { layout: { ...base, hints }, solution };
@@ -178,8 +198,82 @@ function outwardDirs(width: number, height: number, cell: Cell): Dir[] {
   return dirs;
 }
 
-function makePath(style: GenerationSettings["pathStyle"], rng: Rng, width: number, height: number): RandomPath {
-  return style === "straight" ? straightPath(rng, width, height) : randomPath(rng, width, height);
+function makePath(settings: Pick<GenerationSettings, "pathStyle" | "crossings">, rng: Rng, width: number, height: number): RandomPath {
+  if (settings.pathStyle === "straight") return straightPath(rng, width, height);
+  if (settings.crossings > 0) return crossingPath(rng, width, height, settings.crossings);
+  return randomPath(rng, width, height);
+}
+
+/**
+ * Like randomPath, but the walk must cross itself exactly `crossings` times:
+ * it may step onto a square it crossed straight earlier, at right angles, and
+ * then carries straight on to a new square. `cells` lists a crossed square
+ * twice. A and B are never crossed.
+ */
+function crossingPath(rng: Rng, width: number, height: number, crossings: number): RandomPath {
+  const area = width * height;
+  const minLength = Math.max(3, Math.ceil(area * 0.35));
+  const maxLength = Math.max(minLength, Math.floor(area * 0.7));
+  const key = (c: Cell) => `${c.row}:${c.col}`;
+  const step = (c: Cell, d: Dir): Cell => ({ row: c.row + DELTA[d][0], col: c.col + DELTA[d][1] });
+  const isVertical = (d: Dir) => d === N || d === S;
+
+  const border: Cell[] = [];
+  for (let r = 0; r < height; r++) {
+    for (let c = 0; c < width; c++) {
+      if (outwardDirs(width, height, { row: r, col: c }).length > 0) border.push({ row: r, col: c });
+    }
+  }
+
+  for (let attempt = 0; attempt < 100_000; attempt++) {
+    const first = rng.pick(border);
+    const cells: Cell[] = [first];
+    /** Index in `cells` of each square's (first) visit. */
+    const firstVisit = new Map([[key(first), 0]]);
+    const crossed = new Set<string>();
+
+    for (;;) {
+      const here = cells[cells.length - 1]!;
+      const outs = outwardDirs(width, height, here);
+      const length = firstVisit.size;
+      const canEnd = length >= minLength && outs.length > 0 && cells.length > 1 && crossed.size === crossings;
+      if (canEnd && (length >= maxLength || rng.next() < 0.12)) {
+        const start: Endpoint = { ...first, dir: rng.pick(outwardDirs(width, height, first)) };
+        const end: Endpoint = { ...here, dir: rng.pick(outs) };
+        return { cells, start, end };
+      }
+      if (length >= maxLength) break;
+
+      // Each option is the squares to step through: one new square, or a
+      // crossing plus the new square straight beyond it.
+      const options: Cell[][] = [];
+      for (const d of DIRS) {
+        const next = step(here, d);
+        if (!inBounds(width, height, next.row, next.col)) continue;
+        const seen = firstVisit.get(key(next));
+        if (seen === undefined) {
+          options.push([next]);
+          continue;
+        }
+        if (crossed.size >= crossings || seen === 0 || crossed.has(key(next))) continue;
+        const before = cells[seen - 1]!;
+        const after = cells[seen + 1]!;
+        const straightAcross =
+          (before.row === after.row && isVertical(d)) || (before.col === after.col && !isVertical(d));
+        const beyond = step(next, d);
+        if (straightAcross && inBounds(width, height, beyond.row, beyond.col) && !firstVisit.has(key(beyond))) {
+          options.push([next, beyond]);
+        }
+      }
+      if (options.length === 0) break;
+      for (const c of rng.pick(options)) {
+        if (firstVisit.has(key(c))) crossed.add(key(c));
+        else firstVisit.set(key(c), cells.length);
+        cells.push(c);
+      }
+    }
+  }
+  throw new Error(`Could not generate a path with ${crossings} crossings for a ${width}x${height} grid`);
 }
 
 /**
@@ -266,7 +360,7 @@ function pathToMasks(width: number, height: number, path: Cell[], startDir: Dir,
     else m |= opposite(dirTo(path[i - 1]!, cell));
     if (i === path.length - 1) m |= endDir;
     else m |= dirTo(cell, path[i + 1]!);
-    masks[cell.row]![cell.col] = m;
+    masks[cell.row]![cell.col]! |= m; // a crossing is visited twice
   });
   return masks;
 }

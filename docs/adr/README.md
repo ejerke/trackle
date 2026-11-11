@@ -27,3 +27,4 @@ Template: copy [0000-template.md](0000-template.md) to the next number.
 | 0016 | [Pull-based continuous deployment of CI-approved commits](0016-pull-based-continuous-deployment.md) | Accepted |
 | 0017 | [Timed solves, checked automatically](0017-timed-solves.md) | Accepted |
 | 0018 | [Consistent Easy, bigger Hard, and a joke level](0018-retuned-levels.md) | Accepted |
+| 0019 | [Insane: tracks that cross themselves](0019-insane-crossings.md) | Accepted |

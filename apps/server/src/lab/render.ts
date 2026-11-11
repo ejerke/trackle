@@ -7,6 +7,7 @@ const PIECES: Record<number, string> = {
   [E | S]: "┌",
   [S | W]: "┐",
   [N | W]: "┘",
+  [N | E | S | W]: "┼",
 };
 
 /**

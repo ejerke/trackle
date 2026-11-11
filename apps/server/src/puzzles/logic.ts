@@ -11,8 +11,9 @@ import type { Endpoint, PuzzleLayout } from "@trackle/shared";
  * Knowledge is kept per cell (track / empty / unknown) and per cell side
  * ("edge": track crosses it / doesn't / unknown).
  *
- * Tier 1 (local):   line counts; a track square has exactly 2 exits; a square
- *                   with fewer than 2 possible exits is empty.
+ * Tier 1 (local):   line counts; a track square has exactly 2 exits (or 4 if
+ *                   it's a crossing); a square with fewer than 2 possible
+ *                   exits is empty; the number of crossings is given.
  * Tier 2 (global):  never close a loop; never join A to B before every
  *                   track square is included.
  * Tier 3 (trial):   "if this square were track, tiers 1-2 lead to a
@@ -63,6 +64,10 @@ interface Ctx {
   aIndex: number;
   bIndex: number;
   totalTrack: number;
+  /** Crossings the solution has (layout.crossings). */
+  crossings: number;
+  /** 1 for squares that can never be a crossing (A and B). */
+  noCross: Uint8Array;
 }
 
 /** What is currently known. Cheap to clone for tier 3 trials. */
@@ -115,7 +120,11 @@ function setup(layout: PuzzleLayout): { ctx: Ctx; s: Knowledge } {
     aIndex: index(a),
     bIndex: index(b),
     totalTrack: layout.rowClues.reduce((sum, x) => sum + x, 0),
+    crossings: layout.crossings ?? 0,
+    noCross: new Uint8Array(n),
   };
+  ctx.noCross[ctx.aIndex] = 1;
+  ctx.noCross[ctx.bIndex] = 1;
   const s: Knowledge = { cell: new Uint8Array(n), edge: new Uint8Array(n * 4), changed: false };
 
   // Border sides: only A's and B's outward sides carry track.
@@ -149,7 +158,28 @@ function lineRule(s: Knowledge, cells: number[], clue: number): void {
   if (track + unknown === clue) for (const i of cells) if (s.cell[i] === UNKNOWN) setCell(s, i, TRACK);
 }
 
-function cellRule(ctx: Ctx, s: Knowledge, i: number): void {
+/** Crossings already decided: squares with all four sides crossed. */
+function knownCrossings(s: Knowledge): number {
+  let n = 0;
+  for (let i = 0; i < s.cell.length; i++) {
+    const e = i * 4;
+    if (s.edge[e] === YES && s.edge[e + 1] === YES && s.edge[e + 2] === YES && s.edge[e + 3] === YES) n++;
+  }
+  return n;
+}
+
+/**
+ * Could square i still become a crossing? Only if crossings are left to
+ * place, it isn't A or B, it isn't empty, and none of its sides is ruled out.
+ */
+function mayCross(ctx: Ctx, s: Knowledge, i: number, crossingsLeft: number): boolean {
+  if (crossingsLeft <= 0 || ctx.noCross[i] || s.cell[i] === EMPTY) return false;
+  for (let k = 0; k < 4; k++) if (s.edge[i * 4 + k] === NO) return false;
+  return true;
+}
+
+/** Returns how many crossings this call decided (0 or 1). */
+function cellRule(ctx: Ctx, s: Knowledge, i: number, crossingsLeft: number): number {
   let yes = 0;
   let unknown = 0;
   for (let k = 0; k < 4; k++) {
@@ -157,7 +187,19 @@ function cellRule(ctx: Ctx, s: Knowledge, i: number): void {
     if (e === YES) yes++;
     else if (e === UNKNOWN) unknown++;
   }
-  if (yes > 2) throw new Contradiction();
+  if (yes === 4) {
+    if (ctx.noCross[i] || ctx.crossings === 0) throw new Contradiction();
+    setCell(s, i, TRACK);
+    return 0;
+  }
+  const canCross = mayCross(ctx, s, i, crossingsLeft);
+  if (yes > (canCross ? 4 : 2)) throw new Contradiction();
+  if (yes === 3) {
+    // Three exits: only a crossing has more than two.
+    setCell(s, i, TRACK);
+    for (let k = 0; k < 4; k++) if (s.edge[i * 4 + k] === UNKNOWN) setEdge(ctx, s, i, k, YES);
+    return 1;
+  }
   if (yes > 0) setCell(s, i, TRACK);
 
   const state = s.cell[i];
@@ -165,12 +207,37 @@ function cellRule(ctx: Ctx, s: Knowledge, i: number): void {
     for (let k = 0; k < 4; k++) if (s.edge[i * 4 + k] === UNKNOWN) setEdge(ctx, s, i, k, NO);
   } else if (state === TRACK) {
     if (yes + unknown < 2) throw new Contradiction();
-    const fill = yes === 2 ? NO : yes + unknown === 2 ? YES : UNKNOWN;
+    const fill = yes === 2 && !canCross ? NO : yes + unknown === 2 ? YES : UNKNOWN;
     if (fill !== UNKNOWN) {
       for (let k = 0; k < 4; k++) if (s.edge[i * 4 + k] === UNKNOWN) setEdge(ctx, s, i, k, fill);
     }
   } else if (yes + unknown < 2) {
     setCell(s, i, EMPTY);
+  }
+  return 0;
+}
+
+/**
+ * The crossing count, like a line clue: too many or too few possible
+ * crossings is a contradiction, and if exactly as many squares could still
+ * be crossings as are missing, they all are.
+ */
+function crossingRule(ctx: Ctx, s: Knowledge): void {
+  if (ctx.crossings === 0) return;
+  const left = ctx.crossings - knownCrossings(s);
+  if (left < 0) throw new Contradiction();
+  const possible: number[] = [];
+  for (let i = 0; i < s.cell.length; i++) {
+    const e = i * 4;
+    const isCrossing = s.edge[e] === YES && s.edge[e + 1] === YES && s.edge[e + 2] === YES && s.edge[e + 3] === YES;
+    if (!isCrossing && mayCross(ctx, s, i, left)) possible.push(i);
+  }
+  if (possible.length < left) throw new Contradiction();
+  if (left > 0 && possible.length === left) {
+    for (const i of possible) {
+      setCell(s, i, TRACK);
+      for (let k = 0; k < 4; k++) if (s.edge[i * 4 + k] === UNKNOWN) setEdge(ctx, s, i, k, YES);
+    }
   }
 }
 
@@ -196,7 +263,9 @@ function tier1(ctx: Ctx, s: Knowledge): void {
   do {
     s.changed = false;
     for (const line of lines(ctx)) lineRule(s, line.cells, line.clue);
-    for (let i = 0; i < s.cell.length; i++) cellRule(ctx, s, i);
+    let crossingsLeft = ctx.crossings === 0 ? 0 : ctx.crossings - knownCrossings(s);
+    for (let i = 0; i < s.cell.length; i++) crossingsLeft -= cellRule(ctx, s, i, crossingsLeft);
+    crossingRule(ctx, s);
   } while (s.changed);
 }
 
@@ -204,16 +273,28 @@ function tier1(ctx: Ctx, s: Knowledge): void {
 
 /**
  * One pass of the connectivity rules. Returns true if anything was deduced.
- * Groups the known track into pieces (connected by YES edges), then:
- *  - an unknown edge joining both ends of the same piece would close a loop: NO;
- *  - an edge joining A's piece to B's piece finishes the track, which is only
- *    allowed if those two pieces already hold every track square: else NO.
+ *
+ * Track is followed side by side ("ports": square i side k = i * 4 + k), not
+ * square by square, because the two tracks over a crossing are separate.
+ * Ports are joined across a crossed edge, and inside a square when the track
+ * certainly runs between them: the two exits of an ordinary square, straight
+ * across a crossing, and straight across any square (straight on is right
+ * whether or not it turns out to be a crossing). Two exits round a corner of
+ * a square that might still become a crossing are not joined: as a crossing,
+ * they'd belong to different tracks.
+ *
+ * Then, for each unknown edge, with the pieces its two sides would extend:
+ *  - joining both ends of the same piece would close a loop: NO;
+ *  - joining A's piece to B's piece finishes the track, which is only allowed
+ *    if those two pieces already hold every track square: else NO.
  * Also detects contradictions (closed loops, finished-but-incomplete track),
  * which tier 3 relies on.
  */
 function tier2(ctx: Ctx, s: Knowledge): boolean {
   const n = s.cell.length;
-  const parent = Int32Array.from({ length: n }, (_, i) => i);
+  const ports = n * 4;
+  const parent = new Int32Array(ports);
+  for (let p = 0; p < ports; p++) parent[p] = p;
   const find = (x: number): number => {
     while (parent[x] !== x) {
       parent[x] = parent[parent[x]!]!;
@@ -221,41 +302,101 @@ function tier2(ctx: Ctx, s: Knowledge): boolean {
     }
     return x;
   };
+  const union = (a: number, b: number) => {
+    parent[find(a)] = find(b);
+  };
+  const crossingsLeft = ctx.crossings === 0 ? 0 : ctx.crossings - knownCrossings(s);
+
+  // Which exits of each square are joined to each other inside it.
+  const inner = new Uint8Array(ports); // 1 = this port is joined to another port of its square
   const yesCount = new Uint8Array(n);
+  const plain = new Uint8Array(n); // 1 = certainly not a crossing
+  const join = (a: number, b: number) => {
+    union(a, b);
+    inner[a] = 1;
+    inner[b] = 1;
+  };
   for (let i = 0; i < n; i++) {
+    let count = 0;
+    let first = -1;
+    let second = -1;
     for (let k = 0; k < 4; k++) {
       if (s.edge[i * 4 + k] !== YES) continue;
-      yesCount[i]!++;
+      count++;
+      if (first < 0) first = k;
+      else second = k;
       const j = ctx.nb[i * 4 + k]!;
-      if (j > i) parent[find(i)] = find(j);
+      if (j > i) union(i * 4 + k, j * 4 + opp(k));
+    }
+    yesCount[i] = count;
+    plain[i] = crossingsLeft > 0 && mayCross(ctx, s, i, crossingsLeft) ? 0 : 1;
+    if (count === 4) {
+      join(i * 4, i * 4 + 2);
+      join(i * 4 + 1, i * 4 + 3);
+    } else if (count === 2 && (second - first === 2 || plain[i])) {
+      join(i * 4 + first, i * 4 + second);
     }
   }
-  const size = new Int32Array(n);
-  const openEnds = new Int32Array(n);
+
+  // Per piece: open ends (crossed sides not joined inside their square), and
+  // the squares it covers. A square on two pieces counts for both, which can
+  // only over-count, so the "finishes too early" rule stays sound.
+  const openEnds = new Int32Array(ports);
+  const size = new Int32Array(ports);
+  const hasPort = new Uint8Array(ports);
+  const roots = [-1, -1, -1, -1];
   for (let i = 0; i < n; i++) {
-    if (s.cell[i] !== TRACK && yesCount[i] === 0) continue;
-    const root = find(i);
-    size[root]!++;
-    if (yesCount[i]! < 2) openEnds[root]! += 2 - yesCount[i]!;
+    if (yesCount[i] === 0) continue;
+    let distinct = 0;
+    for (let k = 0; k < 4; k++) {
+      const p = i * 4 + k;
+      if (s.edge[p] !== YES) continue;
+      const root = find(p);
+      hasPort[root] = 1;
+      if (!inner[p] && ctx.nb[p]! >= 0) openEnds[root]!++;
+      let seen = false;
+      for (let r = 0; r < distinct; r++) if (roots[r] === root) seen = true;
+      if (!seen) roots[distinct++] = root;
+    }
+    for (let r = 0; r < distinct; r++) size[roots[r]!]!++;
   }
-  const rootA = find(ctx.aIndex);
-  const rootB = find(ctx.bIndex);
+  const terminal = (ep: number) => {
+    for (let k = 0; k < 4; k++) if (ctx.nb[ep * 4 + k]! < 0 && s.edge[ep * 4 + k] === YES) return find(ep * 4 + k);
+    throw new Error("endpoint without its outward side");
+  };
+  const rootA = terminal(ctx.aIndex);
+  const rootB = terminal(ctx.bIndex);
 
   // Contradictions: a closed loop, or A joined to B while track is missing.
-  for (let i = 0; i < n; i++) {
-    if (find(i) !== i || size[i] === 0) continue;
-    if (openEnds[i] === 0 && i !== rootA && i !== rootB) throw new Contradiction();
+  for (let p = 0; p < ports; p++) {
+    if (!hasPort[p] || find(p) !== p) continue;
+    if (openEnds[p] === 0 && p !== rootA && p !== rootB) throw new Contradiction();
   }
   if (rootA === rootB && size[rootA]! < ctx.totalTrack) throw new Contradiction();
+
+  /** The piece port (i, k) would extend if its edge were crossed, or -1 if unclear. */
+  const extends_ = (i: number, k: number): number => {
+    const y = yesCount[i]!;
+    if (y === 1) {
+      for (let q = 0; q < 4; q++) {
+        if (s.edge[i * 4 + q] !== YES) continue;
+        return q === opp(k) || plain[i] ? find(i * 4 + q) : -1;
+      }
+    }
+    // A third exit makes a crossing: it continues straight on.
+    if (y === 2 && s.edge[i * 4 + opp(k)] === YES) return find(i * 4 + opp(k));
+    return -1;
+  };
 
   s.changed = false;
   for (let i = 0; i < n; i++) {
     for (const k of [1, 2]) {
       const j = ctx.nb[i * 4 + k]!;
       if (j < 0 || s.edge[i * 4 + k] !== UNKNOWN) continue;
-      const ri = find(i);
-      const rj = find(j);
-      if (ri === rj && size[ri]! > 0) {
+      const ri = extends_(i, k);
+      const rj = extends_(j, opp(k));
+      if (ri < 0 || rj < 0) continue;
+      if (ri === rj) {
         setEdge(ctx, s, i, k, NO); // would close a loop
       } else if (((ri === rootA && rj === rootB) || (ri === rootB && rj === rootA)) && size[ri]! + size[rj]! < ctx.totalTrack) {
         setEdge(ctx, s, i, k, NO); // would finish the track too early
@@ -420,7 +561,7 @@ export function deductionOrder(layout: PuzzleLayout): { row: number; col: number
         if (e === YES) yes++;
         if (e !== UNKNOWN) known++;
       }
-      if (s.cell[i] === TRACK && yes === 2 && known === 4) done.add(i);
+      if (s.cell[i] === TRACK && (yes === 2 || yes === 4) && known === 4) done.add(i);
     }
     if (seen) for (const i of done) if (!seen.has(i)) order.push({ row: Math.floor(i / ctx.w), col: i % ctx.w });
     seen = done; // the first snapshot (givens only) is the baseline

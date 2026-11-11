@@ -23,6 +23,8 @@ export interface GenerationSettings {
    * "straight" goes edge to edge across the grid with at most one small jog.
    */
   pathStyle: "wander" | "straight";
+  /** How many times the track crosses itself (wander paths only). */
+  crossings: number;
   filters: DifficultyFilters;
 }
 
@@ -56,6 +58,7 @@ const GENERATION: readonly GenerationSettings[] = [
     extraHints: 1,
     maxAttempts: 500,
     pathStyle: "wander",
+    crossings: 0,
     filters: {
       trackCells: [13, 20],
       turns: [4, 8],
@@ -68,6 +71,7 @@ const GENERATION: readonly GenerationSettings[] = [
     extraHints: 0,
     maxAttempts: 2000,
     pathStyle: "wander",
+    crossings: 0,
     filters: {
       trackCells: [16, 26],
       toPlace: [13, 24],
@@ -82,6 +86,7 @@ const GENERATION: readonly GenerationSettings[] = [
     extraHints: 0,
     maxAttempts: 3000,
     pathStyle: "wander",
+    crossings: 0,
     filters: {
       trackCells: [28, 44],
       maxGiveawayLines: 0,
@@ -97,7 +102,24 @@ const GENERATION: readonly GenerationSettings[] = [
     extraHints: 0,
     maxAttempts: 1,
     pathStyle: "straight",
+    crossings: 0,
     filters: {},
+  },
+  {
+    // Insane: Hard's demands plus one crossing; half the time it's given as a
+    // hint, half the time the player must find it.
+    extraHints: 0,
+    maxAttempts: 3000,
+    pathStyle: "wander",
+    crossings: 1,
+    filters: {
+      trackCells: [28, 44],
+      maxGiveawayLines: 0,
+      maxHints: 2,
+      maxTier1Progress: 0.2,
+      tiers: [3],
+      minTier3Steps: 8,
+    },
   },
 ];
 

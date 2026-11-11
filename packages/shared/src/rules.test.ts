@@ -98,3 +98,50 @@ describe("validateTrack", () => {
     expect(validateTrack(loopLayout, g)).toEqual({ ok: false, error: "not_connected" });
   });
 });
+
+/*
+ * 3x3 with one crossing at (1,1). A enters (1,0) from the west, the track
+ * runs east over (1,1), up, back west, and down over (1,1) to B below (2,1).
+ *
+ *   .  ┌─┐
+ *   A ─┼─┘
+ *   .  │ .
+ *      B
+ */
+const crossLayout: PuzzleLayout = {
+  width: 3,
+  height: 3,
+  rowClues: [2, 3, 1],
+  colClues: [1, 3, 2],
+  endpoints: [
+    { row: 1, col: 0, dir: W },
+    { row: 2, col: 1, dir: S },
+  ],
+  hints: [],
+  crossings: 1,
+};
+const crossSolution = [
+  [0, E | S, S | W],
+  [W | E, N | E | S | W, W | N],
+  [0, N | S, 0],
+];
+
+describe("validateTrack with crossings", () => {
+  it("accepts a track that crosses itself straight over", () => {
+    expect(validateTrack(crossLayout, crossSolution)).toEqual({ ok: true });
+  });
+
+  it("rejects a crossing the puzzle doesn't have, and a missing one", () => {
+    expect(validateTrack({ ...crossLayout, crossings: undefined }, crossSolution)).toEqual({ ok: false, error: "crossing_mismatch" });
+    expect(validateTrack({ ...layout, crossings: 1 }, solution)).toEqual({ ok: false, error: "crossing_mismatch" });
+  });
+
+  it("rejects three exits, and a crossing on A or B", () => {
+    const three = clone(crossSolution);
+    three[1]![1] = N | E | W;
+    expect(validateTrack(crossLayout, three)).toEqual({ ok: false, error: "invalid_cell" });
+    const atA = clone(crossSolution);
+    atA[1]![0] = N | E | S | W;
+    expect(validateTrack(crossLayout, atA)).toEqual({ ok: false, error: "invalid_cell" });
+  });
+});

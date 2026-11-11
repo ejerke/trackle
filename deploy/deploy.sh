@@ -96,12 +96,15 @@ main() {
   # One deploy at a time (the timer and a manual run could overlap).
   exec 9>"$APP_DIR/.deploy.lock"
   if ! flock -n 9; then
-    [[ "$mode" == auto ]] && exit 0
+    [[ "$mode" == auto ]] && { echo "Skipped: another deploy is running."; exit 0; }
     echo "Another deploy is running." >&2
     exit 1
   fi
 
-  if [[ "$mode" == auto && -f "$APP_DIR/HOLD" ]]; then exit 0; fi
+  if [[ "$mode" == auto && -f "$APP_DIR/HOLD" ]]; then
+    echo "Skipped: deploys paused ($APP_DIR/HOLD exists; run deploy.sh to resume)."
+    exit 0
+  fi
 
   git --git-dir="$REPO" fetch --quiet --prune origin '+refs/heads/*:refs/remotes/origin/*'
   local sha previous
@@ -109,8 +112,12 @@ main() {
   previous="$(current_sha)"
 
   if [[ "$mode" == auto ]]; then
+    # Up to date: the common case every minute, so stay quiet.
     [[ "$sha" == "$previous" ]] && exit 0
-    [[ "$sha" == "$(cat "$APP_DIR/last-failed" 2>/dev/null)" ]] && exit 0
+    if [[ "$sha" == "$(cat "$APP_DIR/last-failed" 2>/dev/null)" ]]; then
+      echo "Skipped: ${sha:0:7} already failed to deploy; waiting for a newer commit."
+      exit 0
+    fi
   fi
 
   log "Deploying ${sha:0:7} (was ${previous:0:7})"

@@ -1,12 +1,16 @@
 import {
+  DELTA,
   bitCount,
   edgeBetween,
   edgeCells,
   fixedEdges,
+  inBounds,
   isValidEdge,
   lineCounts,
   masksFromEdges,
+  opposite,
   type Cell,
+  type Dir,
   type EdgeKey,
   type LineCounts,
   type PuzzleLayout,
@@ -94,4 +98,37 @@ export type ClueStatus = "under" | "done" | "over";
 
 export function clueStatus(count: number, clue: number): ClueStatus {
   return count > clue ? "over" : count === clue ? "done" : "under";
+}
+
+/** One step of a train's journey: the square it crosses and the sides it enters and leaves by. */
+export interface RouteStep {
+  cell: Cell;
+  /** Side the train enters through. */
+  from: Dir;
+  /** Side the train leaves through. */
+  to: Dir;
+}
+
+/**
+ * Follow the track from endpoint A to endpoint B, square by square. Returns
+ * null if the track doesn't run unbroken from A to B (e.g. it isn't finished).
+ */
+export function traceRoute(layout: PuzzleLayout, masks: number[][]): RouteStep[] | null {
+  const [a, b] = layout.endpoints;
+  const steps: RouteStep[] = [];
+  let cell: Cell = { row: a.row, col: a.col };
+  let from: Dir = a.dir;
+  const limit = layout.width * layout.height;
+  while (steps.length < limit) {
+    const mask = masks[cell.row]?.[cell.col] ?? 0;
+    if (!(mask & from) || bitCount(mask) !== 2) return null;
+    const to = (mask & ~from) as Dir;
+    steps.push({ cell, from, to });
+    if (cell.row === b.row && cell.col === b.col && to === b.dir) return steps;
+    const [dr, dc] = DELTA[to];
+    cell = { row: cell.row + dr, col: cell.col + dc };
+    if (!inBounds(layout.width, layout.height, cell.row, cell.col)) return null;
+    from = opposite(to);
+  }
+  return null;
 }

@@ -16,6 +16,20 @@
   --bad: #c62f22;
   --surface: #fffaf0;
   --border: #d9cdb8;
+  --train: #2f5d62;
+  --train-cab: #1d3b3f;
+  --train-wagon: #c4922f;
+  --train-cargo: #8f6619;
+  --train-lamp: #ffe08a;
+  --train-frame: #2a2622;
+  --train-brass: #c9a24a;
+  --train-buffer: #b8352a;
+  --train-coal: #2e2b28;
+  --train-lump: #55504a;
+  --train-wood: #9a6a3c;
+  --train-log-end: #e2c08e;
+  --train-tank: #8d97a0;
+  --smoke: #a39a8c;
   --radius: 10px;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -39,6 +53,20 @@
     --bad: #ff6b5b;
     --surface: #26231f;
     --border: #3d372f;
+    --train: #5fa3a0;
+    --train-cab: #3a7471;
+    --train-wagon: #d9ac52;
+    --train-cargo: #a07a2c;
+    --train-lamp: #fff1b8;
+    --train-frame: #14120f;
+    --train-brass: #d8b45e;
+    --train-buffer: #d6493b;
+    --train-coal: #0f0e0d;
+    --train-lump: #3d3833;
+    --train-wood: #a8784a;
+    --train-log-end: #e8c896;
+    --train-tank: #a7b1ba;
+    --smoke: #e9e4da;
   }
 }
 
@@ -198,6 +226,106 @@ a {
 }
 .rails--fixed .rails__rail {
   stroke: var(--rail-fixed);
+}
+
+/* ---- celebration train ---- */
+.train {
+  pointer-events: none;
+}
+.train__route {
+  fill: none;
+  stroke: none;
+}
+.train__outline {
+  stroke: var(--bg);
+  stroke-width: 0.025;
+}
+.train__wheel {
+  fill: var(--train-frame);
+}
+.train__frame {
+  fill: var(--train-frame);
+}
+.train__body {
+  fill: var(--train);
+}
+.train__smokebox {
+  fill: var(--train-frame);
+}
+.train__hole {
+  fill: #000;
+  opacity: 0.6;
+}
+.train__shine {
+  fill: #fff;
+  opacity: 0.28;
+}
+.train__band {
+  stroke: var(--train-brass);
+  stroke-width: 0.018;
+  fill: var(--train-brass);
+}
+.train__brass {
+  fill: var(--train-brass);
+}
+.train__buffer {
+  fill: var(--train-buffer);
+}
+.train__lamp {
+  fill: var(--train-lamp);
+}
+.train__beam {
+  fill: var(--train-lamp);
+  opacity: 0.22;
+}
+.train__cab {
+  fill: var(--train-cab);
+}
+.train__roof {
+  fill: var(--train);
+  opacity: 0.75;
+}
+.train__ridge {
+  stroke: var(--train-cab);
+  stroke-width: 0.018;
+}
+.train__coal {
+  fill: var(--train-coal);
+}
+.train__lump {
+  fill: var(--train-lump);
+}
+.train__wagon {
+  fill: var(--train-wagon);
+}
+.train__rib {
+  stroke: var(--train-cargo);
+  stroke-width: 0.02;
+}
+.train__wood {
+  fill: var(--train-wood);
+}
+.train__log {
+  fill: var(--train-wood);
+}
+.train__grain {
+  stroke: var(--train-cargo);
+  stroke-width: 0.012;
+  opacity: 0.6;
+}
+.train__log-end {
+  fill: var(--train-log-end);
+}
+.train__chain {
+  stroke: var(--train-brass);
+  stroke-width: 0.015;
+  stroke-dasharray: 0.02 0.012;
+}
+.train__tank {
+  fill: var(--train-tank);
+}
+.train__puff {
+  fill: var(--smoke);
 }
 
 .clue {

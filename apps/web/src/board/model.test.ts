@@ -1,7 +1,7 @@
 import { E, N, S, W, type PuzzleLayout } from "@trackle/shared";
 import { describe, expect, it } from "vitest";
 import type { BoardState } from "../storage/progressStore";
-import { boardCounts, boardMasks, clueStatus, placePiece, setEdge, setMark } from "./model";
+import { boardCounts, boardMasks, clueStatus, placePiece, setEdge, setMark, traceRoute } from "./model";
 
 // 3x3, A enters (0,0) from the west, B leaves (2,2) to the south. Hint: (1,1) is a vertical straight.
 const layout: PuzzleLayout = {
@@ -68,5 +68,30 @@ describe("board model", () => {
     expect(clueStatus(1, 2)).toBe("under");
     expect(clueStatus(2, 2)).toBe("done");
     expect(clueStatus(3, 2)).toBe("over");
+  });
+});
+
+describe("traceRoute", () => {
+  const solution = [
+    [W | E, W | S, 0],
+    [0, N | S, 0],
+    [0, N | E, W | S],
+  ];
+
+  it("follows the track from A to B in order", () => {
+    const route = traceRoute(layout, solution);
+    expect(route?.map((s) => [s.cell.row, s.cell.col, s.from, s.to])).toEqual([
+      [0, 0, W, E],
+      [0, 1, W, S],
+      [1, 1, N, S],
+      [2, 1, N, E],
+      [2, 2, W, S],
+    ]);
+  });
+
+  it("returns null for a broken track", () => {
+    const broken = solution.map((row) => [...row]);
+    broken[1]![1] = 0;
+    expect(traceRoute(layout, broken)).toBeNull();
   });
 });

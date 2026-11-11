@@ -1,7 +1,8 @@
 import { DELTA, DIRS, E, N, S, W, edgeBetween, edgeCells, inBounds, type Cell, type Dir, type PuzzleLayout } from "@trackle/shared";
 import { useEffect, useMemo, useRef, type PointerEvent } from "react";
-import { allEdges, boardCounts, boardMasks, cellKey, clueStatus, setEdge, setMark, type Mode } from "../board/model";
+import { allEdges, boardCounts, boardMasks, cellKey, clueStatus, setEdge, setMark, traceRoute, type Mode } from "../board/model";
 import type { BoardState, CellMark } from "../storage/progressStore";
+import { Train } from "./Train";
 
 export interface Highlight {
   tone: "hint" | "mistake";
@@ -17,6 +18,8 @@ interface BoardProps {
   onChange(fn: (board: BoardState) => BoardState): void;
   /** Briefly marks squares/segments, e.g. a hinted piece or a mistake. */
   highlight?: Highlight | null;
+  /** Bump to send a train along the finished track; 0 = no train. */
+  trainRun?: number;
 }
 
 // Board geometry, in SVG units where one cell = 1.
@@ -67,7 +70,7 @@ function Rails({ d, kind, gap }: { d: string; kind: "player" | "fixed"; gap: str
   );
 }
 
-export function Board({ layout, board, mode, locked, onChange, highlight }: BoardProps) {
+export function Board({ layout, board, mode, locked, onChange, highlight, trainRun = 0 }: BoardProps) {
   const { width, height } = layout;
   const svgRef = useRef<SVGSVGElement>(null);
   const boardRef = useRef(board);
@@ -78,6 +81,7 @@ export function Board({ layout, board, mode, locked, onChange, highlight }: Boar
   const playerEdges = useMemo(() => new Set(board.edges), [board.edges]);
   const hintCells = useMemo(() => new Set(layout.hints.map(cellKey)), [layout]);
   const edges = useMemo(() => allEdges(layout, board), [layout, board]);
+  const route = useMemo(() => (trainRun > 0 ? traceRoute(layout, masks) : null), [trainRun, layout, masks]);
   const lockedRef = useRef(locked);
   lockedRef.current = locked;
 
@@ -316,6 +320,8 @@ export function Board({ layout, board, mode, locked, onChange, highlight }: Boar
           />
         );
       })}
+
+      {route && <Train key={trainRun} layout={layout} steps={route} />}
 
       {layout.colClues.map((clue, c) => (
         <text key={`cc${c}`} x={c + 0.5} y={-CLUE_OFFSET} className={`clue clue--${clueStatus(counts.cols[c]!, clue)}`}>

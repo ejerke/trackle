@@ -29,6 +29,8 @@ interface GameProps {
   afterSolve?: ReactNode;
 }
 
+const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export function Game({ puzzle, progressKey, store, check: checkWithServer, hint, answer: answerProp, afterSolve }: GameProps) {
@@ -53,6 +55,11 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   const [helping, setHelping] = useState(false);
   const [helpMessage, setHelpMessage] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<Highlight | null>(null);
+  // Bumped to run the celebration train; see the effect below.
+  const [trainRun, setTrainRun] = useState(0);
+  // Was this puzzle already solved when we last looked? Keyed by puzzle, since
+  // the same Game can be reused when the player switches puzzles.
+  const lastSolved = useRef<{ key: string; solved: boolean } | null>(null);
   // The last board sent for checking, so each finished track is checked once.
   const lastChecked = useRef<string | null>(null);
 
@@ -80,6 +87,18 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
     lastChecked.current = signature;
     void runCheck(cells);
   }, [progress?.board]);
+
+  // A solve that happens while you watch sends a train along the track.
+  // Opening an already-solved puzzle doesn't (use "Run the train" for that).
+  useEffect(() => {
+    if (!progress) return;
+    const key = JSON.stringify(progressKey);
+    const solved = progress.solvedAt !== null;
+    const before = lastSolved.current;
+    lastSolved.current = { key, solved };
+    if (before && before.key !== key) setTrainRun(0); // a new puzzle: no train left over
+    if (before?.key === key && !before.solved && solved && !prefersReducedMotion()) setTrainRun((n) => n + 1);
+  }, [progress?.solvedAt, progressKey]);
 
   useEffect(() => {
     if (!confirmClear) return;
@@ -190,6 +209,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
         locked={finished}
         onChange={updateBoard}
         highlight={highlight}
+        trainRun={trainRun}
       />
 
       {solved ? (
@@ -206,6 +226,9 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
             .
           </p>
           {afterSolve && <div className="result__actions">{afterSolve}</div>}
+          <button type="button" className="link-button" onClick={() => setTrainRun((n) => n + 1)}>
+            Run the train
+          </button>
         </div>
       ) : revealed ? (
         <div className="result result--revealed" role="status">

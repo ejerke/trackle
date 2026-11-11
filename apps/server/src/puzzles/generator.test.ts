@@ -2,15 +2,17 @@ import { validateTrack } from "@trackle/shared";
 import { describe, expect, it } from "vitest";
 import { DIFFICULTIES, profileFor, violations } from "./difficulty.ts";
 import { generatePuzzle } from "./generator.ts";
+import { countTurns } from "./metrics.ts";
 import { solve } from "./solver.ts";
 
 const seeds = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}-${i}`);
 const EASY = 0;
 const MEDIUM = 1;
 const HARD = 2;
+const SUPER_DUPER = 3;
 
 describe("generatePuzzle", () => {
-  it.each([EASY, MEDIUM, HARD])("is deterministic for difficulty %i: same seed, same puzzle", (difficulty) => {
+  it.each([EASY, MEDIUM, HARD, SUPER_DUPER])("is deterministic for difficulty %i: same seed, same puzzle", (difficulty) => {
     const a = generatePuzzle({ difficulty, seed: "same" });
     const b = generatePuzzle({ difficulty, seed: "same" });
     expect(a).toEqual(b);
@@ -27,6 +29,7 @@ describe("generatePuzzle", () => {
     [EASY, seeds("easy", 40)],
     [MEDIUM, seeds("medium", 15)],
     [HARD, seeds("hard", 15)],
+    [SUPER_DUPER, seeds("super", 20)],
   ])("difficulty %i", (difficulty, testSeeds) => {
     it.each(testSeeds)("is valid and has exactly one solution (%s)", (seed) => {
       const { layout, solution } = generatePuzzle({ difficulty, seed });
@@ -51,17 +54,32 @@ describe("generatePuzzle", () => {
     for (const seed of seeds("hard-filters", 10)) {
       const g = generatePuzzle({ difficulty: HARD, seed });
       expect(g.accepted).toBe(true);
-      expect(g.layout.width).toBe(7);
+      expect(g.layout.width).toBe(8);
+      expect(g.layout.hints.length).toBeLessThanOrEqual(1);
+      expect(g.metrics.tier3Steps).toBeGreaterThanOrEqual(8);
       expect(violations(profileFor(HARD).filters, g.metrics)).toEqual([]);
       expect(g.metrics.tier).toBe(3);
       expect(g.metrics.giveawayLines).toBe(0);
     }
   }, 30_000);
 
-  it("uses a single unfiltered attempt for Easy", () => {
-    const g = generatePuzzle({ difficulty: EASY, seed: "easy" });
-    expect(g.attempts).toBe(1);
-    expect(g.accepted).toBe(true);
+  it("only returns Easy puzzles that local rules solve, on a short, gentle track", () => {
+    for (const seed of seeds("easy-filters", 20)) {
+      const g = generatePuzzle({ difficulty: EASY, seed });
+      expect(g.accepted).toBe(true);
+      expect(g.metrics.tier).toBe(1);
+      expect(g.metrics.trackCells).toBeLessThanOrEqual(20);
+      expect(g.metrics.turns).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it("makes Super-duper hard an (almost) straight line across the biggest grid", () => {
+    for (const seed of seeds("super-filters", 20)) {
+      const g = generatePuzzle({ difficulty: SUPER_DUPER, seed });
+      expect(g.layout.width).toBe(9);
+      expect(countTurns(g.solution)).toBeLessThanOrEqual(2);
+      expect(g.metrics.tier).toBe(1);
+    }
   });
 
   it("falls back to the best candidate instead of failing when nothing passes", () => {

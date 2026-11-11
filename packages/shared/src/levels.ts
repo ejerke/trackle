@@ -14,6 +14,8 @@
  */
 export interface Level {
   name: string;
+  /** Shorter label for narrow screens, when `name` is long. */
+  shortName?: string;
   /** Grid size in squares. */
   width: number;
   height: number;
@@ -30,7 +32,9 @@ export interface Level {
 export const LEVELS: readonly Level[] = [
   { name: "Easy", width: 6, height: 6, hintLimit: null, showAnswer: true },
   { name: "Medium", width: 6, height: 6, hintLimit: null, showAnswer: true },
-  { name: "Hard", width: 7, height: 7, hintLimit: 5, showAnswer: false },
+  { name: "Hard", width: 8, height: 8, hintLimit: 3, showAnswer: false },
+  // A joke: the hardest-sounding level is (almost) a straight line.
+  { name: "Super-duper hard", shortName: "Super-duper", width: 9, height: 9, hintLimit: 0, showAnswer: false },
 ];
 
 /** The difficulty served when the player hasn't chosen one. */

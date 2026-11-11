@@ -4,13 +4,16 @@ import { attemptRng, generateCandidate } from "./generator.ts";
 import { countSolutions, decidedMasks, rateLogic } from "./logic.ts";
 import { solve } from "./solver.ts";
 
+/** Unfiltered random-walk candidates with no extra hints. */
+const RAW = { extraHints: 0, pathStyle: "wander" } as const;
+
 describe("rateLogic", () => {
   // The most important property: a rule may never deduce something false.
   // Check every decided square against the known solution on many puzzles.
   it("is sound: every deduction agrees with the solution (300 puzzles)", () => {
     const tiers = new Set<number | null>();
     for (let i = 0; i < 300; i++) {
-      const { layout, solution } = generateCandidate(attemptRng(`sound-${i}`, 0), 6, 6, 0);
+      const { layout, solution } = generateCandidate(attemptRng(`sound-${i}`, 0), 6, 6, RAW);
       const rating = rateLogic(layout); // would throw on a false contradiction
       tiers.add(rating.tier);
       for (let r = 0; r < 6; r++) {
@@ -87,7 +90,7 @@ describe("rateLogic", () => {
 
   it("reports progress as a share between 0 and 1", () => {
     for (let i = 0; i < 20; i++) {
-      const { layout } = generateCandidate(attemptRng(`progress-${i}`, 0), 6, 6, 0);
+      const { layout } = generateCandidate(attemptRng(`progress-${i}`, 0), 6, 6, RAW);
       const { tier1Progress } = rateLogic(layout);
       expect(tier1Progress).toBeGreaterThanOrEqual(0);
       expect(tier1Progress).toBeLessThanOrEqual(1);
@@ -118,7 +121,7 @@ describe("countSolutions", () => {
     const seen = new Set<number>();
     for (let i = 0; i < 150; i++) {
       const size = 4 + (i % 3); // 4x4, 5x5, 6x6
-      const { layout } = generateCandidate(attemptRng(`count-${i}`, 0), size, size, 0);
+      const { layout } = generateCandidate(attemptRng(`count-${i}`, 0), size, size, RAW);
       for (const hints of [layout.hints, []]) {
         const variant = { ...layout, hints };
         const expected = solve(variant, 3).count;
@@ -147,7 +150,7 @@ describe("countSolutions", () => {
 
   it("only ever decides valid tracks", () => {
     for (let i = 0; i < 100; i++) {
-      const { layout, solution } = generateCandidate(attemptRng(`decided-${i}`, 0), 6, 6, 0);
+      const { layout, solution } = generateCandidate(attemptRng(`decided-${i}`, 0), 6, 6, RAW);
       const masks = decidedMasks(layout);
       if (masks === null) continue; // tiers 1-2 alone didn't finish
       expect(validateTrack(layout, masks)).toEqual({ ok: true });

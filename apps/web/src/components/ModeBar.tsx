@@ -1,4 +1,4 @@
-import { DIFFICULTY_NAMES } from "@trackle/shared";
+import { LEVELS } from "@trackle/shared";
 import { archiveUrl, dailyUrl, randomUrl } from "../routes";
 import { useAuth } from "../auth";
 import { lastRandomSeed, rememberDifficulty } from "../storage/preferences";
@@ -21,8 +21,6 @@ function urlFor(kind: ModeBarProps["kind"], d: number, date?: string | null): st
   return randomUrl(d, lastRandomSeed(d) ?? undefined);
 }
 
-const LEVELS = Object.entries(DIFFICULTY_NAMES).map(([d, name]) => ({ difficulty: Number(d), name }));
-
 /**
  * Difficulty picker plus "Today" / "New random". On a daily page, picking a
  * difficulty shows that difficulty's daily puzzle; on a random page, the last
@@ -39,7 +37,7 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
   return (
     <nav className="mode-bar" aria-label="Puzzle selection">
       <div className="segmented" role="group" aria-label="Difficulty">
-        {LEVELS.map(({ difficulty: d, name }) => (
+        {LEVELS.map(({ name, shortName }, d) => (
           <button
             key={d}
             type="button"
@@ -47,7 +45,14 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
             aria-pressed={d === difficulty}
             onClick={() => d !== difficulty && go(urlFor(kind, d, date), d)}
           >
-            {name}
+            {shortName ? (
+              <>
+                <span className="wide-only">{name}</span>
+                <span className="narrow-only">{shortName}</span>
+              </>
+            ) : (
+              name
+            )}
           </button>
         ))}
       </div>

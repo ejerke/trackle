@@ -113,7 +113,8 @@ a person, always using the easiest rule tier that makes progress:
 
 Metrics: hardest tier needed (`null` = needs guessing), `tier1Progress` (share
 of unknown squares *and* connections tier 1 alone decides), track length,
-squares to work out, hints, giveaway lines (clues of 0 or full).
+squares to work out, hints, giveaway lines (clues of 0 or full), turns
+(corner pieces: how winding the track is).
 
 **Levels and difficulty profiles.** Player-facing settings per level (name,
 grid size, hint limit) are in `LEVELS` (`packages/shared/src/levels.ts`), the
@@ -123,13 +124,14 @@ metrics above):
 
 | Level | Profile |
 | ----- | ------- |
-| 0 Easy | 6×6; original generator: minimal hints + 2, no filters |
+| 0 Easy | 6×6; minimal hints + 1; tier exactly 1 (tier 1 decides 100%); 13–20 track squares; 4–8 turns |
 | 1 Medium (default) | 6×6; no extra hints; tier exactly 2; tier 1 decides ≤ 60%; ≤ 1 giveaway line; 16–26 track squares |
-| 2 Hard | 7×7; ≤ 2 hints; tier exactly 3, at least 2 trial steps; tier 1 decides ≤ 40%; no giveaway lines; 22–34 track squares |
+| 2 Hard | 8×8; ≤ 1 hint; tier exactly 3, at least 8 trial steps; tier 1 decides ≤ 20%; no giveaway lines; 28–44 track squares |
+| 3 Super-duper hard | 9×9; `pathStyle: "straight"`: edge to opposite edge with at most one one-square jog; no filters |
 
 **Generate-and-filter**: attempt *n* builds a candidate with the RNG for
 `${seed}#${n}` and returns the first that passes every filter. Cheap filters
-(track length, giveaway lines) run before the expensive steps. The limit is an
+(track length, giveaway lines, turns) run before the expensive steps. The limit is an
 attempt *count*, never a time, to stay deterministic across machines. If
 nothing passes, the candidate failing the fewest filters is used.
 

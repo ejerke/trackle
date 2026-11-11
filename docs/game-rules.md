@@ -52,8 +52,8 @@ Progress is saved in the browser, so reloading keeps the board and solved state
 
 Under the board: **Hint** first points out a mistake if there is one (a wrong
 segment, or a "no track" mark on a track square, highlighted in red);
-otherwise it places the next piece logic would work out. Hard allows 5 hints
-per puzzle; Easy and Medium are unlimited. **Show answer** (Easy and Medium
+otherwise it places the next piece logic would work out. Hard allows 3 hints
+per puzzle and Super-duper hard none; Easy and Medium are unlimited. **Show answer** (Easy and Medium
 only; asks for confirmation) shows the whole solution; the puzzle then counts
 as *answer shown*, never as solved. Both are counted: stats show "On your own"
 (solved without hints or the answer) next to "Solved".
@@ -95,8 +95,9 @@ generator makes each level's puzzles is in
 
 | Level | Feels like |
 | ----- | ---------- |
-| 0 Easy | Some hint pieces; much of the grid follows from obvious line counts |
+| 0 Easy | A short, gently winding track; line counts and "two exits per square" solve the whole thing |
 | 1 Medium | No spare hints; needs "don't close a loop" reasoning, but never guessing |
-| 2 Hard | 7×7; no row or column gives itself away; needs "if this were track, something breaks" reasoning several times, but never guessing |
+| 2 Hard | 8×8, a long track, at most one piece given; no row or column gives itself away; needs "if this were track, something breaks" reasoning many times, but never guessing |
+| 3 Super-duper hard | A joke: 9×9 and no hints, but the track is (almost) a straight line |
 
 How levels are defined and measured: [architecture.md](architecture.md#puzzle-generation).

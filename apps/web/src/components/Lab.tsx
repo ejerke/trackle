@@ -107,6 +107,7 @@ function LabMetrics({ data }: { data: LabPuzzleResponse }) {
     ["Track squares", String(m.trackCells)],
     ["To work out", String(m.toPlace)],
     ["Hints", String(m.hints)],
+    ["Turns", String(m.turns)],
     ["Giveaway lines (0 or full)", String(m.giveawayLines)],
     ["Generation", `${data.attempts} attempts, ${data.generationMs} ms`],
     ["Passed filters", data.accepted ? "yes" : `no (best fallback; fails ${data.violations.join(", ")})`],

@@ -93,7 +93,7 @@ describe("hints and answers", () => {
 });
 
 describe("hint limits", () => {
-  it("allows 5 hints on a Hard puzzle for a signed-in player, then refuses", async () => {
+  it("allows 3 hints on a Hard puzzle for a signed-in player, then refuses", async () => {
     await setup();
     const token = await signUp();
     await app.inject("/api/puzzles/today?difficulty=2");
@@ -103,11 +103,22 @@ describe("hint limits", () => {
     for (const h of hard.hints) cells[h.row]![h.col] = h.piece;
 
     const ask = () => call("/api/puzzles/2026-11-10/hint?difficulty=2", { cells }, token);
-    for (let i = 0; i < 5; i++) expect((await ask()).statusCode).toBe(200);
-    const sixth = await ask();
-    expect(sixth.statusCode).toBe(403);
-    expect(sixth.json()).toEqual({ error: "hint_limit" });
-    expect(db.prepare("SELECT hints_used FROM user_progress WHERE key_id = '2026-11-10:2'").pluck().get()).toBe(5);
+    for (let i = 0; i < 3; i++) expect((await ask()).statusCode).toBe(200);
+    const fourth = await ask();
+    expect(fourth.statusCode).toBe(403);
+    expect(fourth.json()).toEqual({ error: "hint_limit" });
+    expect(db.prepare("SELECT hints_used FROM user_progress WHERE key_id = '2026-11-10:2'").pluck().get()).toBe(3);
+  });
+
+  it("gives no hints at all on Super-duper hard", async () => {
+    await setup();
+    const token = await signUp();
+    await app.inject("/api/puzzles/today?difficulty=3");
+    const puzzle = new PuzzleRepository(db).find("2026-11-10", 3)!.puzzle;
+    const cells = emptyGrid(puzzle.width, puzzle.height);
+    const first = await call("/api/puzzles/2026-11-10/hint?difficulty=3", { cells }, token);
+    expect(first.statusCode).toBe(403);
+    expect(first.json()).toEqual({ error: "hint_limit" });
   });
 
   it("doesn't limit Medium", async () => {

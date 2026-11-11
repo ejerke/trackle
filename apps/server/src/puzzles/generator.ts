@@ -15,9 +15,9 @@ import {
   type PuzzleLayout,
   type PuzzleMetrics,
 } from "@trackle/shared";
-import { cheapViolations, profileFor, violations } from "./difficulty.ts";
+import { cheapViolations, profileFor, violations, type GenerationSettings } from "./difficulty.ts";
 import { countSolutions } from "./logic.ts";
-import { giveawayLines, measure } from "./metrics.ts";
+import { countTurns, giveawayLines, measure } from "./metrics.ts";
 import { createRng, type Rng } from "./rng.ts";
 
 /**
@@ -27,8 +27,10 @@ import { createRng, type Rng } from "./rng.ts";
  *
  * v1: single random path, minimal hints + extras.
  * v2: difficulty profiles; generate-and-filter with logic rating.
+ * v3: Easy filtered to tier 1 and few turns; Hard on 8x8; Super-duper hard
+ *     (straight paths).
  */
-export const GENERATOR_VERSION = 2;
+export const GENERATOR_VERSION = 3;
 
 export interface GenerateOptions {
   difficulty: number;
@@ -75,19 +77,23 @@ export function generatePuzzle(options: GenerateOptions): GeneratedPuzzle {
 
   for (let attempt = 0; attempt < profile.maxAttempts; attempt++) {
     const rng = attemptRng(options.seed, attempt);
-    const path = randomPath(rng, width, height);
+    const path = makePath(profile.pathStyle, rng, width, height);
 
     // Cheap filters first: most candidates are rejected before the expensive
     // uniqueness and logic steps. (Attempt 0 is always fully evaluated so
     // there is a fallback.)
     if (best) {
       const counts = lineCounts(width, height, (r, c) => path.cells.some((p) => p.row === r && p.col === c));
-      const quick = { trackCells: path.cells.length, giveawayLines: giveawayLines({ width, height, rowClues: counts.rows, colClues: counts.cols }) };
+      const quick = {
+        trackCells: path.cells.length,
+        giveawayLines: giveawayLines({ width, height, rowClues: counts.rows, colClues: counts.cols }),
+        turns: countTurns(pathToMasks(width, height, path.cells, path.start.dir, path.end.dir)),
+      };
       if (cheapViolations(profile.filters, quick).length > 0) continue;
     }
 
     const candidate = completeCandidate(rng, width, height, path, profile.extraHints);
-    const metrics = measure(candidate.layout);
+    const metrics = measure(candidate.layout, candidate.solution);
     const failed = violations(profile.filters, metrics);
     const result: GeneratedPuzzle = { ...candidate, metrics, attempts: attempt + 1, accepted: failed.length === 0, violations: failed };
     if (result.accepted) return result;
@@ -97,8 +103,13 @@ export function generatePuzzle(options: GenerateOptions): GeneratedPuzzle {
 }
 
 /** One unfiltered candidate (used by the lab to study raw distributions). */
-export function generateCandidate(rng: Rng, width: number, height: number, extraHints: number): Candidate {
-  return completeCandidate(rng, width, height, randomPath(rng, width, height), extraHints);
+export function generateCandidate(
+  rng: Rng,
+  width: number,
+  height: number,
+  settings: Pick<GenerationSettings, "extraHints" | "pathStyle">,
+): Candidate {
+  return completeCandidate(rng, width, height, makePath(settings.pathStyle, rng, width, height), settings.extraHints);
 }
 
 /**
@@ -165,6 +176,38 @@ function outwardDirs(width: number, height: number, cell: Cell): Dir[] {
   if (cell.row === height - 1) dirs.push(S);
   if (cell.col === 0) dirs.push(W);
   return dirs;
+}
+
+function makePath(style: GenerationSettings["pathStyle"], rng: Rng, width: number, height: number): RandomPath {
+  return style === "straight" ? straightPath(rng, width, height) : randomPath(rng, width, height);
+}
+
+/**
+ * Edge to opposite edge in a straight line, with (usually) one sideways jog of
+ * a single square somewhere in the middle. For the joke level.
+ */
+function straightPath(rng: Rng, width: number, height: number): RandomPath {
+  const horizontal = rng.next() < 0.5;
+  // Work in (along, across) coordinates, then map to (row, col).
+  const length = horizontal ? width : height;
+  const breadth = horizontal ? height : width;
+  const at = (along: number, across: number): Cell => (horizontal ? { row: across, col: along } : { row: along, col: across });
+
+  let across = rng.int(breadth);
+  const jogAt = length >= 4 && breadth >= 2 && rng.next() < 0.8 ? 1 + rng.int(length - 2) : -1;
+  const jogTo = across === 0 ? 1 : across === breadth - 1 ? across - 1 : across + (rng.next() < 0.5 ? 1 : -1);
+
+  const cells: Cell[] = [];
+  for (let along = 0; along < length; along++) {
+    cells.push(at(along, across));
+    if (along === jogAt) {
+      across = jogTo;
+      cells.push(at(along, across));
+    }
+  }
+  const start: Endpoint = { ...cells[0]!, dir: horizontal ? W : N };
+  const end: Endpoint = { ...cells[cells.length - 1]!, dir: horizontal ? E : S };
+  return { cells, start, end };
 }
 
 /**

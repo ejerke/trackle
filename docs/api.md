@@ -96,7 +96,7 @@ For a signed-in player the server records the help on the account.
 200 { "kind": "complete" }                                     // already the solution (not counted)
 ```
 
-Hard allows 5 hints per puzzle (`hintLimit` in `LEVELS`). For a signed-in
+Hard allows 3 hints per puzzle and Super-duper hard none (`hintLimit` in `LEVELS`). For a signed-in
 player the server enforces it: the next request gets
 `403 { "error": "hint_limit" }`. Signed out, the browser enforces it.
 

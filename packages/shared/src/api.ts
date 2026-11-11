@@ -67,6 +67,8 @@ export interface PuzzleMetrics {
   hints: number;
   /** Rows/columns whose clue is 0 or the full line length. */
   giveawayLines: number;
+  /** Track squares where the track turns a corner: how winding it is. */
+  turns: number;
   /** Hardest deduction tier needed (1 local, 2 connectivity, 3 trial), null = needs guessing. */
   tier: 1 | 2 | 3 | null;
   /** Share of initially unknown facts (squares and connections) that tier-1 rules alone decide, 0..1. */

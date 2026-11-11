@@ -54,8 +54,8 @@ for (let i = 0; i < count; i++) {
   const t = performance.now();
   if (values.raw) {
     // A single unfiltered candidate, built exactly like the generator's attempt 0.
-    const { layout, solution } = generateCandidate(attemptRng(seed, 0), width, height, profile.extraHints);
-    const metrics = measure(layout);
+    const { layout, solution } = generateCandidate(attemptRng(seed, 0), width, height, profile);
+    const metrics = measure(layout, solution);
     const failed = violations(profile.filters, metrics);
     samples.push({ seed, metrics, ms: performance.now() - t, attempts: 1, accepted: failed.length === 0, failed });
     if (shown.length < show) shown.push(describe(seed, metrics, failed) + "\n" + renderPuzzle(layout, values.solution ? solution : undefined));
@@ -71,7 +71,7 @@ for (let i = 0; i < count; i++) {
 function describe(seed: string, m: PuzzleMetrics, failed: string[]): string {
   return [
     `seed ${seed}  →  http://localhost:5173/lab/${difficulty}/${seed}`,
-    `  tier ${m.tier ?? "guess"}, tier1 ${(m.tier1Progress * 100).toFixed(0)}%, track ${m.trackCells}, to place ${m.toPlace}, hints ${m.hints}, giveaway lines ${m.giveawayLines}` +
+    `  tier ${m.tier ?? "guess"}, tier1 ${(m.tier1Progress * 100).toFixed(0)}%, track ${m.trackCells}, to place ${m.toPlace}, hints ${m.hints}, turns ${m.turns}, giveaway lines ${m.giveawayLines}` +
       (failed.length ? `  ✗ ${failed.join(", ")}` : ""),
   ].join("\n");
 }
@@ -110,6 +110,7 @@ table([
   ["toPlace", samples.map((s) => s.metrics.toPlace)],
   ["hints", samples.map((s) => s.metrics.hints)],
   ["giveawayLines", samples.map((s) => s.metrics.giveawayLines)],
+  ["turns", samples.map((s) => s.metrics.turns)],
   ["tier1Progress", samples.map((s) => s.metrics.tier1Progress)],
   ["tier2Steps", samples.map((s) => s.metrics.tier2Steps)],
   ["tier3Steps", samples.map((s) => s.metrics.tier3Steps)],

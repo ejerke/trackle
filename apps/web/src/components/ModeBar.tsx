@@ -71,7 +71,9 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
               strokeLinejoin="round"
             />
           </svg>
-          New random
+          {/* "New random" doesn't fit next to the difficulties on a phone. */}
+          <span className="wide-only">New random</span>
+          <span className="narrow-only">Random</span>
         </button>
       </div>
     </nav>

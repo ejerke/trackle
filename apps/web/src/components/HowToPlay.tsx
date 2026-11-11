@@ -28,7 +28,7 @@ export function HowToPlay() {
     <>
       <button
         type="button"
-        className="help-button"
+        className="icon-button icon-button--text"
         onClick={() => dialog.current?.showModal()}
         aria-label="How to play"
         title="How to play"

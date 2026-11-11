@@ -197,10 +197,12 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
 
   return (
     <section className="game">
-      <Toolbar mode={mode} onMode={setMode} disabled={finished} />
-      {!revealed && !(solved && progress.timeMs === 0) && (
-        <Clock timeMs={progress.timeMs} runningSince={runningSince} />
-      )}
+      <div className="play-bar">
+        <Toolbar mode={mode} onMode={setMode} disabled={finished} />
+        {!revealed && !(solved && progress.timeMs === 0) && (
+          <Clock timeMs={progress.timeMs} runningSince={runningSince} />
+        )}
+      </div>
 
       <Board
         layout={puzzle}

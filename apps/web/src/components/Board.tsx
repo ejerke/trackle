@@ -22,14 +22,17 @@ interface BoardProps {
   trainRun?: number;
 }
 
-// Board geometry, in SVG units where one cell = 1.
-const LEFT = 1.5;
-const TOP = 1.5;
-const RIGHT = 1.5;
-/** Clues sit this far outside the grid, leaving room for the A/B stubs. */
-const CLUE_OFFSET = 1.0;
+// Board geometry, in SVG units where one cell = 1. The margins are as tight
+// as what's drawn there allows, since the board scales to the screen width:
+// left/bottom only hold A/B stubs (0.45 long) and their labels; top/right
+// hold the clues. The train may run a little past them (overflow is visible).
+const LEFT = 0.6;
+const TOP = 1.15;
+const RIGHT = 1.2;
+/** Clues sit this far outside the grid, just clear of an A/B stub's tip. */
+const CLUE_OFFSET = 0.85;
 const STUB = 0.45;
-const BOTTOM = 0.9;
+const BOTTOM = 0.6;
 /** A tap closer than this to a cell side toggles the segment across that side. */
 const TAP_EDGE_DISTANCE = 0.32;
 

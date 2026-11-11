@@ -29,8 +29,6 @@ interface GameProps {
   afterSolve?: ReactNode;
 }
 
-const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export function Game({ puzzle, progressKey, store, check: checkWithServer, hint, answer: answerProp, afterSolve }: GameProps) {
@@ -90,6 +88,8 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
 
   // A solve that happens while you watch sends a train along the track.
   // Opening an already-solved puzzle doesn't (use "Run the train" for that).
+  // It runs even with "reduce motion" on: people often set that to make the
+  // phone feel faster, not to hide a short, one-off celebration.
   useEffect(() => {
     if (!progress) return;
     const key = JSON.stringify(progressKey);
@@ -97,7 +97,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
     const before = lastSolved.current;
     lastSolved.current = { key, solved };
     if (before && before.key !== key) setTrainRun(0); // a new puzzle: no train left over
-    if (before?.key === key && !before.solved && solved && !prefersReducedMotion()) setTrainRun((n) => n + 1);
+    if (before?.key === key && !before.solved && solved) setTrainRun((n) => n + 1);
   }, [progress?.solvedAt, progressKey]);
 
   useEffect(() => {

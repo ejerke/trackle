@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiRequestError } from "../api";
 import { applyHint, boardMasks, type Mode } from "../board/model";
 import { usePuzzleProgress } from "../hooks/usePuzzleProgress";
+import { useStreak } from "../hooks/useStreak";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
 import { formatDuration } from "../time";
 import { Board, type Highlight } from "./Board";
@@ -53,6 +54,8 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   const [helping, setHelping] = useState(false);
   const [helpMessage, setHelpMessage] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<Highlight | null>(null);
+  // One wagon per day of the streak at this level, counted again after a solve.
+  const streak = useStreak(store, puzzle.difficulty, progress?.solvedAt);
   // Bumped to run the celebration train; see the effect below.
   const [trainRun, setTrainRun] = useState(0);
   // Was this puzzle already solved when we last looked? Keyed by puzzle, since
@@ -213,6 +216,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
         onChange={updateBoard}
         highlight={highlight}
         trainRun={trainRun}
+        trainWagons={streak}
       />
 
       {!!puzzle.crossings && (

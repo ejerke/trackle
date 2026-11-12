@@ -20,6 +20,8 @@ interface BoardProps {
   highlight?: Highlight | null;
   /** Bump to send a train along the finished track; 0 = no train. */
   trainRun?: number;
+  /** Wagons the train pulls (default: Train's DEFAULT_WAGONS). */
+  trainWagons?: number;
   /** Extra SVG drawn on top, in grid units (one square = 1). */
   overlay?: ReactNode;
 }
@@ -133,7 +135,7 @@ const parseCell = (key: string): Cell => {
   return { row: row!, col: col! };
 };
 
-export function Board({ layout, board, mode, locked, onChange, highlight, trainRun = 0, overlay }: BoardProps) {
+export function Board({ layout, board, mode, locked, onChange, highlight, trainRun = 0, trainWagons, overlay }: BoardProps) {
   const { width, height } = layout;
   const aSide = layout.endpoints[0].dir;
   const extra = (side: Dir) => (aSide === side ? A_EXTRA : 0);
@@ -396,7 +398,7 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
         );
       })}
 
-      <Train key={route ? trainRun : "parked"} layout={layout} steps={route} />
+      <Train key={route ? trainRun : "parked"} layout={layout} steps={route} wagons={trainWagons} />
 
       {overlay}
 

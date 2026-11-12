@@ -16,10 +16,14 @@ type Point = { x: number; y: number };
 const SPEED = 2;
 const MIN_MS = 1800;
 const MAX_MS = 9000;
+/** A long train may take a little longer per wagon, so it doesn't race. */
+const MS_PER_WAGON = 250;
 /** Space between neighbouring cars (coupler length). */
 const CAR_GAP = 0.06;
-/** Wagons behind the engine and tender. */
-const WAGONS = 4;
+/** Wagons behind the engine and tender, unless told otherwise (one per streak day in the game). */
+export const DEFAULT_WAGONS = 4;
+/** More than this and the train would fill the board several times over. */
+export const MAX_WAGONS = 60;
 /** Where the chimney sits on the engine, ahead of its centre. */
 const CHIMNEY_X = 0.21;
 /** Cars fade in/out over this distance at the stub tips. */
@@ -72,18 +76,20 @@ type CarKind = "engine" | "tender" | "boxcar" | "logs" | "tank";
 /** Car lengths along the track, in board units. */
 const LENGTH: Record<CarKind, number> = { engine: 0.64, tender: 0.4, boxcar: 0.52, logs: 0.52, tank: 0.5 };
 const WAGON_KINDS: CarKind[] = ["boxcar", "logs", "tank"];
-const CARS: CarKind[] = [
-  "engine",
-  "tender",
-  ...Array.from({ length: WAGONS }, (_, i) => WAGON_KINDS[i % WAGON_KINDS.length]!),
-];
+/** Engine, tender, then `wagons` wagons in a repeating mix. */
+function carsFor(wagons: number): CarKind[] {
+  const n = Math.max(0, Math.min(MAX_WAGONS, Math.floor(wagons)));
+  return ["engine", "tender", ...Array.from({ length: n }, (_, i) => WAGON_KINDS[i % WAGON_KINDS.length]!)];
+}
 
 /** How far behind the engine's centre each car's centre runs. */
-const OFFSETS = CARS.reduce<number[]>((acc, kind, i) => {
-  if (i === 0) return [0];
-  const prev = CARS[i - 1]!;
-  return [...acc, acc[i - 1]! + LENGTH[prev] / 2 + CAR_GAP + LENGTH[kind] / 2];
-}, []);
+function offsetsFor(cars: CarKind[]): number[] {
+  return cars.reduce<number[]>((acc, kind, i) => {
+    if (i === 0) return [0];
+    const prev = cars[i - 1]!;
+    return [...acc, acc[i - 1]! + LENGTH[prev] / 2 + CAR_GAP + LENGTH[kind] / 2];
+  }, []);
+}
 
 /** Wheel ends poking out either side, drawn under the body. */
 function Wheels({ at }: { at: number[] }) {
@@ -224,10 +230,18 @@ function parkedTransform(layout: PuzzleLayout): string {
 
 /**
  * With no route, just the engine waiting at A. Given a route (the track is
- * finished), the whole train sets off from there. Remount (change `key`) to
- * run again.
+ * finished), the whole train sets off from there, pulling `wagons` wagons.
+ * Remount (change `key`) to run again.
  */
-export function Train({ layout, steps }: { layout: PuzzleLayout; steps: RouteStep[] | null }) {
+export function Train({
+  layout,
+  steps,
+  wagons = DEFAULT_WAGONS,
+}: {
+  layout: PuzzleLayout;
+  steps: RouteStep[] | null;
+  wagons?: number;
+}) {
   if (!steps) {
     return (
       <g className="train train--parked" aria-hidden="true">
@@ -237,11 +251,14 @@ export function Train({ layout, steps }: { layout: PuzzleLayout; steps: RouteSte
       </g>
     );
   }
-  return <RunningTrain layout={layout} steps={steps} />;
+  return <RunningTrain layout={layout} steps={steps} wagons={wagons} />;
 }
 
-function RunningTrain({ layout, steps }: { layout: PuzzleLayout; steps: RouteStep[] }) {
+function RunningTrain({ layout, steps, wagons }: { layout: PuzzleLayout; steps: RouteStep[]; wagons: number }) {
   const d = useMemo(() => routePath(layout, steps), [layout, steps]);
+  // Fixed for the run: the train doesn't grow mid-journey.
+  const [cars] = useState(() => carsFor(wagons));
+  const offsets = useMemo(() => offsetsFor(cars), [cars]);
   const pathRef = useRef<SVGPathElement>(null);
   const carRefs = useRef<(SVGGElement | null)[]>([]);
   const [done, setDone] = useState(false);
@@ -252,8 +269,9 @@ function RunningTrain({ layout, steps }: { layout: PuzzleLayout; steps: RouteSte
     const length = path.getTotalLength();
     // The engine sets off from where it was parked and travels until the
     // last car has left through B.
-    const travel = length + OFFSETS[OFFSETS.length - 1]! - PARKED_AT;
-    const duration = Math.min(MAX_MS, Math.max(MIN_MS, (travel / SPEED) * 1000));
+    const travel = length + offsets[offsets.length - 1]! - PARKED_AT;
+    const longest = MAX_MS + Math.max(0, cars.length - 2 - DEFAULT_WAGONS) * MS_PER_WAGON;
+    const duration = Math.min(longest, Math.max(MIN_MS, (travel / SPEED) * 1000));
     let frame = 0;
     let startedAt: number | null = null;
 
@@ -276,21 +294,21 @@ function RunningTrain({ layout, steps }: { layout: PuzzleLayout; steps: RouteSte
       startedAt ??= now;
       const t = Math.min(1, (now - startedAt) / duration);
       const head = PARKED_AT + easeInOut(t) * travel;
-      carRefs.current.forEach((car, i) => car && place(car, head - OFFSETS[i]!));
+      carRefs.current.forEach((car, i) => car && place(car, head - offsets[i]!));
 
       if (t < 1) frame = requestAnimationFrame(tick);
       else setDone(true);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [d]);
+  }, [d, cars, offsets]);
 
   if (done) return null;
   return (
     <g className="train" aria-hidden="true">
       <path ref={pathRef} d={d} className="train__route" />
       {/* Drawn back to front, so each car's coupler tucks under the car ahead. */}
-      {CARS.map((kind, i) => i)
+      {cars.map((_, i) => i)
         .reverse()
         .map((i) => (
           // The engine starts where it was parked, so swapping from the parked
@@ -301,7 +319,7 @@ function RunningTrain({ layout, steps }: { layout: PuzzleLayout; steps: RouteSte
             opacity={i === 0 ? 1 : 0}
             transform={i === 0 ? parkedTransform(layout) : undefined}
           >
-            <Car kind={CARS[i]!} />
+            <Car kind={cars[i]!} />
           </g>
         ))}
     </g>

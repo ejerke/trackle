@@ -57,7 +57,7 @@ export function RandomPage({ difficulty, seed, store }: { difficulty: number; se
           progressKey={progressKey}
           store={store}
           check={(cells) => checkRandomTrack(difficulty, seed, cells)}
-          hint={(cells, empty) => randomHint(difficulty, seed, cells, empty)}
+          hint={(kind, cells, empty) => randomHint(difficulty, seed, kind, cells, empty)}
           answer={() => randomAnswer(difficulty, seed)}
           afterSolve={
             <>

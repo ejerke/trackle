@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { emptyGrid, emptyProgress, mergeSummary, type PuzzleProgress } from "@trackle/shared";
+import { LEVELS, emptyGrid, emptyProgress, mergeSummary, type PuzzleProgress } from "@trackle/shared";
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "../app.ts";
@@ -93,7 +93,7 @@ describe("hints and answers", () => {
 });
 
 describe("hint limits", () => {
-  it("allows 3 hints on a Hard puzzle for a signed-in player, then refuses", async () => {
+  it("allows Hard's hint limit for a signed-in player, then refuses", async () => {
     await setup();
     const token = await signUp();
     await app.inject("/api/puzzles/today?difficulty=2");
@@ -103,11 +103,36 @@ describe("hint limits", () => {
     for (const h of hard.hints) cells[h.row]![h.col] = h.piece;
 
     const ask = () => call("/api/puzzles/2026-11-10/hint?difficulty=2", { cells }, token);
-    for (let i = 0; i < 3; i++) expect((await ask()).statusCode).toBe(200);
-    const fourth = await ask();
-    expect(fourth.statusCode).toBe(403);
-    expect(fourth.json()).toEqual({ error: "hint_limit" });
-    expect(db.prepare("SELECT hints_used FROM user_progress WHERE key_id = '2026-11-10:2'").pluck().get()).toBe(3);
+    const limit = LEVELS[2]!.hintLimit!;
+    for (let i = 0; i < limit; i++) expect((await ask()).statusCode).toBe(200);
+    const over = await ask();
+    expect(over.statusCode).toBe(403);
+    expect(over.json()).toEqual({ error: "hint_limit" });
+    expect(db.prepare("SELECT hints_used FROM user_progress WHERE key_id = '2026-11-10:2'").pluck().get()).toBe(limit);
+  });
+
+  it("counts 'no track' hints against their own limit", async () => {
+    await setup();
+    const token = await signUp();
+    await app.inject("/api/puzzles/today?difficulty=2");
+    const hard = new PuzzleRepository(db).find("2026-11-10", 2)!.puzzle;
+    const cells = emptyGrid(hard.width, hard.height);
+    for (const ep of hard.endpoints) cells[ep.row]![ep.col]! |= ep.dir;
+    for (const h of hard.hints) cells[h.row]![h.col] = h.piece;
+
+    const ask = (kind: "track" | "empty") => call("/api/puzzles/2026-11-10/hint?difficulty=2", { kind, cells }, token);
+    const limit = LEVELS[2]!.emptyHintLimit!;
+    for (let i = 0; i < limit; i++) {
+      const res = await ask("empty");
+      expect(res.statusCode).toBe(200);
+      expect(res.json().kind).toBe("empty");
+    }
+    expect((await ask("empty")).statusCode).toBe(403);
+    // Track hints are still there, and the account counts both kinds.
+    expect((await ask("track")).json().kind).toBe("piece");
+    const record = JSON.parse(db.prepare("SELECT record_json FROM user_progress WHERE key_id = '2026-11-10:2'").pluck().get() as string);
+    expect(record).toMatchObject({ hintsUsed: 1, emptyHintsUsed: limit });
+    expect(db.prepare("SELECT hints_used FROM user_progress WHERE key_id = '2026-11-10:2'").pluck().get()).toBe(limit + 1);
   });
 
   it("gives no hints at all on Super-duper hard", async () => {

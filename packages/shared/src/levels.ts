@@ -24,19 +24,24 @@ export interface Level {
    * (Not the pre-placed pieces, which the code calls `layout.hints`.)
    */
   hintLimit: number | null;
+  /**
+   * How many times per puzzle the player may press the "No track" hint (which
+   * reveals a square without track); null = unlimited. Counted separately.
+   */
+  emptyHintLimit: number | null;
   /** Whether "Show answer" is offered (and served by the API) at this level. */
   showAnswer: boolean;
 }
 
 /** Index = the difficulty number stored everywhere (0 = easiest). Append new levels at the end. */
 export const LEVELS: readonly Level[] = [
-  { name: "Easy", width: 6, height: 6, hintLimit: null, showAnswer: true },
-  { name: "Medium", width: 6, height: 6, hintLimit: null, showAnswer: true },
-  { name: "Hard", width: 8, height: 8, hintLimit: 3, showAnswer: false },
+  { name: "Easy", width: 6, height: 6, hintLimit: null, emptyHintLimit: null, showAnswer: true },
+  { name: "Medium", width: 6, height: 6, hintLimit: null, emptyHintLimit: null, showAnswer: true },
+  { name: "Hard", width: 8, height: 8, hintLimit: 5, emptyHintLimit: 5, showAnswer: false },
   // A joke: the hardest-sounding level is (almost) a straight line.
-  { name: "Super-duper hard", shortName: "Super-duper", width: 9, height: 9, hintLimit: 0, showAnswer: false },
+  { name: "Super-duper hard", shortName: "Super-duper", width: 9, height: 9, hintLimit: 0, emptyHintLimit: 0, showAnswer: false },
   // The track crosses itself once.
-  { name: "Insane", width: 8, height: 8, hintLimit: 3, showAnswer: false },
+  { name: "Insane", width: 8, height: 8, hintLimit: 5, emptyHintLimit: 5, showAnswer: false },
 ];
 
 /** Order of levels in pickers and lists: Insane before the joke level. */
@@ -59,8 +64,15 @@ export function canShowAnswer(difficulty: number): boolean {
   return LEVELS[difficulty]?.showAnswer ?? false;
 }
 
-/** Hints still available, or null when unlimited. */
-export function hintsLeft(difficulty: number, hintsUsed: number): number | null {
-  const max = LEVELS[difficulty]?.hintLimit ?? null;
-  return max === null ? null : Math.max(0, max - hintsUsed);
+/**
+ * The two kinds of hint: "track" reveals a track piece, "empty" a square
+ * without track. Each has its own limit and count.
+ */
+export type HintKind = "track" | "empty";
+
+/** Hints of this kind still available, or null when unlimited. */
+export function hintsLeft(difficulty: number, used: number, kind: HintKind = "track"): number | null {
+  const level = LEVELS[difficulty];
+  const max = (kind === "track" ? level?.hintLimit : level?.emptyHintLimit) ?? null;
+  return max === null ? null : Math.max(0, max - used);
 }

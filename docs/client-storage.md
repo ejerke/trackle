@@ -31,12 +31,13 @@ type PuzzleKey =
   | { kind: "random"; seed: string; difficulty: number }; // "k3j9x2ab", 0
 
 interface PuzzleProgress {
-  schemaVersion: 6;
+  schemaVersion: 7;
   key: PuzzleKey;
   puzzleFingerprint: string | null; // which puzzle the board was drawn on
   board: {
     edges: string[];                          // track segments, e.g. "h:2:3", "v:0:5"
     marks: Record<string, "track" | "empty">; // "r:c" -> mark
+    locked?: string[];                        // "r:c" squares revealed by hints: can't change
   };
   startedAt: string;          // ISO, first interaction
   updatedAt: string;          // ISO, last change
@@ -45,7 +46,8 @@ interface PuzzleProgress {
   solvedCells: number[][] | null; // the mask grid the server accepted
   boardSavedAt: string | null; // when this board was last saved to the account
   boardDirty: boolean;         // edits since then (device-local)
-  hintsUsed: number;           // only ever grows
+  hintsUsed: number;           // track hints; only ever grows
+  emptyHintsUsed: number;      // "no track" hints; only ever grows
   revealedAt: string | null;   // answer shown: locked, never counts as solved
   timeMs: number;              // active solving time; frozen at the solve, 0 = not timed
 }
@@ -73,7 +75,8 @@ are not stored; they come from the puzzle.
 | 3 | adds `puzzleFingerprint` | → 4: `boardSavedAt: null`, `boardDirty` = anything drawn |
 | 4 | adds `boardSavedAt`, `boardDirty` (Save button) | → 5: `hintsUsed: 0`, `revealedAt: null` |
 | 5 | adds `hintsUsed`, `revealedAt` (hints and answers) | → 6: `timeMs: 0` (not timed) |
-| 6 | adds `timeMs` (timed solves) | (current) |
+| 6 | adds `timeMs` (timed solves) | → 7: `emptyHintsUsed: 0` |
+| 7 | adds `emptyHintsUsed`, `board.locked` (two kinds of hint) | (current) |
 
 `migrateProgress()` walks old records up one version at a time, so the
 storage key layout (`v1`) did not need to change. Tested in

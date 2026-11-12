@@ -1,3 +1,4 @@
+import type { HintKind } from "./levels.ts";
 import type { PuzzleProgress } from "./progress.ts";
 import type { PlayablePuzzle, PublicPuzzle } from "./types.ts";
 
@@ -17,8 +18,10 @@ export interface ArchiveResponse {
   dates: string[];
 }
 
-/** POST .../hint: the player's board, so the hint can point out mistakes first. */
+/** POST .../hint: the player's board, so the hint can fix mistakes first. */
 export interface HintRequest {
+  /** Which hint: a track piece (default) or a square without track. */
+  kind?: HintKind;
   /** height x width mask grid, as for /check. */
   cells: number[][];
   /** Squares the player marked "no track", as [row, col]. */
@@ -26,15 +29,17 @@ export interface HintRequest {
 }
 
 /**
- * The hint (ADR 0014):
- *  - "mistake": something on the board is wrong: a segment (edge key such as
- *    "h:2:3") or a square marked "no track" that does have track;
- *  - "piece": the next piece logic would work out, at (row, col);
- *  - "complete": the board already matches the solution (press Check).
+ * The hint (ADR 0014). Each reveals one square, which the board then locks:
+ *  - "piece" (a track hint): the solution's piece at (row, col). `remove`
+ *    lists the player's wrong segments that are in its way (at that square or
+ *    the squares it connects to), to delete before laying it;
+ *  - "empty" (a no-track hint): (row, col) has no track; any segment through
+ *    it is wrong;
+ *  - "complete": nothing left to reveal with this kind of hint. Not counted.
  */
 export type HintResponse =
-  | { kind: "mistake"; edge: string | null; cell: { row: number; col: number } | null }
-  | { kind: "piece"; row: number; col: number; piece: number }
+  | { kind: "piece"; row: number; col: number; piece: number; remove: string[] }
+  | { kind: "empty"; row: number; col: number }
   | { kind: "complete" };
 
 /** POST .../answer: the full solution. Recorded as "answer shown" for signed-in players. */

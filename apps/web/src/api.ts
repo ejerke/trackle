@@ -6,6 +6,7 @@ import type {
   ChangePasswordRequest,
   Credentials,
   DeleteAccountRequest,
+  HintKind,
   HintRequest,
   HintResponse,
   ProgressListResponse,
@@ -74,8 +75,8 @@ export function fetchArchive(difficulty: number): Promise<ArchiveResponse> {
 
 const postJson = <T>(path: string, body: unknown) => request<T>(path, { method: "POST", body: JSON.stringify(body) });
 
-export function dailyHint(date: string, difficulty: number, cells: number[][], emptyCells: [number, number][]) {
-  const body: HintRequest = { cells, emptyCells };
+export function dailyHint(date: string, difficulty: number, kind: HintKind, cells: number[][], emptyCells: [number, number][]) {
+  const body: HintRequest = { kind, cells, emptyCells };
   return postJson<HintResponse>(`/api/puzzles/${date}/hint?difficulty=${difficulty}`, body);
 }
 
@@ -83,8 +84,8 @@ export async function dailyAnswer(date: string, difficulty: number): Promise<num
   return (await postJson<AnswerResponse>(`/api/puzzles/${date}/answer?difficulty=${difficulty}`, {})).cells;
 }
 
-export function randomHint(difficulty: number, seed: string, cells: number[][], emptyCells: [number, number][]) {
-  const body: HintRequest = { cells, emptyCells };
+export function randomHint(difficulty: number, seed: string, kind: HintKind, cells: number[][], emptyCells: [number, number][]) {
+  const body: HintRequest = { kind, cells, emptyCells };
   return postJson<HintResponse>(`/api/random/${difficulty}/${seed}/hint`, body);
 }
 

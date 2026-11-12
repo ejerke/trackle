@@ -28,12 +28,13 @@ const recordSchema = {
     "boardSavedAt",
     "boardDirty",
     "hintsUsed",
+    "emptyHintsUsed",
     "revealedAt",
     "timeMs",
   ],
   additionalProperties: false,
   properties: {
-    schemaVersion: { const: 6 },
+    schemaVersion: { const: 7 },
     key: {
       type: "object",
       required: ["kind", "difficulty"],
@@ -53,6 +54,7 @@ const recordSchema = {
       properties: {
         edges: { type: "array", maxItems: 800, items: { type: "string", maxLength: 12 } },
         marks: { type: "object", maxProperties: 400, additionalProperties: { enum: ["track", "empty"] } },
+        locked: { type: "array", maxItems: 400, items: { type: "string", maxLength: 6 } },
       },
     },
     startedAt: timestamp,
@@ -68,6 +70,7 @@ const recordSchema = {
     boardSavedAt: { anyOf: [timestamp, { type: "null" }] },
     boardDirty: { type: "boolean" },
     hintsUsed: { type: "integer", minimum: 0, maximum: 10_000 },
+    emptyHintsUsed: { type: "integer", minimum: 0, maximum: 10_000 },
     revealedAt: { anyOf: [timestamp, { type: "null" }] },
     // Up to a year of active play on one puzzle.
     timeMs: { type: "integer", minimum: 0, maximum: 31_536_000_000 },

@@ -13,6 +13,7 @@ import {
   type Cell,
   type Dir,
   type EdgeKey,
+  type HintResponse,
   type LineCounts,
   type PuzzleLayout,
 } from "@trackle/shared";
@@ -26,6 +27,18 @@ import type { BoardState, CellMark } from "../storage/progressStore";
 export type Mode = "track" | "isTrack" | "noTrack";
 
 export const cellKey = (c: Cell): string => `${c.row}:${c.col}`;
+
+/** Squares a hint revealed: nothing on them can be changed. */
+export function lockedCells(board: BoardState): Set<string> {
+  return new Set(board.locked ?? []);
+}
+
+/** A segment the player can't change because it touches a square a hint revealed. */
+function touchesLocked(board: BoardState, key: EdgeKey): boolean {
+  if (!board.locked?.length) return false;
+  const locked = lockedCells(board);
+  return edgeCells(key).some((c) => locked.has(cellKey(c)));
+}
 
 /** Player edges plus edges fixed by hints. */
 export function allEdges(layout: PuzzleLayout, board: BoardState): Set<EdgeKey> {
@@ -54,7 +67,7 @@ function maxSegments(layout: PuzzleLayout, cell: Cell): number {
 /** Add or remove a player segment. Refuses to give a square more segments than it may hold. */
 export function setEdge(layout: PuzzleLayout, board: BoardState, key: EdgeKey, on: boolean): BoardState {
   const present = board.edges.includes(key);
-  if (fixedEdges(layout).has(key) || present === on) return board;
+  if (fixedEdges(layout).has(key) || present === on || touchesLocked(board, key)) return board;
   if (!on) return { ...board, edges: board.edges.filter((e) => e !== key) };
 
   const masks = boardMasks(layout, board);
@@ -64,13 +77,13 @@ export function setEdge(layout: PuzzleLayout, board: BoardState, key: EdgeKey, o
   // Laying track through a square overrides an earlier "no track" mark there.
   const marks = { ...board.marks };
   for (const c of cells) if (marks[cellKey(c)] === "empty") delete marks[cellKey(c)];
-  return { edges: [...board.edges, key], marks };
+  return { ...board, edges: [...board.edges, key], marks };
 }
 
 /** Set or clear a cell mark. "No track" is refused on squares that already have track. */
 export function setMark(layout: PuzzleLayout, board: BoardState, cell: Cell, mark: CellMark | null): BoardState {
   const key = cellKey(cell);
-  if ((board.marks[key] ?? null) === mark) return board;
+  if ((board.marks[key] ?? null) === mark || lockedCells(board).has(key)) return board;
   if (mark === "empty" && boardMasks(layout, board)[cell.row]![cell.col] !== 0) return board;
   const marks = { ...board.marks };
   if (mark === null) delete marks[key];
@@ -95,6 +108,36 @@ export function placePiece(layout: PuzzleLayout, board: BoardState, cell: Cell, 
     if (edge && isValidEdge(layout.width, layout.height, edge)) next = setEdge(layout, next, edge, true);
   }
   return next;
+}
+
+/**
+ * Put a hint on the board and lock its square, so it can't be lost:
+ *  - a piece: delete the wrong segments in its way, lay it, drop any mark there;
+ *  - "no track": delete every segment through the square and mark it.
+ */
+export function applyHint(layout: PuzzleLayout, board: BoardState, hint: HintResponse): BoardState {
+  if (hint.kind === "complete") return board;
+  const cell = { row: hint.row, col: hint.col };
+  const key = cellKey(cell);
+  const touchesCell = (e: EdgeKey) => edgeCells(e).some((c) => c.row === cell.row && c.col === cell.col);
+  const drop = hint.kind === "piece" ? new Set(hint.remove) : new Set(board.edges.filter(touchesCell));
+  const marks = { ...board.marks };
+  delete marks[key];
+  let next: BoardState = { ...board, edges: board.edges.filter((e) => !drop.has(e)), marks };
+  if (hint.kind === "piece") next = placePiece(layout, next, cell, hint.piece);
+  else next = { ...next, marks: { ...next.marks, [key]: "empty" } };
+  const locked = lockedCells(next);
+  locked.add(key);
+  return { ...next, locked: [...locked] };
+}
+
+/** Clear the board, keeping what hints revealed. */
+export function clearedBoard(board: BoardState): BoardState {
+  const locked = lockedCells(board);
+  if (locked.size === 0) return { edges: [], marks: {} };
+  const marks = Object.fromEntries(Object.entries(board.marks).filter(([k]) => locked.has(k)));
+  const edges = board.edges.filter((e) => edgeCells(e).some((c) => locked.has(cellKey(c))));
+  return { edges, marks, locked: [...locked] };
 }
 
 /** Live clue counts: squares with track segments or a "track here" mark. */

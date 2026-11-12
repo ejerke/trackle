@@ -236,6 +236,9 @@ a {
   stroke-linecap: round;
   fill: none;
 }
+.board__cross--given {
+  stroke: var(--rail-fixed);
+}
 .board__hint {
   stroke: var(--rail-fixed);
   stroke-width: 0.05;

@@ -35,15 +35,25 @@ const blank = () => {
 };
 
 describe("computeHint", () => {
-  it("points out a wrong segment before anything else", () => {
+  it("fixes a wrong segment first: the piece there, with the wrong segments to delete", () => {
     const cells = blank();
     cells[0]![0] = W | S; // goes down instead of right
     cells[1]![0] = N;
-    expect(computeHint(layout, solution, cells)).toEqual({ kind: "mistake", edge: "v:0:0", cell: null });
+    expect(computeHint(layout, solution, cells)).toEqual({ kind: "piece", row: 0, col: 0, piece: W | E, remove: ["v:0:0"] });
   });
 
-  it("points out a 'no track' mark on a square that has track", () => {
-    expect(computeHint(layout, solution, blank(), [[1, 1]])).toEqual({ kind: "mistake", edge: null, cell: { row: 1, col: 1 } });
+  it("removes wrong segments at the squares the piece connects to", () => {
+    // The player runs straight on at (0,1) instead of turning down.
+    const cells = blank();
+    cells[0]![0] = W | E;
+    cells[0]![1] = W | E; // wrong: should turn down
+    cells[0]![2] = W;
+    const hint = computeHint(layout, solution, cells);
+    expect(hint).toEqual({ kind: "piece", row: 0, col: 1, piece: W | S, remove: ["h:0:1"] });
+  });
+
+  it("fixes a 'no track' mark on a square that has track", () => {
+    expect(computeHint(layout, solution, blank(), [[1, 1]])).toMatchObject({ kind: "piece", row: 1, col: 1, piece: N | E });
     // Correct marks are fine.
     expect(computeHint(layout, solution, blank(), [[2, 0]]).kind).toBe("piece");
   });
@@ -63,6 +73,66 @@ describe("computeHint", () => {
 
   it("says 'complete' when the board is already the solution", () => {
     expect(computeHint(layout, solution, solution)).toEqual({ kind: "complete" });
+  });
+});
+
+describe("computeHint: no track", () => {
+  const emptySquares = ["0:2", "1:0", "2:0", "2:1"];
+
+  it("first reveals a square the player drew track through", () => {
+    const cells = blank();
+    cells[1]![0] = E;
+    cells[1]![1] = W;
+    expect(computeHint(layout, solution, cells, [], "empty")).toEqual({ kind: "empty", row: 1, col: 0 });
+  });
+
+  it("otherwise a square without track that isn't marked yet", () => {
+    const hint = computeHint(layout, solution, blank(), [[0, 2]], "empty");
+    expect(hint.kind).toBe("empty");
+    if (hint.kind === "empty") {
+      expect(emptySquares).toContain(`${hint.row}:${hint.col}`);
+      expect([hint.row, hint.col]).not.toEqual([0, 2]);
+    }
+  });
+
+  it("picks a useful square on generated puzzles: never one the clues already give away", () => {
+    for (const seed of ["e1", "e2", "e3", "e4", "e5", "e6"]) {
+      const g = generatePuzzle({ difficulty: 2, seed });
+      const { layout: l, solution: sol } = g;
+      const cells = emptyGrid(l.width, l.height);
+      for (const ep of l.endpoints) cells[ep.row]![ep.col]! |= ep.dir;
+      for (const h of l.hints) cells[h.row]![h.col] = h.piece;
+      const hint = computeHint(l, sol, cells, [], "empty");
+      expect(hint.kind).toBe("empty");
+      if (hint.kind !== "empty") continue;
+      expect(sol[hint.row]![hint.col]).toBe(0);
+      expect(l.rowClues[hint.row]).toBeGreaterThan(0);
+      expect(l.colClues[hint.col]).toBeGreaterThan(0);
+      // Beside the track, where it constrains the route.
+      const beside = [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dr, dc]) => (sol[hint.row + dr!]?.[hint.col + dc!] ?? 0) !== 0);
+      expect(beside).toBe(true);
+    }
+  });
+
+  it("prefers the open sides of a loose end the player left", () => {
+    const g = generatePuzzle({ difficulty: 2, seed: "loose" });
+    const { layout: l, solution: sol } = g;
+    const cells = emptyGrid(l.width, l.height);
+    for (const ep of l.endpoints) cells[ep.row]![ep.col]! |= ep.dir;
+    for (const h of l.hints) cells[h.row]![h.col] = h.piece;
+    const hint = computeHint(l, sol, cells, [], "empty");
+    if (hint.kind !== "empty") throw new Error("expected an empty hint");
+    // Some square with a single segment (a loose end) is right next to it.
+    const loose = [[-1, 0], [1, 0], [0, -1], [0, 1]].some(([dr, dc]) => {
+      const m = cells[hint.row + dr!]?.[hint.col + dc!] ?? 0;
+      return m !== 0 && (m & (m - 1)) === 0;
+    });
+    expect(loose).toBe(true);
+  });
+
+  it("says 'complete' once every square without track is marked", () => {
+    const marks = emptySquares.map((k) => k.split(":").map(Number) as [number, number]);
+    expect(computeHint(layout, solution, blank(), marks, "empty")).toEqual({ kind: "complete" });
   });
 
   it("always gives a correct piece on generated puzzles", () => {

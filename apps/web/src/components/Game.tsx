@@ -1,7 +1,7 @@
-import { canShowAnswer, hintsLeft, validateTrack, type HintResponse, type PlayablePuzzle } from "@trackle/shared";
+import { canShowAnswer, edgeCells, hintsLeft, totalHints, validateTrack, type HintKind, type HintResponse, type PlayablePuzzle } from "@trackle/shared";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiRequestError } from "../api";
-import { boardMasks, placePiece, type Mode } from "../board/model";
+import { applyHint, boardMasks, type Mode } from "../board/model";
 import { usePuzzleProgress } from "../hooks/usePuzzleProgress";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
 import { formatDuration } from "../time";
@@ -11,7 +11,7 @@ import { Toolbar } from "./Toolbar";
 
 type CheckState = "idle" | "checking" | "wrong" | "error" | "rateLimited";
 
-/** How long a hinted piece or mistake stays highlighted. */
+/** How long a hinted square stays highlighted (it stays on the board, locked). */
 const HIGHLIGHT_MS = 3500;
 
 interface GameProps {
@@ -21,8 +21,8 @@ interface GameProps {
   store: ProgressStore;
   /** Asks the server whether the track is correct. Called by itself once the track looks complete. */
   check(cells: number[][]): Promise<boolean>;
-  /** Asks the server for a hint about this board. Omitted: no Hint button (e.g. the lab). */
-  hint?(cells: number[][], emptyCells: [number, number][]): Promise<HintResponse>;
+  /** Asks the server for a hint of this kind about this board. Omitted: no hint buttons (e.g. the lab). */
+  hint?(kind: HintKind, cells: number[][], emptyCells: [number, number][]): Promise<HintResponse>;
   /** Asks the server for the solution. Omitted: no "Show answer" button. */
   answer?(): Promise<number[][]>;
   /** Extra content in the "solved" / "answer shown" panel (countdown, next-puzzle buttons). */
@@ -125,30 +125,31 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
 
   const retryCheck = () => void runCheck(boardMasks(puzzle, progress.board));
 
-  const left = hintsLeft(puzzle.difficulty, progress.hintsUsed);
+  const used: Record<HintKind, number> = { track: progress.hintsUsed, empty: progress.emptyHintsUsed };
+  const left = (kind: HintKind) => hintsLeft(puzzle.difficulty, used[kind], kind);
 
-  const onHint = async () => {
-    if (!hint || left === 0) return;
+  const onHint = async (kind: HintKind) => {
+    if (!hint || left(kind) === 0) return;
     const emptyCells = Object.entries(progress.board.marks)
       .filter(([, mark]) => mark === "empty")
       .map(([key]) => key.split(":").map(Number) as [number, number]);
     setHelping(true);
     try {
-      const res = await hint(boardMasks(puzzle, progress.board), emptyCells);
+      const res = await hint(kind, boardMasks(puzzle, progress.board), emptyCells);
       if (res.kind === "complete") {
-        setHelpMessage("Your track is complete.");
+        setHelpMessage(kind === "track" ? "All the track is in place." : "Every square without track is marked.");
         return;
       }
-      recordHint();
-      if (res.kind === "piece") {
-        const cell = { row: res.row, col: res.col };
-        updateBoard((b) => placePiece(puzzle, b, cell, res.piece));
-        setHighlight({ tone: "hint", cells: [cell], edges: [] });
-        setHelpMessage("Here's the next piece.");
-      } else {
-        setHighlight({ tone: "mistake", cells: res.cell ? [res.cell] : [], edges: res.edge ? [res.edge] : [] });
-        setHelpMessage(res.edge ? "This segment doesn't belong." : "This square does have track.");
-      }
+      const cleared =
+        res.kind === "piece"
+          ? res.remove.length > 0
+          : progress.board.edges.some((e) => edgeCells(e).some((c) => c.row === res.row && c.col === res.col));
+      recordHint(kind, (b) => applyHint(puzzle, b, res));
+      setHighlight({ tone: "hint", cells: [{ row: res.row, col: res.col }], edges: [] });
+      setHelpMessage(
+        (res.kind === "piece" ? "Here's a piece of track." : "This square has no track.") +
+          (cleared ? " Wrong segments were removed." : ""),
+      );
     } catch (err) {
       const code = err instanceof ApiRequestError ? err.code : null;
       setHelpMessage(
@@ -224,9 +225,9 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
 
       {solved ? (
         <div className="result result--solved" role="status">
-          <p className="result__title">{progress.hintsUsed === 0 ? "Track complete!" : "Track complete"}</p>
+          <p className="result__title">{totalHints(progress) === 0 ? "Track complete!" : "Track complete"}</p>
           <p className="result__detail">
-            {progress.hintsUsed === 0 ? "Solved on your own" : `Solved with ${plural(progress.hintsUsed, "hint")}`}
+            {totalHints(progress) === 0 ? "Solved on your own" : `Solved with ${plural(totalHints(progress), "hint")}`}
             {progress.timeMs > 0 && (
               <>
                 {" "}
@@ -290,15 +291,23 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
           </p>
           {(hint || answer) && (
             <div className="help-row">
-              {hint && (
-                <button type="button" className="link-button" onClick={onHint} disabled={helping || left === 0}>
-                  {left === null
-                    ? `Hint${progress.hintsUsed > 0 ? ` (${progress.hintsUsed} used)` : ""}`
-                    : left === 0
-                      ? "No hints left"
-                      : `Hint (${left} left)`}
-                </button>
-              )}
+              {hint &&
+                (["track", "empty"] as const).map((kind) => {
+                  const name = kind === "track" ? "Track hint" : "No-track hint";
+                  const n = left(kind);
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      className="link-button"
+                      onClick={() => void onHint(kind)}
+                      disabled={helping || n === 0}
+                      title={kind === "track" ? "Reveal a piece of track" : "Reveal a square without track"}
+                    >
+                      {n === null ? `${name}${used[kind] > 0 ? ` (${used[kind]} used)` : ""}` : n === 0 ? `No ${name.toLowerCase()}s left` : `${name} (${n} left)`}
+                    </button>
+                  );
+                })}
               {answer && (
                 <button
                   type="button"

@@ -16,7 +16,7 @@ export function toSummary(p: PuzzleProgress): PuzzleProgress {
 
 /** Changes when something the account cares about changes (not on board edits). */
 export function summaryKey(p: PuzzleProgress): string {
-  return JSON.stringify([p.puzzleFingerprint, p.checks, p.solvedAt, p.hintsUsed, p.revealedAt]);
+  return JSON.stringify([p.puzzleFingerprint, p.checks, p.solvedAt, p.hintsUsed, p.emptyHintsUsed, p.revealedAt]);
 }
 
 export interface DeviceMerge {
@@ -47,8 +47,10 @@ export function mergeOnDevice(local: PuzzleProgress | null, remote: PuzzleProgre
     ...local,
     checks: Math.max(local.checks, remote.checks),
     hintsUsed: Math.max(local.hintsUsed, remote.hintsUsed),
+    emptyHintsUsed: Math.max(local.emptyHintsUsed, remote.emptyHintsUsed),
   };
-  let push = local.checks > remote.checks || local.hintsUsed > remote.hintsUsed;
+  let push =
+    local.checks > remote.checks || local.hintsUsed > remote.hintsUsed || local.emptyHintsUsed > remote.emptyHintsUsed;
 
   if (remote.revealedAt && !local.revealedAt && !local.solvedAt) {
     out = { ...out, revealedAt: remote.revealedAt, board: remote.board, boardSavedAt: remote.boardSavedAt, boardDirty: false };

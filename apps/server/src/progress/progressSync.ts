@@ -8,6 +8,7 @@ import {
   migrateProgress,
   puzzleFingerprint,
   puzzleKeyId,
+  totalHints,
   saveBoard,
   validateTrack,
   type PuzzleKey,
@@ -73,11 +74,11 @@ export class ProgressSync {
 
   /**
    * Record help the server just gave a signed-in player (ADR 0014): one more
-   * hint, or the answer shown. Recorded here, not trusted to the client, so
+   * track or "no track" hint, or the answer shown. Recorded here, not trusted to the client, so
    * the account's "solved it yourself" can't be faked by a quiet browser.
    * No change once the puzzle is solved or already revealed.
    */
-  recordHelp(userId: number, key: PuzzleKey, layout: PuzzleLayout, solution: number[][], help: "hint" | "answer"): void {
+  recordHelp(userId: number, key: PuzzleKey, layout: PuzzleLayout, solution: number[][], help: "hint" | "emptyHint" | "answer"): void {
     const now = this.now().toISOString();
     this.db.transaction(() =>
       this.write(userId, emptyProgress(key, puzzleFingerprint(layout), this.now()), (existing) => {
@@ -87,7 +88,9 @@ export class ProgressSync {
         const incoming: PuzzleProgress =
           help === "hint"
             ? { ...base, hintsUsed: base.hintsUsed + 1, updatedAt: now }
-            : {
+            : help === "emptyHint"
+              ? { ...base, emptyHintsUsed: base.emptyHintsUsed + 1, updatedAt: now }
+              : {
                 ...base,
                 revealedAt: now,
                 updatedAt: now,
@@ -122,7 +125,8 @@ export class ProgressSync {
            record_json = excluded.record_json, updated_at = excluded.updated_at, solved_at = excluded.solved_at,
            hints_used = excluded.hints_used, revealed_at = excluded.revealed_at`,
       )
-      .run(userId, keyId, JSON.stringify(stored), stored.updatedAt, stored.solvedAt, stored.hintsUsed, stored.revealedAt);
+      // hints_used: help of both kinds, so `hints_used = 0` still means "no hints".
+      .run(userId, keyId, JSON.stringify(stored), stored.updatedAt, stored.solvedAt, totalHints(stored), stored.revealedAt);
     return stored;
   }
 

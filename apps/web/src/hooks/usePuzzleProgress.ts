@@ -1,4 +1,5 @@
-import { edgesFromMasks, fixedEdges, puzzleFingerprint, type PuzzleLayout } from "@trackle/shared";
+import { edgesFromMasks, fixedEdges, puzzleFingerprint, type HintKind, type PuzzleLayout } from "@trackle/shared";
+import { clearedBoard } from "../board/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { reconcileProgress } from "../storage/reconcile";
 import {
@@ -24,8 +25,8 @@ export interface PuzzleProgressApi {
   /** Record a server check result; a correct one stops the clock. Saved immediately. */
   recordCheck(correct: boolean, cells: number[][]): void;
   clearBoard(): void;
-  /** Count one hint (after the server gave it). Saved immediately. */
-  recordHint(): void;
+  /** Count one hint of this kind (after the server gave it) and put it on the board. Saved immediately. */
+  recordHint(kind: HintKind, apply: (board: BoardState) => BoardState): void;
   /** Show the answer: the board becomes the solution and the puzzle is locked as revealed. */
   revealAnswer(solution: number[][]): void;
   /** Whether the store can save to an account right now (signed in). */
@@ -185,12 +186,18 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
     [commit, setClock, withTime],
   );
 
-  const recordHint = useCallback(() => {
-    const current = latest.current;
-    if (!current || current.solvedAt || current.revealedAt) return;
-    startClock(); // asking for a hint counts as starting
-    commit(withTime({ ...current, hintsUsed: current.hintsUsed + 1, updatedAt: new Date().toISOString() }), true);
-  }, [commit, startClock, withTime]);
+  const recordHint = useCallback(
+    (kind: HintKind, apply: (board: BoardState) => BoardState) => {
+      const current = latest.current;
+      if (!current || current.solvedAt || current.revealedAt) return;
+      startClock(); // asking for a hint counts as starting
+      const board = apply(current.board);
+      const count = kind === "track" ? { hintsUsed: current.hintsUsed + 1 } : { emptyHintsUsed: current.emptyHintsUsed + 1 };
+      const changed = board === current.board ? {} : { board, boardDirty: true };
+      commit(withTime({ ...current, ...count, ...changed, updatedAt: new Date().toISOString() }), true);
+    },
+    [commit, startClock, withTime],
+  );
 
   const revealAnswer = useCallback(
     (solution: number[][]) => {
@@ -207,7 +214,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
     [commit, setClock, withTime],
   );
 
-  const clearBoard = useCallback(() => updateBoard(() => ({ edges: [], marks: {} })), [updateBoard]);
+  const clearBoard = useCallback(() => updateBoard(clearedBoard), [updateBoard]);
 
   const saveToAccount = useCallback(async () => {
     const current = latest.current;

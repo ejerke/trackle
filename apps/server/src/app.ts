@@ -116,15 +116,17 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     solution: number[][],
     body: HintRequest,
   ) => {
-    const hint: HintResponse = computeHint(layout, solution, body.cells, body.emptyCells);
+    const kind = body.kind ?? "track";
+    const hint: HintResponse = computeHint(layout, solution, body.cells, body.emptyCells, kind);
     if (hint.kind === "complete") return hint; // not help, so never limited
     const user = currentUser(req);
     if (user) {
-      // Per-level hint limits (LEVELS in @trackle/shared) are enforced where the server
-      // knows the count: for signed-in players. Signed out, the browser enforces them.
-      const used = progressSync.get(user.id, key)?.hintsUsed ?? 0;
-      if (hintsLeft(key.difficulty, used) === 0) return reply.code(403).send({ error: "hint_limit" } satisfies ApiError);
-      progressSync.recordHelp(user.id, key, layout, solution, "hint");
+      // Per-level hint limits (LEVELS in @trackle/shared, one per kind) are enforced where
+      // the server knows the count: for signed-in players. Signed out, the browser enforces them.
+      const stored = progressSync.get(user.id, key);
+      const used = (kind === "track" ? stored?.hintsUsed : stored?.emptyHintsUsed) ?? 0;
+      if (hintsLeft(key.difficulty, used, kind) === 0) return reply.code(403).send({ error: "hint_limit" } satisfies ApiError);
+      progressSync.recordHelp(user.id, key, layout, solution, kind === "track" ? "hint" : "emptyHint");
     }
     return hint;
   };

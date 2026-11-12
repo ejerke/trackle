@@ -87,17 +87,17 @@ For a signed-in player the server records the help on the account.
 ### `POST …/hint`
 
 ```json
-{ "cells": [[...]], "emptyCells": [[2, 3]] }      // the board, and squares marked "no track"
+{ "kind": "track", "cells": [[...]], "emptyCells": [[2, 3]] } // kind "track" (default) or "empty"; the board; squares marked "no track"
 ```
 
 ```json
-200 { "kind": "mistake", "edge": "h:2:3", "cell": null }      // a wrong segment...
-200 { "kind": "mistake", "edge": null, "cell": { "row": 2, "col": 3 } } // ...or a wrong "no track" mark
-200 { "kind": "piece", "row": 1, "col": 4, "piece": 6 }       // the next piece logic would place
-200 { "kind": "complete" }                                     // already the solution (not counted)
+200 { "kind": "piece", "row": 1, "col": 4, "piece": 6, "remove": ["h:1:3"] } // track hint: a piece, and wrong segments in its way
+200 { "kind": "empty", "row": 2, "col": 3 }                  // no-track hint: this square has no track
+200 { "kind": "complete" }                                   // nothing left for this kind (not counted)
 ```
 
-Hard and Insane allow 3 hints per puzzle and Super-duper hard none (`hintLimit` in `LEVELS`). For a signed-in
+Both prefer squares where the player's board is wrong (ADR 0021). Each kind has its own limit: Hard and
+Insane allow 5 of each per puzzle and Super-duper hard none (`hintLimit` and `emptyHintLimit` in `LEVELS`). For a signed-in
 player the server enforces it: the next request gets
 `403 { "error": "hint_limit" }`. Signed out, the browser enforces it.
 

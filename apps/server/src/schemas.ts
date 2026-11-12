@@ -4,6 +4,7 @@ export const hintBodySchema = {
   required: ["cells"],
   additionalProperties: false,
   properties: {
+    kind: { enum: ["track", "empty"] },
     cells: {
       type: "array",
       maxItems: 20,

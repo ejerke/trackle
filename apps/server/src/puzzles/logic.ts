@@ -549,22 +549,40 @@ export function rateLogic(layout: PuzzleLayout): LogicRating {
  * Squares already given (hints, A/B fully fixed) are left out.
  */
 export function deductionOrder(layout: PuzzleLayout): { row: number; col: number }[] {
+  return orderOfKnowing(layout, (s, i) => {
+    let yes = 0;
+    let known = 0;
+    for (let k = 0; k < 4; k++) {
+      const e = s.edge[i * 4 + k];
+      if (e === YES) yes++;
+      if (e !== UNKNOWN) known++;
+    }
+    return s.cell[i] === TRACK && (yes === 2 || yes === 4) && known === 4;
+  });
+}
+
+/**
+ * The order in which logic rules out squares (works out they have no track),
+ * easiest first: what a "no track" hint reveals next. Squares the clues rule
+ * out straight away (a 0 line) come first.
+ */
+export function emptyDeductionOrder(layout: PuzzleLayout): { row: number; col: number }[] {
+  return orderOfKnowing(layout, (s, i) => s.cell[i] === EMPTY, true);
+}
+
+/** Squares in the order `known` first holds for them as logic runs. */
+function orderOfKnowing(
+  layout: PuzzleLayout,
+  known: (s: Knowledge, i: number) => boolean,
+  includeStart = false,
+): { row: number; col: number }[] {
   const order: { row: number; col: number }[] = [];
-  let seen: Set<number> | null = null;
+  let seen: Set<number> | null = includeStart ? new Set() : null;
   runLogic(layout, (ctx, s) => {
     const done = new Set<number>();
-    for (let i = 0; i < s.cell.length; i++) {
-      let yes = 0;
-      let known = 0;
-      for (let k = 0; k < 4; k++) {
-        const e = s.edge[i * 4 + k];
-        if (e === YES) yes++;
-        if (e !== UNKNOWN) known++;
-      }
-      if (s.cell[i] === TRACK && (yes === 2 || yes === 4) && known === 4) done.add(i);
-    }
+    for (let i = 0; i < s.cell.length; i++) if (known(s, i)) done.add(i);
     if (seen) for (const i of done) if (!seen.has(i)) order.push({ row: Math.floor(i / ctx.w), col: i % ctx.w });
-    seen = done; // the first snapshot (givens only) is the baseline
+    seen = done; // without includeStart, the first snapshot (givens only) is the baseline
   });
   return order;
 }

@@ -74,7 +74,7 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
             progressKey={progressKey}
             store={store}
             check={(cells) => checkTrack(ready.puzzle.date, difficulty, cells)}
-            hint={(cells, empty) => dailyHint(ready.puzzle.date, difficulty, cells, empty)}
+            hint={(kind, cells, empty) => dailyHint(ready.puzzle.date, difficulty, kind, cells, empty)}
             answer={() => dailyAnswer(ready.puzzle.date, difficulty)}
             afterSolve={
               <>

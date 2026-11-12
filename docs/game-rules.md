@@ -62,10 +62,16 @@ Progress is saved in the browser, so reloading keeps the board and solved state
 
 ## Hints and answers
 
-Under the board: **Hint** first points out a mistake if there is one (a wrong
-segment, or a "no track" mark on a track square, highlighted in red);
-otherwise it places the next piece logic would work out. Hard and Insane allow 3 hints
-per puzzle and Super-duper hard none; Easy and Medium are unlimited. **Show answer** (Easy and Medium
+Under the board are two hints. **Track hint** reveals a piece of track,
+going first to a square where your track is wrong (deleting the wrong segments
+in its way), otherwise the next piece logic would work out. **No-track hint**
+reveals a square without track, first one you drew track through (its
+segments are deleted), otherwise one that tells you something: next to where
+your track (or A and B) has to continue, close to the real route, and never
+one the clues already make obvious. A revealed
+square is locked: it looks like a given piece, can't be changed, and stays
+through Clear. Hard and Insane allow 5 of each per puzzle and Super-duper hard
+none; Easy and Medium are unlimited. **Show answer** (Easy and Medium
 only; asks for confirmation) shows the whole solution; the puzzle then counts
 as *answer shown*, never as solved. Both are counted: stats show "On your own"
 (solved without hints or the answer) next to "Solved".

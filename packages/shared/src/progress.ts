@@ -26,14 +26,19 @@ export interface BoardState {
   edges: string[];
   /** "r:c" -> mark. */
   marks: Record<string, CellMark>;
+  /**
+   * "r:c" of squares revealed by hints: their piece (or "no track" mark) is
+   * on the board and can't be changed or cleared. Absent = none.
+   */
+  locked?: string[];
 }
 
 export interface PuzzleProgress {
   /**
-   * 6: adds timeMs. 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
+   * 7: adds emptyHintsUsed. 6: adds timeMs. 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
    * 3: adds puzzleFingerprint. 2: key has a `kind`. 1: key was { date, difficulty }.
    */
-  schemaVersion: 6;
+  schemaVersion: 7;
   key: PuzzleKey;
   /**
    * puzzleFingerprint() of the puzzle this board was drawn on, so it is never
@@ -62,8 +67,10 @@ export interface PuzzleProgress {
   boardSavedAt: string | null;
   /** The board has edits that haven't been saved to the account. Device-local. */
   boardDirty: boolean;
-  /** Hints given for this puzzle (mistakes pointed out or pieces revealed). Only ever grows. */
+  /** Track hints given for this puzzle (pieces revealed). Only ever grows. */
   hintsUsed: number;
+  /** "No track" hints given for this puzzle. Only ever grows. */
+  emptyHintsUsed: number;
   /** When the answer was shown, or null. A revealed puzzle can't be solved any more. */
   revealedAt: string | null;
   /**
@@ -74,11 +81,16 @@ export interface PuzzleProgress {
   timeMs: number;
 }
 
-export const CURRENT_SCHEMA_VERSION = 6 as const;
+export const CURRENT_SCHEMA_VERSION = 7 as const;
 
 /** Solved without any help: no hints and the answer never shown. */
 export function solvedUnaided(p: PuzzleProgress): boolean {
-  return p.solvedAt !== null && p.hintsUsed === 0 && p.revealedAt === null;
+  return p.solvedAt !== null && totalHints(p) === 0 && p.revealedAt === null;
+}
+
+/** Hints of both kinds. */
+export function totalHints(p: PuzzleProgress): number {
+  return p.hintsUsed + p.emptyHintsUsed;
 }
 
 export function emptyProgress(key: PuzzleKey, fingerprint: string | null = null, now: Date = new Date()): PuzzleProgress {
@@ -96,6 +108,7 @@ export function emptyProgress(key: PuzzleKey, fingerprint: string | null = null,
     boardSavedAt: null,
     boardDirty: false,
     hintsUsed: 0,
+    emptyHintsUsed: 0,
     revealedAt: null,
     timeMs: 0,
   };
@@ -131,6 +144,10 @@ export function migrateProgress(raw: unknown): PuzzleProgress | null {
     // Untimed: unfinished boards start counting from the next move.
     record = { ...record, schemaVersion: 6, timeMs: 0 };
   }
+  if (record.schemaVersion === 6) {
+    // "No track" hints didn't exist before v7.
+    record = { ...record, schemaVersion: 7, emptyHintsUsed: 0 };
+  }
   if (record.schemaVersion !== CURRENT_SCHEMA_VERSION) return null; // unknown (e.g. newer) version
   return isProgressRecord(record) ? record : null;
 }
@@ -155,6 +172,7 @@ export function isProgressRecord(value: unknown): value is PuzzleProgress {
     Array.isArray(p.board?.edges) &&
     typeof p.board?.marks === "object" &&
     p.board.marks !== null &&
+    (p.board.locked === undefined || Array.isArray(p.board.locked)) &&
     typeof p.startedAt === "string" &&
     typeof p.updatedAt === "string" &&
     typeof p.checks === "number" &&
@@ -163,6 +181,7 @@ export function isProgressRecord(value: unknown): value is PuzzleProgress {
     (p.boardSavedAt === null || typeof p.boardSavedAt === "string") &&
     typeof p.boardDirty === "boolean" &&
     typeof p.hintsUsed === "number" &&
+    typeof p.emptyHintsUsed === "number" &&
     (p.revealedAt === null || typeof p.revealedAt === "string") &&
     typeof p.timeMs === "number"
   );
@@ -224,6 +243,7 @@ export function mergeSummary(existing: PuzzleProgress | null, incoming: PuzzlePr
     ...base,
     boardDirty: false,
     hintsUsed: Math.max(existing?.hintsUsed ?? 0, incoming.hintsUsed),
+    emptyHintsUsed: Math.max(existing?.emptyHintsUsed ?? 0, incoming.emptyHintsUsed),
     revealedAt: earliest(existing?.revealedAt ?? null, incoming.revealedAt),
   };
 

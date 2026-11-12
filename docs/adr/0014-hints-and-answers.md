@@ -1,6 +1,6 @@
 # 0014. Hints and answers, recorded so "solved it yourself" means something
 
-- Status: Accepted
+- Status: Accepted; hint kinds and locking amended by [0021](0021-two-kinds-of-hint.md)
 - Date: 2026-11-10
 
 ## Context

@@ -42,7 +42,7 @@ describe("records", () => {
     const v3 = { ...emptyProgress(key, "fp"), schemaVersion: 3, board: { edges: ["h:0:0"], marks: {} } } as Record<string, unknown>;
     delete v3.boardSavedAt;
     delete v3.boardDirty;
-    expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 6, boardSavedAt: null, boardDirty: true });
+    expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 7, emptyHintsUsed: 0, boardSavedAt: null, boardDirty: true });
     const empty = { ...v3, board: { edges: [], marks: {} } };
     expect(migrateProgress(empty)).toMatchObject({ boardDirty: false });
   });
@@ -51,13 +51,19 @@ describe("records", () => {
     const v4 = { ...emptyProgress(key, "fp"), schemaVersion: 4 } as Record<string, unknown>;
     delete v4.hintsUsed;
     delete v4.revealedAt;
-    expect(migrateProgress(v4)).toMatchObject({ schemaVersion: 6, hintsUsed: 0, revealedAt: null });
+    expect(migrateProgress(v4)).toMatchObject({ schemaVersion: 7, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null });
   });
 
   it("upgrades v5 records: not timed yet", () => {
     const v5 = { ...emptyProgress(key, "fp"), schemaVersion: 5 } as Record<string, unknown>;
     delete v5.timeMs;
-    expect(migrateProgress(v5)).toMatchObject({ schemaVersion: 6, timeMs: 0 });
+    expect(migrateProgress(v5)).toMatchObject({ schemaVersion: 7, emptyHintsUsed: 0, timeMs: 0 });
+  });
+
+  it("upgrades v6 records: no 'no track' hints used", () => {
+    const v6 = { ...emptyProgress(key, "fp"), schemaVersion: 6, hintsUsed: 2 } as Record<string, unknown>;
+    delete v6.emptyHintsUsed;
+    expect(migrateProgress(v6)).toMatchObject({ schemaVersion: 7, hintsUsed: 2, emptyHintsUsed: 0 });
   });
 });
 

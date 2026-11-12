@@ -29,3 +29,4 @@ Template: copy [0000-template.md](0000-template.md) to the next number.
 | 0018 | [Consistent Easy, bigger Hard, and a joke level](0018-retuned-levels.md) | Accepted |
 | 0019 | [Insane: tracks that cross themselves](0019-insane-crossings.md) | Accepted |
 | 0020 | [Crossings are given bridges](0020-crossings-are-given-bridges.md) | Accepted |
+| 0021 | [Two kinds of hint, and hints that stay](0021-two-kinds-of-hint.md) | Accepted |

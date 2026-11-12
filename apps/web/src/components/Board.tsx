@@ -1,6 +1,6 @@
 import { CROSSING, DELTA, DIRS, E, N, S, W, edgeBetween, edgeCells, inBounds, type Cell, type Dir, type PuzzleLayout } from "@trackle/shared";
 import { useEffect, useMemo, useRef, type PointerEvent, type ReactNode } from "react";
-import { allEdges, boardCounts, boardMasks, cellKey, clueStatus, setEdge, setMark, traceRoute, type Mode } from "../board/model";
+import { allEdges, boardCounts, boardMasks, cellKey, clueStatus, lockedCells, setEdge, setMark, traceRoute, type Mode } from "../board/model";
 import type { BoardState, CellMark } from "../storage/progressStore";
 import { A_STUB, STUB, Train, stubLength } from "./Train";
 
@@ -128,6 +128,11 @@ function toolFor(button: number, selected: Mode): Mode | null {
   return null;
 }
 
+const parseCell = (key: string): Cell => {
+  const [row, col] = key.split(":").map(Number);
+  return { row: row!, col: col! };
+};
+
 export function Board({ layout, board, mode, locked, onChange, highlight, trainRun = 0, overlay }: BoardProps) {
   const { width, height } = layout;
   const aSide = layout.endpoints[0].dir;
@@ -141,6 +146,12 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
   const counts = useMemo(() => boardCounts(layout, board), [layout, board]);
   const playerEdges = useMemo(() => new Set(board.edges), [board.edges]);
   const hintCells = useMemo(() => new Set(layout.hints.map(cellKey)), [layout]);
+  // Squares revealed by Hint / No-track hint: drawn as given, since they can't change.
+  const revealed = useMemo(() => lockedCells(board), [board.locked]);
+  const givenSquares = useMemo(
+    () => [...layout.hints.map((h) => ({ row: h.row, col: h.col })), ...[...revealed].map(parseCell)],
+    [layout, revealed],
+  );
   const edges = useMemo(() => allEdges(layout, board), [layout, board]);
   const route = useMemo(() => (trainRun > 0 ? traceRoute(layout, masks) : null), [trainRun, layout, masks]);
   const lockedRef = useRef(locked);
@@ -306,7 +317,7 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
         board.marks[cellKey(cell)] === "empty" ? (
           <path
             key={`x${cellKey(cell)}`}
-            className="board__cross"
+            className={`board__cross${revealed.has(cellKey(cell)) ? " board__cross--given" : ""}`}
             d={`M${cell.col + 0.36} ${cell.row + 0.36}L${cell.col + 0.64} ${cell.row + 0.64}M${cell.col + 0.64} ${cell.row + 0.36}L${cell.col + 0.36} ${cell.row + 0.64}`}
           />
         ) : null,
@@ -336,7 +347,7 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
       {cells.map((cell) => {
         const m = masks[cell.row]![cell.col]!;
         if (m === 0) return null;
-        const fixed = hintCells.has(cellKey(cell));
+        const fixed = hintCells.has(cellKey(cell)) || revealed.has(cellKey(cell));
         // A cell with one player segment and one fixed segment is drawn as player track.
         const anyPlayer = DIRS.some((d) => {
           if (!(m & d)) return false;
@@ -348,8 +359,8 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
         return <Rails key={`t${cellKey(cell)}`} d={piecePath(cell, m)} kind={kind} gap={fillFor(cell)} />;
       })}
 
-      {/* Hint squares get a subtle corner tick so they read as "given". */}
-      {layout.hints.map((h) => (
+      {/* Given and hint-revealed squares get a subtle corner tick so they read as "given". */}
+      {givenSquares.map((h) => (
         <path key={`h${cellKey(h)}`} className="board__hint" d={`M${h.col + 0.06} ${h.row + 0.26}V${h.row + 0.06}H${h.col + 0.26}`} />
       ))}
 

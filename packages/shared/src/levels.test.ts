@@ -12,10 +12,17 @@ describe("levels", () => {
 
   it("limits hints only where a level sets a limit", () => {
     expect(hintsLeft(1, 40)).toBeNull(); // Medium: unlimited
-    expect(hintsLeft(2, 0)).toBe(3);
-    expect(hintsLeft(2, 2)).toBe(1);
+    expect(hintsLeft(2, 0)).toBe(5);
+    expect(hintsLeft(2, 4)).toBe(1);
     expect(hintsLeft(2, 7)).toBe(0); // never negative
     expect(hintsLeft(3, 0)).toBe(0); // Super-duper hard: none at all
+  });
+
+  it("limits 'no track' hints separately", () => {
+    expect(hintsLeft(1, 40, "empty")).toBeNull();
+    expect(hintsLeft(2, 0, "empty")).toBe(LEVELS[2]!.emptyHintLimit);
+    expect(hintsLeft(4, 1, "empty")).toBe(LEVELS[4]!.emptyHintLimit! - 1);
+    expect(hintsLeft(3, 0, "empty")).toBe(0);
   });
 
   it("offers 'Show answer' on Easy and Medium, not Hard or above", () => {

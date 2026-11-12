@@ -97,12 +97,13 @@ describe("migrateProgress", () => {
     };
     expect(migrateProgress(v1)).toEqual({
       ...v1,
-      schemaVersion: 6,
+      schemaVersion: 7,
       key: { kind: "daily", date: "2026-11-10", difficulty: 1 },
       puzzleFingerprint: null,
       boardSavedAt: null,
       boardDirty: true, // it had a drawn segment that was never saved to an account
       hintsUsed: 0,
+      emptyHintsUsed: 0,
       revealedAt: null,
       timeMs: 0,
     });

@@ -1,7 +1,7 @@
 import { E, N, S, W, type PuzzleLayout } from "@trackle/shared";
 import { describe, expect, it } from "vitest";
 import type { BoardState } from "../storage/progressStore";
-import { boardCounts, boardMasks, clueStatus, placePiece, setEdge, setMark, traceRoute } from "./model";
+import { applyHint, boardCounts, boardMasks, clearedBoard, clueStatus, placePiece, setEdge, setMark, traceRoute } from "./model";
 
 // 3x3, A enters (0,0) from the west, B leaves (2,2) to the south. Hint: (1,1) is a vertical straight.
 const layout: PuzzleLayout = {
@@ -156,5 +156,36 @@ describe("board model with crossings", () => {
       [W, E],
       [N, S],
     ]);
+  });
+
+  describe("hints", () => {
+    it("lays a piece, deletes the wrong segments in its way, and locks the square", () => {
+      let b = setEdge(layout, empty, "v:0:0", true); // wrong: A goes down
+      b = setMark(layout, b, { row: 0, col: 2 }, "track");
+      const hinted = applyHint(layout, b, { kind: "piece", row: 0, col: 0, piece: W | E, remove: ["v:0:0"] });
+      expect(hinted.edges).toEqual(["h:0:0"]);
+      expect(hinted.locked).toEqual(["0:0"]);
+      // Locked: its segments can't be removed, from either side.
+      expect(setEdge(layout, hinted, "h:0:0", false)).toBe(hinted);
+      expect(setEdge(layout, hinted, "v:0:0", true)).toBe(hinted);
+    });
+
+    it("marks a square without track, deleting what ran through it, and keeps the mark", () => {
+      let b = setEdge(layout, empty, "v:1:0", true);
+      b = setEdge(layout, b, "h:2:0", true);
+      const hinted = applyHint(layout, b, { kind: "empty", row: 2, col: 0 });
+      expect(hinted.edges).toEqual([]);
+      expect(hinted.marks).toEqual({ "2:0": "empty" });
+      expect(setMark(layout, hinted, { row: 2, col: 0 }, null)).toBe(hinted);
+      expect(setEdge(layout, hinted, "v:1:0", true)).toBe(hinted); // no track into it either
+    });
+
+    it("survives Clear", () => {
+      let b = applyHint(layout, empty, { kind: "piece", row: 0, col: 0, piece: W | E, remove: [] });
+      b = applyHint(layout, b, { kind: "empty", row: 2, col: 0 });
+      b = setEdge(layout, b, "h:2:1", true);
+      expect(clearedBoard(b)).toEqual({ edges: ["h:0:0"], marks: { "2:0": "empty" }, locked: ["0:0", "2:0"] });
+      expect(clearedBoard(setEdge(layout, empty, "h:2:1", true))).toEqual(empty);
+    });
   });
 });

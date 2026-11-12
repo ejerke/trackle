@@ -140,14 +140,13 @@ export function clearedBoard(board: BoardState): BoardState {
   return { edges, marks, locked: [...locked] };
 }
 
-/** Live clue counts: squares with track segments or a "track here" mark. */
+/**
+ * Live clue counts: squares with track segments. "Track here" marks are the
+ * player's own notes and don't count, so a number only fades for real track.
+ */
 export function boardCounts(layout: PuzzleLayout, board: BoardState): LineCounts {
   const masks = boardMasks(layout, board);
-  return lineCounts(
-    layout.width,
-    layout.height,
-    (r, c) => masks[r]![c] !== 0 || board.marks[`${r}:${c}`] === "track",
-  );
+  return lineCounts(layout.width, layout.height, (r, c) => masks[r]![c] !== 0);
 }
 
 export type ClueStatus = "under" | "done" | "over";

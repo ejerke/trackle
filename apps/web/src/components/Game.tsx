@@ -50,12 +50,12 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   const [mode, setMode] = useState<Mode>("track");
   const [check, setCheck] = useState<CheckState>("idle");
   const [confirmClear, setConfirmClear] = useState(false);
-  const [confirmAnswer, setConfirmAnswer] = useState(false);
   const [helping, setHelping] = useState(false);
   const [helpMessage, setHelpMessage] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<Highlight | null>(null);
-  // One wagon per day of the streak at this level, counted again after a solve.
-  const streak = useStreak(store, puzzle.difficulty, progress?.solvedAt);
+  // One wagon per day of the player's streak, counted again after a solve.
+  const streak = useStreak(store).current;
+  const answerDialog = useRef<HTMLDialogElement>(null);
   // Bumped to run the celebration train; see the effect below.
   const [trainRun, setTrainRun] = useState(0);
   // Was this puzzle already solved when we last looked? Keyed by puzzle, since
@@ -110,12 +110,6 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   }, [confirmClear]);
 
   useEffect(() => {
-    if (!confirmAnswer) return;
-    const id = window.setTimeout(() => setConfirmAnswer(false), 4000);
-    return () => window.clearTimeout(id);
-  }, [confirmAnswer]);
-
-  useEffect(() => {
     if (!highlight) return;
     const id = window.setTimeout(() => setHighlight(null), HIGHLIGHT_MS);
     return () => window.clearTimeout(id);
@@ -168,9 +162,8 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   };
 
   const onAnswer = async () => {
+    answerDialog.current?.close();
     if (!answer) return;
-    if (!confirmAnswer) return setConfirmAnswer(true);
-    setConfirmAnswer(false);
     setHelping(true);
     try {
       revealAnswer(await answer());
@@ -313,18 +306,41 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
                   );
                 })}
               {answer && (
-                <button
-                  type="button"
-                  className={`link-button${confirmAnswer ? " link-button--danger" : ""}`}
-                  onClick={onAnswer}
-                  disabled={helping}
-                >
-                  {confirmAnswer ? "Really show the answer?" : "Show answer"}
+                <button type="button" className="link-button" onClick={() => answerDialog.current?.showModal()} disabled={helping}>
+                  Show answer
                 </button>
               )}
             </div>
           )}
         </>
+      )}
+
+      {answer && (
+        <dialog
+          ref={answerDialog}
+          className="confirm"
+          aria-labelledby="confirm-answer-title"
+          // A click on the backdrop lands on the <dialog> itself: cancel.
+          onClick={(e) => e.target === e.currentTarget && answerDialog.current?.close()}
+        >
+          <div className="confirm__body">
+            <h2 id="confirm-answer-title">Show the answer?</h2>
+            <p>
+              {progressKey.kind === "daily"
+                ? "This puzzle won't count as solved, and it won't count toward your streak."
+                : "This puzzle won't count as solved."}{" "}
+              You can't undo this.
+            </p>
+            <div className="confirm__buttons">
+              <button type="button" className="button" onClick={() => answerDialog.current?.close()} autoFocus>
+                Keep trying
+              </button>
+              <button type="button" className="button button--danger" onClick={() => void onAnswer()}>
+                Show answer
+              </button>
+            </div>
+          </div>
+        </dialog>
       )}
     </section>
   );

@@ -158,6 +158,32 @@ a {
   color: var(--accent);
   border-color: var(--accent);
 }
+/* The streak in the header, left of how-to-play: a pill as tall as the icon buttons. */
+.header-streak {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  height: 2.25rem;
+  padding: 0 0.7rem 0 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+.header-streak:hover {
+  border-color: var(--accent);
+}
+/* Today doesn't count yet: the streak is still alive, but waiting. */
+.header-streak--pending {
+  color: var(--muted);
+}
+.header-streak--pending span {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
 
 .notice,
 .status {
@@ -550,6 +576,39 @@ button,
   color: var(--text);
   overscroll-behavior: contain;
 }
+/* Small "are you sure?" dialogs. */
+.confirm {
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+.confirm::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+.confirm__body {
+  padding: 1rem 1.25rem 1.25rem;
+}
+.confirm h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.confirm p {
+  margin: 0.6rem 0 1rem;
+  line-height: 1.5;
+}
+.confirm__buttons {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.confirm__buttons .button {
+  min-width: 0;
+  padding-inline: 1rem;
+}
 .how::backdrop {
   background: rgb(0 0 0 / 0.45);
 }
@@ -650,8 +709,16 @@ button,
   margin: 0.75rem 0 0;
 }
 .demo__board {
-  width: min(13rem, 70%);
+  width: min(15rem, 80%);
   margin: 0 auto;
+}
+@media (min-width: 40rem) {
+  .how {
+    width: 36rem;
+  }
+  .demo__board {
+    width: 19rem;
+  }
 }
 .demo__caption {
   min-height: 2.8em; /* two lines, so the text below doesn't move */
@@ -956,6 +1023,21 @@ button,
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+.stats-streak {
+  margin-bottom: 0.75rem;
+}
+.stats-streak dl {
+  grid-template-columns: 1fr 1fr;
+  column-gap: 0;
+}
+/* A rule between the two halves, so the first number doesn't run into the second label. */
+.stats-streak dl > div {
+  padding-inline: 0 1rem;
+}
+.stats-streak dl > div + div {
+  padding-inline: 1rem 0;
+  border-left: 1px solid var(--border);
 }
 .stats-card h2 {
   margin: 0 0 0.5rem;

@@ -35,7 +35,7 @@ export function RandomPage({ difficulty, seed, store }: { difficulty: number; se
   }, [difficulty, seed]);
 
   return (
-    <Page subtitle={`Random · ${difficultyName(difficulty)}`}>
+    <Page subtitle={`Random · ${difficultyName(difficulty)}`} store={store}>
       <ModeBar kind="random" difficulty={difficulty} />
 
       {state.status === "loading" && <p className="status">Laying out a new track…</p>}

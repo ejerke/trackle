@@ -14,11 +14,18 @@ export function StatsPage({ store }: { store: ProgressStore }) {
   }, [store]);
 
   return (
-    <Page subtitle="Your stats">
+    <Page subtitle="Your stats" store={store}>
       {!stats ? (
         <p className="status">Loading…</p>
       ) : (
         <>
+          <section className="stats-card stats-streak">
+            <h2>Daily streak</h2>
+            <dl>
+              <Stat label="Current streak" value={stats.streak.current} />
+              <Stat label="Best streak" value={stats.streak.best} />
+            </dl>
+          </section>
           <div className="stats-grid">
             {stats.daily.map((d) => (
               <section key={d.difficulty} className="stats-card">
@@ -26,8 +33,6 @@ export function StatsPage({ store }: { store: ProgressStore }) {
                 <dl>
                   <Stat label="Solved" value={d.solved} />
                   <Stat label="On your own" value={d.unaided} />
-                  <Stat label="Current streak" value={d.currentStreak} />
-                  <Stat label="Best streak" value={d.bestStreak} />
                   <Stat label="Best time" value={d.bestTimeMs === null ? "–" : formatDuration(d.bestTimeMs)} />
                   <Stat label="Avg. time" value={d.averageTimeMs === null ? "–" : formatDuration(d.averageTimeMs)} />
                 </dl>
@@ -38,8 +43,9 @@ export function StatsPage({ store }: { store: ProgressStore }) {
             Random puzzles solved: <b>{stats.random.solved}</b> of {stats.random.played} started
           </p>
           <p className="notice">
-            Streaks count daily puzzles solved on their own day (UTC); catching up in the{" "}
-            <a href="/archive">archive</a> counts as solved but not for streaks. Times count puzzles solved without hints. Stats live in this browser only.
+            A day counts for your streak when you solve any daily puzzle, at any difficulty, on its own day (UTC).
+            Catching up in the <a href="/archive">archive</a> counts as solved but not for streaks, and neither does a
+            shown answer. Times count puzzles solved without hints. Stats live in this browser only.
           </p>
         </>
       )}

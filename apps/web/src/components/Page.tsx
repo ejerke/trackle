@@ -1,13 +1,23 @@
 import type { ReactNode } from "react";
+import type { ProgressStore } from "../storage/progressStore";
 import { HowToPlay } from "./HowToPlay";
+import { HeaderStreak } from "./StreakNote";
 import { SiteMenu } from "./SiteMenu";
 
 /**
  * Common page frame: one compact header row (title and subtitle on the left,
- * how-to-play and the site menu on the right), then the content. Kept short
+ * the streak, how-to-play and the site menu on the right), then the content. Kept short
  * so the board gets as much of a phone screen as possible.
  */
-export function Page({ subtitle, badge, children }: { subtitle?: ReactNode; badge?: string; children: ReactNode }) {
+interface PageProps {
+  subtitle?: ReactNode;
+  badge?: string;
+  /** Where progress lives; shows the streak in the header. Omitted (the lab, account page): no streak. */
+  store?: ProgressStore;
+  children: ReactNode;
+}
+
+export function Page({ subtitle, badge, store, children }: PageProps) {
   return (
     <main className="app">
       <header className="header">
@@ -19,6 +29,7 @@ export function Page({ subtitle, badge, children }: { subtitle?: ReactNode; badg
           {subtitle && <p className="header__date">{subtitle}</p>}
         </div>
         <div className="header__actions">
+          {store && <HeaderStreak store={store} />}
           <HowToPlay />
           <SiteMenu />
         </div>

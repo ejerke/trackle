@@ -100,7 +100,8 @@ const MARKING = script([
 const CLUES = script([
   { board: boardOf(PATH_GIVEN), ms: 4500, caption: "A ticked corner is a given piece.", highlight: squares([[GIVEN.row, GIVEN.col]]) },
   {
-    board: boardOf(PATH_GIVEN, marksOf("track", [[1, 1]])),
+    // A detour through (1,1), cut above the turn so it's still a legal (unfinished) track.
+    board: boardOf([...PATH_GIVEN.filter((e) => e !== "v:0:2"), "h:1:1"]),
     ms: 4500,
     caption: "Too much track in a line turns its number red.",
     highlight: squares([[1, 1]]),
@@ -186,7 +187,7 @@ const MORE: PageDef[] = [
   {
     title: "Reading the board",
     demo: { layout: LAYOUT_GIVEN, frames: CLUES },
-    body: <p>A number fades once its line is complete. Marked squares count too.</p>,
+    body: <p>A number fades once its line has that much track. <b>Is track</b> marks are notes for you: they don't count.</p>,
   },
   {
     title: "Work it out",

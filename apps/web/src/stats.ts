@@ -16,16 +16,23 @@ export interface DifficultyStats {
   unaided: number;
   /** Answer shown. */
   revealed: number;
-  /** Consecutive UTC days, up to today or yesterday, solved on the day itself. */
-  currentStreak: number;
-  bestStreak: number;
   /** Fastest time (ms) of the timed puzzles solved on your own; null with none. */
   bestTimeMs: number | null;
   /** Average time (ms) of the timed puzzles solved on your own; null with none. */
   averageTimeMs: number | null;
 }
 
+/** The player's streak: days on which at least one daily puzzle, any difficulty, was solved on the day itself. */
+export interface Streak {
+  /** Consecutive UTC days up to today, or up to yesterday while today is still open. */
+  current: number;
+  best: number;
+  /** Whether today already counts; if not, the current streak ends unless something is solved today. */
+  today: boolean;
+}
+
 export interface PlayerStats {
+  streak: Streak;
   daily: DifficultyStats[];
   random: { played: number; solved: number };
 }
@@ -62,8 +69,6 @@ export function computeStats(records: readonly PuzzleProgress[], today: string):
   const daily = LEVEL_ORDER.map((difficulty): DifficultyStats => {
     const mine = records.filter((p) => p.key.kind === "daily" && p.key.difficulty === difficulty);
     const solved = mine.filter((p) => p.solvedAt !== null);
-    const onTheDay = new Set(mine.filter(solvedOnTheDay).map((p) => (p.key.kind === "daily" ? p.key.date : "")));
-    const { current, best } = streaks(onTheDay, today);
     // Times only count without help, and solves from before timing (timeMs 0) aren't timed.
     const times = solved.filter((p) => solvedUnaided(p) && p.timeMs > 0).map((p) => p.timeMs);
     return {
@@ -72,12 +77,12 @@ export function computeStats(records: readonly PuzzleProgress[], today: string):
       solved: solved.length,
       unaided: solved.filter(solvedUnaided).length,
       revealed: mine.filter((p) => p.revealedAt !== null).length,
-      currentStreak: current,
-      bestStreak: best,
       bestTimeMs: times.length ? Math.min(...times) : null,
       averageTimeMs: times.length ? times.reduce((sum, t) => sum + t, 0) / times.length : null,
     };
   });
+  const onTheDay = new Set(records.filter(solvedOnTheDay).map((p) => (p.key.kind === "daily" ? p.key.date : "")));
+  const streak = { ...streaks(onTheDay, today), today: onTheDay.has(today) };
   const random = records.filter((p) => p.key.kind === "random");
-  return { daily, random: { played: random.length, solved: random.filter((p) => p.solvedAt !== null).length } };
+  return { streak, daily, random: { played: random.length, solved: random.filter((p) => p.solvedAt !== null).length } };
 }

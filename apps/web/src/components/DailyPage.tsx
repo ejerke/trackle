@@ -49,6 +49,7 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
   return (
     <Page
       subtitle={ready ? `${formatDate(ready.puzzle.date)} · ${difficultyName(difficulty)}` : difficultyName(difficulty)}
+      store={store}
     >
       <ModeBar kind="daily" difficulty={difficulty} date={date} />
 
@@ -78,7 +79,7 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
             answer={() => dailyAnswer(ready.puzzle.date, difficulty)}
             afterSolve={
               <>
-                <StreakNote store={store} difficulty={difficulty} />
+                <StreakNote store={store} />
                 <Countdown target={ready.nextPuzzleAt} />
                 <a className="button" href={randomUrl(difficulty)}>
                   Play a random one

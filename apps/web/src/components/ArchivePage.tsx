@@ -45,7 +45,7 @@ export function ArchivePage({ difficulty: fromUrl, store }: { difficulty: number
   }, [archive]);
 
   return (
-    <Page subtitle={`Archive · ${difficultyName(difficulty)}`}>
+    <Page subtitle={`Archive · ${difficultyName(difficulty)}`} store={store}>
       <ModeBar kind="archive" difficulty={difficulty} />
       {failed && <p className="status">Couldn't load the archive. Try reloading.</p>}
       {!failed && !archive && <p className="status">Loading…</p>}

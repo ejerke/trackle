@@ -37,7 +37,7 @@ describe("computeStats", () => {
     const records: PuzzleProgress[] = [
       onDay("2026-11-08", 1, 60_000),
       onDay("2026-11-09", 1, 180_000),
-      { ...onDay("2026-11-10", 1, 20_000), hintsUsed: 2 }, // solved with hints: still solved and a streak day, but no time
+      { ...onDay("2026-11-10", 1, 20_000), hintsUsed: 2 }, // solved with hints: still solved, but no time
       { ...daily("2026-11-05", 1, null), revealedAt: "2026-11-05T10:00:00.000Z" }, // answer shown
       daily("2026-11-07", 1, "2026-11-10T09:00:00.000Z", 0), // archive catch-up, solved before timing
       daily("2026-11-06", 1, null, 5_000), // started, not solved
@@ -53,13 +53,25 @@ describe("computeStats", () => {
       solved: 4,
       unaided: 3,
       revealed: 1,
-      currentStreak: 3, // the 7th was solved late, so it doesn't extend the streak
-      bestStreak: 3,
       bestTimeMs: 60_000,
       averageTimeMs: 120_000,
     });
-    expect(stats.daily.find((d) => d.difficulty === 2)).toMatchObject({ solved: 1, currentStreak: 1 });
+    expect(stats.daily.find((d) => d.difficulty === 2)).toMatchObject({ solved: 1 });
     expect(stats.daily.find((d) => d.difficulty === 0)).toMatchObject({ played: 0, bestTimeMs: null, averageTimeMs: null });
     expect(stats.random).toEqual({ played: 2, solved: 1 });
+  });
+
+  it("counts one streak across all difficulties", () => {
+    const records: PuzzleProgress[] = [
+      onDay("2026-11-07", 0),
+      onDay("2026-11-08", 2), // a different level still keeps the streak going
+      onDay("2026-11-09", 1),
+      onDay("2026-11-09", 3), // two solves on one day count once
+      daily("2026-11-06", 1, "2026-11-09T08:00:00.000Z"), // archive catch-up doesn't fill a gap
+      { ...daily("2026-11-05", 1, null), revealedAt: "2026-11-05T10:00:00.000Z" }, // answer shown: not a streak day
+    ];
+    expect(computeStats(records, "2026-11-10").streak).toEqual({ current: 3, best: 3, today: false });
+    expect(computeStats([...records, onDay("2026-11-10", 0)], "2026-11-10").streak).toEqual({ current: 4, best: 4, today: true });
+    expect(computeStats(records, "2026-11-11").streak.current).toBe(0);
   });
 });

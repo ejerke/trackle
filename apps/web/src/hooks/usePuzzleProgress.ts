@@ -2,6 +2,7 @@ import { edgesFromMasks, fixedEdges, puzzleFingerprint, type HintKind, type Puzz
 import { clearedBoard } from "../board/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { reconcileProgress } from "../storage/reconcile";
+import { streakChanged } from "./useStreak";
 import {
   puzzleKeyId,
   type BoardState,
@@ -92,7 +93,9 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
       setProgress(latest.current);
     }
     if (pending.current) {
-      void store.save(pending.current);
+      const saving = pending.current;
+      // Streaks count stored solves, so they recount once a solve is stored.
+      void store.save(saving).then(() => saving.solvedAt && saving.key.kind === "daily" && streakChanged());
       pending.current = null;
     }
   }, [store, withTime]);

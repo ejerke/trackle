@@ -50,12 +50,13 @@ describe("board model", () => {
     expect(setEdge(layout, b, "v:0:0", true).marks["1:0"]).toBeUndefined();
   });
 
-  it("counts track squares and 'track here' marks", () => {
+  it("counts track squares, but not 'track here' marks", () => {
     const b = setMark(layout, empty, { row: 1, col: 2 }, "track");
+    expect(b.marks["1:2"]).toBe("track");
     const counts = boardCounts(layout, b);
-    // A (0,0), hint neighbour (0,1), hint (1,1), (2,1) via hint, B (2,2), marked (1,2)
-    expect(counts.rows).toEqual([2, 2, 2]);
-    expect(counts.cols).toEqual([1, 3, 2]);
+    // A (0,0), hint neighbour (0,1), hint (1,1), (2,1) via hint, B (2,2); the mark on (1,2) doesn't count
+    expect(counts.rows).toEqual([2, 1, 2]);
+    expect(counts.cols).toEqual([1, 3, 1]);
   });
 
   it("places a whole hinted piece, and skips sides that leave the grid", () => {

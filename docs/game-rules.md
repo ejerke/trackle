@@ -30,6 +30,9 @@ A toolbar selects what a click or drag does:
 | **Is track** | Toggle "this square has track" mark   | Mark every square dragged over               |
 | **No track** | Toggle "this square is empty" mark    | Mark every square dragged over               |
 
+- Keys 1, 2, 3 select the tools. With a mouse, the right button always works
+  as **No track** and the middle button as **Is track** (click or drag),
+  whatever tool is selected; the left button uses the selected tool.
 - Whether a drag adds or removes is decided by the first square or segment it
   touches, so one gesture never does both.
 - A square can never get more than two segments; hint pieces and the A/B ends

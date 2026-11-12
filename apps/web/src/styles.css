@@ -557,13 +557,147 @@ button,
   margin: 0;
   font-size: 1.2rem;
 }
-.how ul {
-  margin: 0.5rem 0 1rem;
+.how__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.how__count {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+/* Every page sits in the same grid cell, so the dialog is as tall as the
+   tallest page and doesn't jump while paging. */
+.how__pages {
+  display: grid;
+}
+.how__page {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.how__page[data-current="false"] {
+  visibility: hidden;
+}
+.how__text ul {
+  margin: 0.75rem 0 0.5rem;
   padding-left: 1.2rem;
   line-height: 1.5;
 }
-.how form {
+.how__text li + li {
+  margin-top: 0.3rem;
+}
+.how .link-button--accent {
+  color: var(--accent);
+}
+.how__text p {
+  margin: 0.5rem 0;
+  line-height: 1.5;
+}
+.how kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 0.3em;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.85em;
+  font-weight: 600;
   text-align: center;
+}
+.how__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.how__nav > :first-child {
+  margin-left: -0.25rem;
+}
+.how__dots {
+  display: flex;
+  gap: 0.35rem;
+}
+.how__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+.how__dot[data-current="true"] {
+  background: var(--accent);
+}
+.how__buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+.how__nav button {
+  white-space: nowrap;
+}
+.how__nav .button {
+  min-width: 0;
+  padding-inline: 1rem;
+}
+
+/* The tutorial's example boards. */
+.demo {
+  margin: 0.75rem 0 0;
+}
+.demo__board {
+  width: min(13rem, 70%);
+  margin: 0 auto;
+}
+.demo__caption {
+  min-height: 2.8em; /* two lines, so the text below doesn't move */
+  margin-top: 0.4rem;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.demo .board {
+  cursor: default;
+}
+.tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  vertical-align: baseline;
+}
+.tool-chip svg {
+  width: 0.95em;
+  height: 0.95em;
+}
+.demo-pointer {
+  transition:
+    transform 0.5s ease-in-out,
+    opacity 0.3s;
+  pointer-events: none;
+}
+.demo-pointer--away {
+  opacity: 0;
+}
+.demo-pointer__ring {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 0.04;
+  opacity: 0.5;
+  transform: scale(0.75);
+  transition: transform 0.15s;
+}
+.demo-pointer--down .demo-pointer__ring {
+  transform: scale(1);
+}
+.demo-pointer__dot {
+  fill: var(--text);
+  opacity: 0.45;
 }
 
 /* ---- development-only lab ---- */

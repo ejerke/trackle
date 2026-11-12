@@ -35,6 +35,17 @@ const MODES: { mode: Mode; label: string; key: string; icon: React.ReactNode }[]
   },
 ];
 
+/** A tool's icon and name, as on its toolbar button (for the how-to-play pages). */
+export function ToolChip({ mode }: { mode: Mode }) {
+  const m = MODES.find((x) => x.mode === mode)!;
+  return (
+    <span className="tool-chip">
+      {m.icon}
+      {m.label}
+    </span>
+  );
+}
+
 export function Toolbar({ mode, onMode, disabled }: { mode: Mode; onMode(m: Mode): void; disabled: boolean }) {
   // Keyboard shortcuts 1 / 2 / 3.
   useEffect(() => {

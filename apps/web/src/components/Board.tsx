@@ -1,5 +1,5 @@
 import { CROSSING, DELTA, DIRS, E, N, S, W, edgeBetween, edgeCells, inBounds, type Cell, type Dir, type PuzzleLayout } from "@trackle/shared";
-import { useEffect, useMemo, useRef, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, type PointerEvent, type ReactNode } from "react";
 import { allEdges, boardCounts, boardMasks, cellKey, clueStatus, setEdge, setMark, traceRoute, type Mode } from "../board/model";
 import type { BoardState, CellMark } from "../storage/progressStore";
 import { A_STUB, STUB, Train, stubLength } from "./Train";
@@ -20,6 +20,8 @@ interface BoardProps {
   highlight?: Highlight | null;
   /** Bump to send a train along the finished track; 0 = no train. */
   trainRun?: number;
+  /** Extra SVG drawn on top, in grid units (one square = 1). */
+  overlay?: ReactNode;
 }
 
 // Board geometry, in SVG units where one cell = 1. The margins are as tight
@@ -115,7 +117,18 @@ function Bridge({ cell, kind, gap }: { cell: Cell; kind: "player" | "fixed"; gap
   );
 }
 
-export function Board({ layout, board, mode, locked, onChange, highlight, trainRun = 0 }: BoardProps) {
+/**
+ * The tool a press uses. On a mouse, the right button marks "no track" and the
+ * middle one "is track", whatever tool is selected.
+ */
+function toolFor(button: number, selected: Mode): Mode | null {
+  if (button === 0) return selected;
+  if (button === 1) return "isTrack";
+  if (button === 2) return "noTrack";
+  return null;
+}
+
+export function Board({ layout, board, mode, locked, onChange, highlight, trainRun = 0, overlay }: BoardProps) {
   const { width, height } = layout;
   const aSide = layout.endpoints[0].dir;
   const extra = (side: Dir) => (aSide === side ? A_EXTRA : 0);
@@ -152,6 +165,8 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
 
   // ---- pointer handling -------------------------------------------------
   const drag = useRef<{
+    /** The tool this drag uses (see toolFor). */
+    tool: Mode;
     last: Cell | null;
     start: Point;
     moved: boolean;
@@ -169,9 +184,9 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
     return inBounds(width, height, cell.row, cell.col) ? cell : null;
   };
 
-  const markTarget: CellMark = mode === "isTrack" ? "track" : "empty";
   const paintMark = (cell: Cell) => {
     const state = drag.current!;
+    const markTarget: CellMark = state.tool === "isTrack" ? "track" : "empty";
     if (state.mark === undefined) {
       state.mark = boardRef.current.marks[cellKey(cell)] === markTarget ? null : markTarget;
     }
@@ -190,12 +205,14 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
   };
 
   const onPointerDown = (e: PointerEvent<SVGSVGElement>) => {
-    if (locked || e.button > 0) return;
+    const tool = toolFor(e.button, mode);
+    if (locked || !tool) return;
+    if (e.button === 1) e.preventDefault(); // no middle-click autoscroll
     e.currentTarget.setPointerCapture(e.pointerId);
     const p = toGrid(e);
     const cell = cellAt(p);
-    drag.current = { last: cell, start: p, moved: false, edgeAction: null, mark: undefined };
-    if (cell && mode !== "track") paintMark(cell);
+    drag.current = { tool, last: cell, start: p, moved: false, edgeAction: null, mark: undefined };
+    if (cell && tool !== "track") paintMark(cell);
   };
 
   const onPointerMove = (e: PointerEvent<SVGSVGElement>) => {
@@ -217,7 +234,7 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
           ? { row: from.row + Math.sign(dr), col: from.col }
           : { row: from.row, col: from.col + Math.sign(dc) };
       state.moved = true;
-      if (mode === "track") layEdge(from, next);
+      if (state.tool === "track") layEdge(from, next);
       else paintMark(next);
       state.last = next;
     }
@@ -226,7 +243,7 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
   const onPointerUp = (e: PointerEvent<SVGSVGElement>) => {
     const state = drag.current;
     drag.current = null;
-    if (!state || state.moved || mode !== "track") return;
+    if (!state || state.moved || state.tool !== "track") return;
     // A tap near a cell side toggles the segment across it.
     const p = toGrid(e);
     const cell = cellAt(p);
@@ -243,7 +260,7 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
     if (dist > TAP_EDGE_DISTANCE) return;
     const neighbour = { row: cell.row + DELTA[dir][0], col: cell.col + DELTA[dir][1] };
     if (!inBounds(width, height, neighbour.row, neighbour.col)) return;
-    drag.current = { last: null, start: p, moved: true, edgeAction: null, mark: undefined };
+    drag.current = { tool: "track", last: null, start: p, moved: true, edgeAction: null, mark: undefined };
     layEdge(cell, neighbour);
     drag.current = null;
   };
@@ -264,7 +281,10 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={() => (drag.current = null)}
+      // Right and middle buttons mark squares: no context menu, autoscroll or paste.
       onContextMenu={(e) => e.preventDefault()}
+      onMouseDown={(e) => e.button === 1 && e.preventDefault()}
+      onAuxClick={(e) => e.preventDefault()}
       role="img"
       aria-label={`Puzzle grid, ${width} by ${height}`}
     >
@@ -366,6 +386,8 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
       })}
 
       <Train key={route ? trainRun : "parked"} layout={layout} steps={route} />
+
+      {overlay}
 
       {layout.colClues.map((clue, c) => (
         <text key={`cc${c}`} x={c + 0.5} y={-CLUE_OFFSET - extra(N)} className={`clue clue--${clueStatus(counts.cols[c]!, clue)}`}>

@@ -139,6 +139,10 @@ navigates away immediately.
 so switching difficulty on random puzzles returns to it (per browser).
 **New random** removes the whole key, so every difficulty gets a new puzzle.
 
+`trackle:prefs:seenHowToPlay` is set once the how-to-play dialog has opened
+by itself, and `trackle:prefs:challengeLeaderboardHidden` (`"1"`) remembers
+that the player hid the leaderboard under the Challenge.
+
 ## Robustness rules
 
 - Every `localStorage` access is wrapped in `try/catch`. Private browsing,

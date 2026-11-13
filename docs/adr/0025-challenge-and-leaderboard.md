@@ -42,6 +42,10 @@ paths. Of the 10×10 ones, a few needed guessing; the rest needed a median of
   can't be farmed. Older days are playable from the archive but score nothing.
 - In the mode bar it sits beside Today and New random, not among the
   difficulties, and isn't remembered as the player's level.
+- **No clock** on the page and no times in its results or stats: it's about
+  whether you solve it, not how fast. The time is still recorded.
+- Its page shows the leaderboard under the board (top 10 and your standing,
+  this month by default or all time), which can be hidden.
 
 **Points and the leaderboard**:
 

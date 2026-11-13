@@ -44,18 +44,23 @@ interface GameProps {
   answer?(): Promise<number[][]>;
   /** Extra content in the "solved" / "answer shown" panel (countdown, next-puzzle buttons). */
   afterSolve?: ReactNode;
+  /**
+   * Show the clock and solve times (default true). The Challenge hides them:
+   * it's about solving, not speed (ADR 0025). Time is still recorded for stats.
+   */
+  timed?: boolean;
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /** "solved with 2 hints in 3:10" / "answer shown": the first attempt's result, which is what counts. */
-function firstResult(record: PuzzleProgress): string {
+function firstResult(record: PuzzleProgress, timed: boolean): string {
   if (!record.solvedAt) return "answer shown";
   const how = totalHints(record) === 0 ? "solved on your own" : `solved with ${plural(totalHints(record), "hint")}`;
-  return record.timeMs > 0 ? `${how} in ${formatDuration(record.timeMs)}` : how;
+  return timed && record.timeMs > 0 ? `${how} in ${formatDuration(record.timeMs)}` : how;
 }
 
-export function Game({ puzzle, progressKey, store, check: checkWithServer, hint, answer: answerProp, afterSolve }: GameProps) {
+export function Game({ puzzle, progressKey, store, check: checkWithServer, hint, answer: answerProp, afterSolve, timed = true }: GameProps) {
   const {
     progress,
     record,
@@ -260,7 +265,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
     <section className="game">
       <div className="play-bar">
         <Toolbar mode={mode} onMode={setMode} disabled={finished} />
-        {!revealed && !(solved && progress.timeMs === 0) && (
+        {timed && !revealed && !(solved && progress.timeMs === 0) && (
           <Clock timeMs={progress.timeMs} runningSince={runningSince} />
         )}
         <button
@@ -318,13 +323,13 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
           <p className="result__title">Track complete again</p>
           <p className="result__detail">
             {totalHints(progress) === 0 ? "Solved on your own" : `Solved with ${plural(totalHints(progress), "hint")}`}
-            {progress.timeMs > 0 && (
+            {timed && progress.timeMs > 0 && (
               <>
                 {" "}
                 in <b className="result__time">{formatDuration(progress.timeMs)}</b>
               </>
             )}
-            . A retry doesn't change your result: your first try counts ({firstResult(record)}).
+            . A retry doesn't change your result: your first try counts ({firstResult(record, timed)}).
           </p>
           <div className="result__actions">
             {tryAgain}
@@ -338,7 +343,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
       ) : replaying && revealed ? (
         <div className="result result--revealed" role="status">
           <p className="result__title">Answer shown</p>
-          <p className="result__detail">This try is over. Your first try still counts ({firstResult(record)}).</p>
+          <p className="result__detail">This try is over. Your first try still counts ({firstResult(record, timed)}).</p>
           <div className="result__actions">
             {tryAgain}
             {afterSolve}
@@ -350,7 +355,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
           <p className="result__title">{totalHints(progress) === 0 ? "Track complete!" : "Track complete"}</p>
           <p className="result__detail">
             {totalHints(progress) === 0 ? "Solved on your own" : `Solved with ${plural(totalHints(progress), "hint")}`}
-            {progress.timeMs > 0 && (
+            {timed && progress.timeMs > 0 && (
               <>
                 {" "}
                 in <b className="result__time">{formatDuration(progress.timeMs)}</b>
@@ -380,7 +385,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
           {replaying && (
             <p className="notice replay-note">
               Trying again: new hints, and the answer if you need it. This doesn't change your result; your first
-              try counts ({firstResult(record)}). {backToResult}
+              try counts ({firstResult(record, timed)}). {backToResult}
             </p>
           )}
           <div className="actions">
@@ -464,7 +469,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
             <h2 id="confirm-answer-title">Show the answer?</h2>
             <p>
               {replaying
-                ? `This ends this try. Your first try still counts (${firstResult(record)}).`
+                ? `This ends this try. Your first try still counts (${firstResult(record, timed)}).`
                 : progressKey.kind === "daily"
                   ? "This puzzle won't count as solved, and it won't count toward your streak. You can't undo this."
                   : "This puzzle won't count as solved. You can't undo this."}

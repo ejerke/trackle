@@ -5,6 +5,7 @@ import { useAuth } from "../auth";
 import { dailyUrl, randomUrl } from "../routes";
 import { loadPreferredDifficulty } from "../storage/preferences";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
+import { ChallengeLeaderboard } from "./ChallengeLeaderboard";
 import { Countdown } from "./Countdown";
 import { Game } from "./Game";
 import { ModeBar } from "./ModeBar";
@@ -95,6 +96,7 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
             progressKey={progressKey}
             store={store}
             check={(cells) => checkTrack(ready.puzzle.date, difficulty, cells)}
+            timed={!challenge}
             hint={challenge ? undefined : (kind, cells, empty) => dailyHint(ready.puzzle.date, difficulty, kind, cells, empty)}
             answer={() => dailyAnswer(ready.puzzle.date, difficulty)}
             afterSolve={
@@ -113,6 +115,7 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
               </>
             }
           />
+          {challenge && <ChallengeLeaderboard />}
         </>
       )}
     </Page>

@@ -31,3 +31,16 @@ export function useStreak(store: ProgressStore): Streak {
   }, [store]);
   return streak;
 }
+
+/**
+ * Run `listener` whenever a daily solve has been saved: locally, and for a
+ * signed-in player also sent to the account (the synced store waits for that
+ * before a solve's save resolves). The Challenge's leaderboard uses it to
+ * show new points.
+ */
+export function useDailySolveSaved(listener: () => void): void {
+  useEffect(() => {
+    solves.addEventListener("change", listener);
+    return () => solves.removeEventListener("change", listener);
+  }, [listener]);
+}

@@ -85,8 +85,10 @@ answer, and it takes a lot of "if this were track" reasoning: not everyone
 will finish it. It still never needs guessing.
 
 Solved on its own day (UTC), it's worth **5 points per square of track**;
-the line above the board says how many. Older Challenges from the archive are
-playable but score nothing. The **Leaderboard** (`/leaderboard`, in the ☰
+the line above the board says how many. It has no clock: it's about
+solving, not speed (stats show no times for it either). Under the board, the
+top 10 and your own standing are shown, for this month (the default) or all
+time; **Hide** folds them away (remembered in the browser). Older Challenges from the archive are playable but score nothing. The **Leaderboard** (`/leaderboard`, in the ☰
 menu) adds up the points this month or all time. It needs an account, and
 your username appears on it only after you tick "Show me on the leaderboard"
 there. A Challenge solved on its day before you had an account counts too,

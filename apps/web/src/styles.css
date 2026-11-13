@@ -1368,9 +1368,15 @@ button,
   vertical-align: -0.18rem;
   margin-right: 0.2rem;
 }
-.leaderboard-me {
+.leaderboard-card {
   margin: 0.75rem 0;
+}
+.leaderboard-me {
+  margin: 0.6rem 0 0;
   text-align: center;
+}
+.leaderboard-card > .leaderboard-me:first-child {
+  margin-top: 0;
 }
 .leaderboard-me p {
   margin: 0 0 0.4rem;
@@ -1427,3 +1433,56 @@ button,
   font-weight: 700;
 }
 
+/* The leaderboard under the Challenge's board. */
+.challenge-board {
+  margin-top: 1rem;
+}
+.challenge-board__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.challenge-board__head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.challenge-board .leaderboard {
+  margin-top: 0.4rem;
+}
+.challenge-board__period {
+  display: flex;
+  gap: 1rem;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  border: 0;
+  font-size: 0.92rem;
+}
+.challenge-board__period label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+.challenge-board__period input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+.challenge-board .message--quiet {
+  margin: 0.5rem 0 0;
+}
+.challenge-board__more {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* Read by screen readers, not shown. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

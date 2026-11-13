@@ -1,4 +1,4 @@
-import { difficultyName, utcDate } from "@trackle/shared";
+import { difficultyName, isDailyOnly, utcDate } from "@trackle/shared";
 import { useEffect, useState } from "react";
 import { computeStats, type PlayerStats } from "../stats";
 import type { ProgressStore } from "../storage/progressStore";
@@ -33,8 +33,13 @@ export function StatsPage({ store }: { store: ProgressStore }) {
                 <dl>
                   <Stat label="Solved" value={d.solved} />
                   <Stat label="On your own" value={d.unaided} />
-                  <Stat label="Best time" value={d.bestTimeMs === null ? "–" : formatDuration(d.bestTimeMs)} />
-                  <Stat label="Avg. time" value={d.averageTimeMs === null ? "–" : formatDuration(d.averageTimeMs)} />
+                  {/* The Challenge is untimed (ADR 0025): it shows no clock, so no times either. */}
+                  {!isDailyOnly(d.difficulty) && (
+                    <>
+                      <Stat label="Best time" value={d.bestTimeMs === null ? "–" : formatDuration(d.bestTimeMs)} />
+                      <Stat label="Avg. time" value={d.averageTimeMs === null ? "–" : formatDuration(d.averageTimeMs)} />
+                    </>
+                  )}
                 </dl>
               </section>
             ))}

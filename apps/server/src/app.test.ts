@@ -102,7 +102,8 @@ describe("POST /api/puzzles/:date/check", () => {
     await app.inject("/api/puzzles/today");
     const res = await check("2026-11-10", { cells: solutionFor("2026-11-10") });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ correct: true });
+    // With a signed receipt of the server's time (ADR 0025).
+    expect(res.json()).toEqual({ correct: true, receipt: { at: "2026-11-10T12:00:00.000Z", sig: expect.any(String) } });
   });
 
   it("rejects a wrong track without saying why", async () => {
@@ -176,7 +177,7 @@ describe("difficulties", () => {
     await app.inject("/api/puzzles/today?difficulty=0");
     const cells = solutionFor("2026-11-10", 0);
     const url = "/api/puzzles/2026-11-10/check";
-    expect((await app.inject({ method: "POST", url: `${url}?difficulty=0`, payload: { cells } })).json()).toEqual({ correct: true });
+    expect((await app.inject({ method: "POST", url: `${url}?difficulty=0`, payload: { cells } })).json()).toMatchObject({ correct: true });
     // Medium for that day was never generated, and checking doesn't create it.
     expect((await app.inject({ method: "POST", url, payload: { cells } })).statusCode).toBe(404);
   });

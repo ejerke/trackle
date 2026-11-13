@@ -23,7 +23,7 @@ Template: copy [0000-template.md](0000-template.md) to the next number.
 | 0012 | [Username + password accounts with cookie sessions](0012-accounts.md) | Accepted |
 | 0013 | [Sync progress to the account, local-first](0013-progress-sync.md) | Accepted |
 | 0014 | [Hints and answers, recorded so "solved it yourself" means something](0014-hints-and-answers.md) | Accepted |
-| 0015 | [No leaderboards: personal stats on the honor system](0015-no-leaderboards.md) | Accepted |
+| 0015 | [No leaderboards: personal stats on the honor system](0015-no-leaderboards.md) | Superseded by 0025 (for the Challenge) |
 | 0016 | [Pull-based continuous deployment of CI-approved commits](0016-pull-based-continuous-deployment.md) | Accepted |
 | 0017 | [Timed solves, checked automatically](0017-timed-solves.md) | Accepted |
 | 0018 | [Consistent Easy, bigger Hard, and a joke level](0018-retuned-levels.md) | Accepted |
@@ -33,3 +33,4 @@ Template: copy [0000-template.md](0000-template.md) to the next number.
 | 0022 | [Insane on 10×10, and a faster solution counter](0022-insane-10x10.md) | Accepted |
 | 0023 | [Pace new random puzzles: one per 5 s, or solve the last](0023-paced-random-puzzles.md) | Accepted |
 | 0024 | [Bookmarks, and "Try again" that never changes a result](0024-bookmarks-and-try-again.md) | Accepted |
+| 0025 | [The daily Challenge, and a leaderboard of its points](0025-challenge-and-leaderboard.md) | Accepted |

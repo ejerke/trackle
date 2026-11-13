@@ -1,6 +1,7 @@
-import { difficultyName, type PuzzleResponse } from "@trackle/shared";
+import { challengePoints, difficultyName, isDailyOnly, type PuzzleResponse } from "@trackle/shared";
 import { useEffect, useMemo, useState } from "react";
 import { ApiRequestError, checkTrack, dailyAnswer, dailyHint, fetchPuzzle } from "../api";
+import { useAuth } from "../auth";
 import { dailyUrl, randomUrl } from "../routes";
 import { loadPreferredDifficulty } from "../storage/preferences";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
@@ -29,6 +30,9 @@ function formatDate(iso: string): string {
 /** Today's (or an archive day's) puzzle at one difficulty. */
 export function DailyPage({ date, difficulty: fromUrl, store }: { date: string | null; difficulty: number | null; store: ProgressStore }) {
   const [difficulty] = useState(() => fromUrl ?? loadPreferredDifficulty());
+  const { user } = useAuth();
+  // The Challenge (ADR 0025): no hints, scores points when solved on its day.
+  const challenge = isDailyOnly(difficulty);
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   useEffect(() => {
@@ -67,7 +71,23 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
         <>
           {date && (
             <p className="notice">
-              You're playing an older track. <a href={dailyUrl(difficulty)}>Go to today's</a>
+              You're playing an older track{challenge ? ", so it doesn't score points" : ""}.{" "}
+              <a href={dailyUrl(difficulty)}>Go to today's</a>
+            </p>
+          )}
+          {challenge && !date && (
+            <p className="notice challenge-note">
+              No hints today. Solve it before midnight (UTC) for <b>{challengePoints(ready.puzzle)} points</b>
+              {user ? (
+                <>
+                  {" "}
+                  on the <a href="/leaderboard">leaderboard</a>.
+                </>
+              ) : (
+                <>
+                  : <a href="/account">sign in</a> to collect them.
+                </>
+              )}
             </p>
           )}
           <Game
@@ -75,15 +95,21 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
             progressKey={progressKey}
             store={store}
             check={(cells) => checkTrack(ready.puzzle.date, difficulty, cells)}
-            hint={(kind, cells, empty) => dailyHint(ready.puzzle.date, difficulty, kind, cells, empty)}
+            hint={challenge ? undefined : (kind, cells, empty) => dailyHint(ready.puzzle.date, difficulty, kind, cells, empty)}
             answer={() => dailyAnswer(ready.puzzle.date, difficulty)}
             afterSolve={
               <>
                 <StreakNote store={store} />
                 <Countdown target={ready.nextPuzzleAt} />
-                <a className="button" href={randomUrl(difficulty)}>
-                  Play a random one
-                </a>
+                {challenge ? (
+                  <a className="button" href="/leaderboard">
+                    Leaderboard
+                  </a>
+                ) : (
+                  <a className="button" href={randomUrl(difficulty)}>
+                    Play a random one
+                  </a>
+                )}
               </>
             }
           />

@@ -1,5 +1,5 @@
 import type { HintKind } from "./levels.ts";
-import type { PuzzleProgress } from "./progress.ts";
+import type { PuzzleProgress, SolveReceipt } from "./progress.ts";
 import type { PlayablePuzzle, PublicPuzzle } from "./types.ts";
 
 /** GET /api/puzzles/today and GET /api/puzzles/:date */
@@ -61,6 +61,8 @@ export interface CheckRequest {
 
 export interface CheckResponse {
   correct: boolean;
+  /** A correct daily puzzle: the server's signed receipt, kept with the solve (ADR 0025). */
+  receipt?: SolveReceipt;
 }
 
 /** How hard a puzzle is, as measured by the server's generator. Not secret. */
@@ -105,6 +107,8 @@ export interface AccountUser {
   createdAt: string;
   /** Difficulty last chosen while signed in; null = not chosen yet. */
   preferredDifficulty: number | null;
+  /** Shown by name on the Challenge leaderboard (opt-in, ADR 0025). */
+  onLeaderboard: boolean;
 }
 
 /** GET /api/auth/me and the result of register/login. */
@@ -158,6 +162,39 @@ export interface ProgressSaveResponse {
   record: PuzzleProgress;
 }
 
+// ---- the Challenge leaderboard (ADR 0025) ----
+
+/** "month": the current UTC calendar month; "all": all time. */
+export type LeaderboardPeriod = "month" | "all";
+
+export interface LeaderboardEntry {
+  /** 1 = most points; players with equal points share a rank. */
+  rank: number;
+  username: string;
+  points: number;
+  /** Challenges solved on their day in the period. */
+  solved: number;
+}
+
+/** GET /api/leaderboard?period=month|all */
+export interface LeaderboardResponse {
+  period: LeaderboardPeriod;
+  /** First day counted (UTC), or null for all time. */
+  from: string | null;
+  /** Players who chose to be shown, most points first (at most 100). */
+  entries: LeaderboardEntry[];
+  /**
+   * The signed-in player's own standing (null when signed out). `rank` is
+   * null while they aren't shown on the board, or have no points yet.
+   */
+  me: { rank: number | null; points: number; solved: number; visible: boolean } | null;
+}
+
+/** PUT /api/me/leaderboard: show or hide yourself on the board. Returns AuthResponse. */
+export interface LeaderboardVisibilityRequest {
+  visible: boolean;
+}
+
 export const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,20}$/;
 export const PASSWORD_MIN_LENGTH = 8;
 /** Caps hashing cost; long passphrases are still fine. */
@@ -177,6 +214,7 @@ export type ApiErrorCode =
   | "invalid_body"
   | "invalid_difficulty"
   | "invalid_seed"
+  | "invalid_period"
   | "rate_limited"
   | "hint_limit"
   | "answer_unavailable"

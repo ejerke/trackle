@@ -206,6 +206,10 @@ const MORE: PageDef[] = [
         <li>
           On <b>Insane</b> the track crosses itself once, over a bridge that's given.
         </li>
+        <li>
+          The daily <b>Challenge</b> has no hints at all. Solve it on its day for points on the{" "}
+          <a href="/leaderboard">leaderboard</a>.
+        </li>
         <li>A tap near a square's side lays or lifts the piece across it.</li>
       </ul>
     ),

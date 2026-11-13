@@ -47,6 +47,7 @@ interface Sample {
 }
 
 const samples: Sample[] = [];
+let notUnique = 0;
 const shown: string[] = [];
 
 for (let i = 0; i < count; i++) {
@@ -54,7 +55,13 @@ for (let i = 0; i < count; i++) {
   const t = performance.now();
   if (values.raw) {
     // A single unfiltered candidate, built exactly like the generator's attempt 0.
-    const { layout, solution } = generateCandidate(attemptRng(seed, 0), width, height, profile);
+    const candidate = generateCandidate(attemptRng(seed, 0), width, height, profile);
+    if (!candidate) {
+      // Only the ends are given and they don't make it unique.
+      notUnique++;
+      continue;
+    }
+    const { layout, solution } = candidate;
     const metrics = measure(layout, solution);
     const failed = violations(profile.filters, metrics);
     samples.push({ seed, metrics, ms: performance.now() - t, attempts: 1, accepted: failed.length === 0, failed });
@@ -90,6 +97,7 @@ const pct = (n: number) => `${((n / samples.length) * 100).toFixed(0)}%`;
 
 console.log(`\n${profile.name} (difficulty ${difficulty}) · ${width}x${height} · ${samples.length} ${values.raw ? "raw candidates" : "puzzles"} · seeds ${values.prefix}0..${values.prefix}${count - 1}\n`);
 
+if (notUnique > 0) console.log(`Not unique with only the end pieces given (skipped): ${notUnique} of ${count}`);
 const accepted = samples.filter((s) => s.accepted).length;
 console.log(values.raw ? `Would pass all filters: ${accepted} (${pct(accepted)})` : `Accepted: ${accepted} (${pct(accepted)}), fell back to best candidate: ${samples.length - accepted}`);
 

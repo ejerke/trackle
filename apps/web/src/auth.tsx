@@ -19,6 +19,8 @@ interface AuthState {
   signOut(): Promise<void>;
   /** The account was deleted: stop syncing, keep the browser's copy. */
   accountDeleted(): void;
+  /** The server returned a changed account (e.g. leaderboard visibility). */
+  userChanged(user: AccountUser): void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -66,6 +68,9 @@ export function AuthProvider({ store, children }: { store: SyncedProgressStore; 
     accountDeleted() {
       store.forgetAccount();
       setUser(null);
+    },
+    userChanged(u) {
+      setUser(u);
     },
   };
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;

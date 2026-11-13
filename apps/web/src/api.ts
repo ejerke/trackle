@@ -15,6 +15,8 @@ import type {
   CheckRequest,
   CheckResponse,
   LabPuzzleResponse,
+  LeaderboardPeriod,
+  LeaderboardResponse,
   PuzzleResponse,
   RandomPuzzleResponse,
 } from "@trackle/shared";
@@ -57,13 +59,13 @@ export function fetchPuzzle(date: string | undefined, difficulty: number): Promi
   return request<PuzzleResponse>(`/api/puzzles/${date ?? "today"}?difficulty=${difficulty}`);
 }
 
-async function postCheck(path: string, cells: number[][]): Promise<boolean> {
+/** The server's verdict, and for a correct daily puzzle its signed receipt (ADR 0025). */
+function postCheck(path: string, cells: number[][]): Promise<CheckResponse> {
   const body: CheckRequest = { cells };
-  const res = await request<CheckResponse>(path, { method: "POST", body: JSON.stringify(body) });
-  return res.correct;
+  return request<CheckResponse>(path, { method: "POST", body: JSON.stringify(body) });
 }
 
-export function checkTrack(date: string, difficulty: number, cells: number[][]): Promise<boolean> {
+export function checkTrack(date: string, difficulty: number, cells: number[][]): Promise<CheckResponse> {
   return postCheck(`/api/puzzles/${date}/check?difficulty=${difficulty}`, cells);
 }
 
@@ -97,7 +99,7 @@ export function fetchRandomPuzzle(difficulty: number, seed: string): Promise<Ran
   return request<RandomPuzzleResponse>(`/api/random/${difficulty}/${seed}`);
 }
 
-export function checkRandomTrack(difficulty: number, seed: string, cells: number[][]): Promise<boolean> {
+export function checkRandomTrack(difficulty: number, seed: string, cells: number[][]): Promise<CheckResponse> {
   return postCheck(`/api/random/${difficulty}/${seed}/check`, cells);
 }
 
@@ -109,7 +111,7 @@ export function fetchLabPuzzle(difficulty: number, seed: string): Promise<LabPuz
   return request<LabPuzzleResponse>(labPath(difficulty, seed));
 }
 
-export function checkLabTrack(difficulty: number, seed: string, cells: number[][]): Promise<boolean> {
+export function checkLabTrack(difficulty: number, seed: string, cells: number[][]): Promise<CheckResponse> {
   return postCheck(`${labPath(difficulty, seed)}/check`, cells);
 }
 
@@ -129,6 +131,10 @@ export const savePreferences = (preferredDifficulty: number) =>
     body: JSON.stringify({ preferredDifficulty }),
     keepalive: true,
   });
+export const fetchLeaderboard = (period: LeaderboardPeriod) =>
+  request<LeaderboardResponse>(`/api/leaderboard?period=${period}`);
+export const setLeaderboardVisibility = (visible: boolean) =>
+  request<AuthResponse>("/api/me/leaderboard", { method: "PUT", body: JSON.stringify({ visible }) });
 export const deleteAccount = (r: DeleteAccountRequest) => post<void>("/api/auth/delete-account", r);
 
 // ---- progress sync (signed in) ----

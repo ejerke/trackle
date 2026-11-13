@@ -6,9 +6,11 @@ import {
   DEFAULT_DIFFICULTY,
   canShowAnswer,
   hintsLeft,
+  isDailyOnly,
   isIsoDate,
   isRandomSeed,
   nextUtcMidnight,
+  puzzleKeyId,
   type ApiError,
   type CheckRequest,
   type CheckResponse,
@@ -23,12 +25,14 @@ import {
 } from "@trackle/shared";
 import type { Db } from "./db/connection.ts";
 import { registerLabRoutes } from "./lab/routes.ts";
+import { Leaderboard, registerLeaderboardRoutes } from "./leaderboard/leaderboard.ts";
 import { DailyPuzzles } from "./puzzles/dailyPuzzles.ts";
 import { DIFFICULTIES } from "./puzzles/difficulty.ts";
 import { RandomPuzzles } from "./puzzles/randomPuzzles.ts";
 import { PuzzleRepository } from "./puzzles/repository.ts";
 import { registerAuthRoutes } from "./auth/routes.ts";
 import { ProgressSync } from "./progress/progressSync.ts";
+import { SolveReceipts } from "./progress/receipts.ts";
 import { registerProgressRoutes } from "./progress/routes.ts";
 import type { ScryptParams } from "./auth/password.ts";
 import { registerRateLimits, type RateLimitOptions } from "./rateLimit/rateLimit.ts";
@@ -108,8 +112,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     secureCookies: options.secureCookies ?? false,
     passwordParams: options.passwordParams,
   });
-  const progressSync = new ProgressSync(options.db, puzzleRepository, now);
+  const receipts = new SolveReceipts(options.db);
+  const progressSync = new ProgressSync(options.db, puzzleRepository, now, receipts);
   registerProgressRoutes(app, progressSync, currentUser);
+  registerLeaderboardRoutes(app, new Leaderboard(options.db, now), currentUser);
 
   /**
    * Hints and answers (ADR 0014). Shared by daily and random routes: given the
@@ -124,6 +130,9 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     body: HintRequest,
   ) => {
     const kind = body.kind ?? "track";
+    // A level without this kind of hint (the Challenge, Super-duper hard) gives
+    // none to anybody, signed in or not, first try or "Try again".
+    if (hintsLeft(key.difficulty, 0, kind) === 0) return reply.code(403).send({ error: "hint_limit" } satisfies ApiError);
     const hint: HintResponse = computeHint(layout, solution, body.cells, body.emptyCells, kind);
     if (hint.kind === "complete") return hint; // not help, so never limited
     const user = currentUser(req);
@@ -180,7 +189,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       if (difficulty === null) return reply.code(400).send(invalidDifficulty);
       const correct = daily.check(req.params.date, difficulty, req.body.cells, req.log);
       if (correct === null) return reply.code(404).send(notFound);
-      const body: CheckResponse = { correct };
+      // A receipt for every correct daily solve, signed in or not: it proves
+      // later when the solve happened (ADR 0025).
+      const keyId = puzzleKeyId({ kind: "daily", date: req.params.date, difficulty });
+      const body: CheckResponse = correct ? { correct, receipt: receipts.issue(keyId, now()) } : { correct };
       return body;
     },
   );
@@ -219,7 +231,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   type RandomRequest = { Params: { difficulty: string; seed: string } };
   const parseRandom = (params: RandomRequest["Params"]): { difficulty: number; seed: string } | ApiError => {
     const difficulty = parseDifficulty(params.difficulty);
-    if (difficulty === null) return invalidDifficulty;
+    // Daily-only levels (the Challenge) have no random puzzles: points can't be farmed.
+    if (difficulty === null || isDailyOnly(difficulty)) return invalidDifficulty;
     if (!isRandomSeed(params.seed)) return invalidSeed;
     return { difficulty, seed: params.seed };
   };

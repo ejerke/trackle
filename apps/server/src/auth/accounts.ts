@@ -12,6 +12,7 @@ interface UserRow {
   password_hash: string;
   created_at: string;
   preferred_difficulty: number | null;
+  on_leaderboard: number;
 }
 
 export interface StoredUser {
@@ -25,6 +26,7 @@ const toUser = (row: UserRow): StoredUser => ({
     username: row.username,
     createdAt: row.created_at,
     preferredDifficulty: row.preferred_difficulty,
+    onLeaderboard: row.on_leaderboard === 1,
   },
   passwordHash: row.password_hash,
 });
@@ -46,7 +48,7 @@ export class Accounts {
       .prepare(
         `INSERT INTO users (username, password_hash) VALUES (?, ?)
          ON CONFLICT (username) DO NOTHING
-         RETURNING id, username, password_hash, created_at, preferred_difficulty`,
+         RETURNING id, username, password_hash, created_at, preferred_difficulty, on_leaderboard`,
       )
       .get(username, passwordHash) as UserRow | undefined;
     return row ? toUser(row) : null;
@@ -54,14 +56,14 @@ export class Accounts {
 
   findByUsername(username: string): StoredUser | null {
     const row = this.db
-      .prepare("SELECT id, username, password_hash, created_at, preferred_difficulty FROM users WHERE username = ?")
+      .prepare("SELECT id, username, password_hash, created_at, preferred_difficulty, on_leaderboard FROM users WHERE username = ?")
       .get(username) as UserRow | undefined;
     return row ? toUser(row) : null;
   }
 
   findById(id: number): StoredUser | null {
     const row = this.db
-      .prepare("SELECT id, username, password_hash, created_at, preferred_difficulty FROM users WHERE id = ?")
+      .prepare("SELECT id, username, password_hash, created_at, preferred_difficulty, on_leaderboard FROM users WHERE id = ?")
       .get(id) as UserRow | undefined;
     return row ? toUser(row) : null;
   }
@@ -74,6 +76,10 @@ export class Accounts {
 
   setPreferredDifficulty(userId: number, difficulty: number): void {
     this.db.prepare("UPDATE users SET preferred_difficulty = ? WHERE id = ?").run(difficulty, userId);
+  }
+
+  setOnLeaderboard(userId: number, visible: boolean): void {
+    this.db.prepare("UPDATE users SET on_leaderboard = ? WHERE id = ?").run(visible ? 1 : 0, userId);
   }
 
   /** Deletes the user; their sessions go with them (ON DELETE CASCADE). */
@@ -100,7 +106,7 @@ export class Accounts {
   userForToken(token: string): AccountUser | null {
     const row = this.db
       .prepare(
-        `SELECT u.id, u.username, u.password_hash, u.created_at, u.preferred_difficulty
+        `SELECT u.id, u.username, u.password_hash, u.created_at, u.preferred_difficulty, u.on_leaderboard
          FROM sessions s JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ? AND s.expires_at > ?`,
       )

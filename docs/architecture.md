@@ -129,6 +129,7 @@ metrics above):
 | 0 Easy | 6×6; minimal hints + 1; tier exactly 1 (tier 1 decides 100%); 13–20 track squares; 4–8 turns |
 | 1 Medium (default) | 6×6; no extra hints; tier exactly 2; tier 1 decides ≤ 60%; ≤ 1 giveaway line; 16–26 track squares |
 | 2 Hard | 8×8; ≤ 1 hint; tier exactly 3, at least 8 trial steps; tier 1 decides ≤ 20%; no giveaway lines; 28–44 track squares |
+| 5 Challenge | 10×10; `givens: "ends"`: the pieces on A's and B's squares are the only givens, and a candidate they don't make unique is discarded; tier exactly 3, at least 20 trial steps; no giveaway lines; daily only (`dailyOnly` in `LEVELS`); its fallback never needs guessing ([ADR 0025](adr/0025-challenge-and-leaderboard.md)) |
 | 3 Super-duper hard | 9×9; `pathStyle: "straight"`: edge to opposite edge with at most one one-square jog; no filters |
 | 4 Insane | 10×10; `crossings: 1`: the random walk must cross itself once; the crossing is always a hint (≤ 4 hints including it); tier exactly 3, at least 12 trial steps; tier 1 decides ≤ 20%; no giveaway lines; 42–66 track squares; `uniquenessBudget` caps each uniqueness check while choosing hints |
 

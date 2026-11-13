@@ -32,6 +32,7 @@ import { createRng, type Rng } from "./rng.ts";
  *     (straight paths). Insane (crossings) added later without a bump: it
  *     is a new level, and the other levels' puzzles didn't change. Insane
  *     later moved to 10x10 (ADR 0022), also without a bump, for the same reason.
+ *     The Challenge (ADR 0025) was added the same way.
  */
 export const GENERATOR_VERSION = 3;
 
@@ -96,22 +97,30 @@ export function generatePuzzle(options: GenerateOptions): GeneratedPuzzle {
     }
 
     const candidate = completeCandidate(rng, width, height, path, profile);
+    if (!candidate) continue; // "ends" givens, and not unique with just those
     const metrics = measure(candidate.layout, candidate.solution);
     const failed = violations(profile.filters, metrics);
     const result: GeneratedPuzzle = { ...candidate, metrics, attempts: attempt + 1, accepted: failed.length === 0, violations: failed };
     if (result.accepted) return result;
+    // A level that gives only the ends has no hints to fall back on, so its
+    // fallback must at least be solvable without guessing.
+    if (profile.givens === "ends" && metrics.tier === null) continue;
     if (!best || failed.length < best.violations.length) best = result;
   }
-  return { ...best!, attempts: profile.maxAttempts };
+  if (!best) throw new Error(`No usable puzzle for difficulty ${options.difficulty}, seed ${options.seed}`);
+  return { ...best, attempts: profile.maxAttempts };
 }
 
-/** One unfiltered candidate (used by the lab to study raw distributions). */
+/**
+ * One unfiltered candidate (used by the lab to study raw distributions).
+ * Null when the level gives only the ends and they don't make it unique.
+ */
 export function generateCandidate(
   rng: Rng,
   width: number,
   height: number,
-  settings: Pick<GenerationSettings, "extraHints" | "pathStyle" | "crossings" | "uniquenessBudget">,
-): Candidate {
+  settings: Pick<GenerationSettings, "extraHints" | "pathStyle" | "crossings" | "uniquenessBudget" | "givens">,
+): Candidate | null {
   return completeCandidate(rng, width, height, makePath(settings, rng, width, height), settings);
 }
 
@@ -121,14 +130,17 @@ export function generateCandidate(
  *
  * Crossings are always given as hints (drawn as bridges): players can't
  * build a crossing themselves.
+ *
+ * With `givens: "ends"`, the pieces on A's and B's squares are the only hints;
+ * null if they don't make the solution unique.
  */
 function completeCandidate(
   rng: Rng,
   width: number,
   height: number,
   path: RandomPath,
-  settings: Pick<GenerationSettings, "extraHints" | "crossings" | "uniquenessBudget">,
-): Candidate {
+  settings: Pick<GenerationSettings, "extraHints" | "crossings" | "uniquenessBudget" | "givens">,
+): Candidate | null {
   const { cells, start, end } = path;
   const solution = pathToMasks(width, height, cells, start.dir, end.dir);
   const counts = lineCounts(width, height, (r, c) => solution[r]![c] !== 0);
@@ -142,7 +154,7 @@ function completeCandidate(
     hints: [],
     ...(settings.crossings > 0 ? { crossings: settings.crossings } : {}),
   };
-  const hintFor = (cell: Cell): Hint => ({ ...cell, piece: solution[cell.row]![cell.col]! });
+  const hintFor = ({ row, col }: Cell): Hint => ({ row, col, piece: solution[row]![col]! });
   const key = (c: Cell) => `${c.row}:${c.col}`;
 
   // Crossing squares are always given up front.
@@ -152,6 +164,11 @@ function completeCandidate(
   // more hint is added (or kept), never that an ambiguous puzzle gets out.
   const budget = settings.uniquenessBudget ?? Infinity;
   const isUnique = (hints: Hint[]) => countSolutionsWithin({ ...base, hints: [...forced, ...hints] }, 2, budget) === 1;
+
+  if (settings.givens === "ends") {
+    const ends = [start, end].map(hintFor);
+    return isUnique(ends) ? { layout: { ...base, hints: [...forced, ...ends] }, solution } : null;
+  }
 
   // Candidate hint cells: track cells other than A, B and crossings, in random order.
   const inner = cells.slice(1, -1);

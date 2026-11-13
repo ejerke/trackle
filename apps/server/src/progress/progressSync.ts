@@ -18,6 +18,7 @@ import {
 import type { Db } from "../db/connection.ts";
 import { DIFFICULTIES } from "../puzzles/difficulty.ts";
 import type { PuzzleRepository } from "../puzzles/repository.ts";
+import type { SolveReceipts } from "./receipts.ts";
 
 /**
  * A stored record, upgraded to the current version: rows written by older
@@ -36,11 +37,13 @@ export class ProgressSync {
   private readonly db: Db;
   private readonly puzzles: PuzzleRepository;
   private readonly now: () => Date;
+  private readonly receipts: SolveReceipts;
 
-  constructor(db: Db, puzzles: PuzzleRepository, now: () => Date) {
+  constructor(db: Db, puzzles: PuzzleRepository, now: () => Date, receipts: SolveReceipts) {
     this.db = db;
     this.puzzles = puzzles;
     this.now = now;
+    this.receipts = receipts;
   }
 
   get(userId: number, key: PuzzleKey): PuzzleProgress | null {
@@ -117,17 +120,32 @@ export class ProgressSync {
       .pluck()
       .get(userId, keyId) as string | undefined;
     const stored = combine(json ? parseStored(json) : null, record);
+    const verifiedAt = this.verifiedAt(keyId, stored);
     this.db
       .prepare(
-        `INSERT INTO user_progress (user_id, key_id, record_json, updated_at, solved_at, hints_used, revealed_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO user_progress (user_id, key_id, record_json, updated_at, solved_at, hints_used, revealed_at, verified_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (user_id, key_id) DO UPDATE SET
            record_json = excluded.record_json, updated_at = excluded.updated_at, solved_at = excluded.solved_at,
-           hints_used = excluded.hints_used, revealed_at = excluded.revealed_at`,
+           hints_used = excluded.hints_used, revealed_at = excluded.revealed_at,
+           verified_at = COALESCE(min(user_progress.verified_at, excluded.verified_at), user_progress.verified_at, excluded.verified_at)`,
       )
       // hints_used: help of both kinds, so `hints_used = 0` still means "no hints".
-      .run(userId, keyId, JSON.stringify(stored), stored.updatedAt, stored.solvedAt, totalHints(stored), stored.revealedAt);
+      .run(userId, keyId, JSON.stringify(stored), stored.updatedAt, stored.solvedAt, totalHints(stored), stored.revealedAt, verifiedAt);
     return stored;
+  }
+
+  /**
+   * The server's word on when a daily solve (already checked by verified())
+   * happened: the time in its receipt if this server signed it for this
+   * puzzle, else now, when the solve first reaches the server. The earliest
+   * stamp ever seen is kept (the SQL above), so a later sync never moves it
+   * forward, and only a genuine receipt can move it back.
+   */
+  private verifiedAt(keyId: string, stored: PuzzleProgress): string | null {
+    if (!stored.solvedAt || stored.key.kind !== "daily") return null;
+    const receipt = stored.solveReceipt;
+    return receipt && this.receipts.verify(keyId, receipt) ? receipt.at : this.now().toISOString();
   }
 
   /**

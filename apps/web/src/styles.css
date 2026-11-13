@@ -1356,3 +1356,74 @@ button,
 .bookmark-name a:hover {
   text-decoration: underline;
 }
+
+/* ---- the Challenge and its leaderboard (ADR 0025) ---- */
+.challenge-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+}
+.button__icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  vertical-align: -0.18rem;
+  margin-right: 0.2rem;
+}
+.leaderboard-me {
+  margin: 0.75rem 0;
+  text-align: center;
+}
+.leaderboard-me p {
+  margin: 0 0 0.4rem;
+}
+.leaderboard-me p:last-child {
+  margin-bottom: 0;
+}
+.leaderboard-me__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+.leaderboard-me__toggle input {
+  accent-color: var(--accent);
+}
+.leaderboard {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.leaderboard th,
+.leaderboard td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+.leaderboard th {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.leaderboard th:nth-child(2),
+.leaderboard td:nth-child(2) {
+  text-align: left;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.leaderboard th:first-child,
+.leaderboard td:first-child {
+  text-align: left;
+  color: var(--muted);
+}
+.leaderboard td:last-child {
+  font-weight: 700;
+}
+.leaderboard__me td {
+  background: var(--surface);
+}
+.leaderboard__me td:nth-child(2) {
+  color: var(--accent);
+  font-weight: 700;
+}
+

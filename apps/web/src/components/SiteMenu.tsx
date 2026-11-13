@@ -19,6 +19,7 @@ export function SiteMenu() {
         <a href="/archive">Archive</a>
         <a href="/stats">Stats</a>
         <a href="/bookmarks">Bookmarks</a>
+        <a href="/leaderboard">Leaderboard</a>
         <a href="/account" className="site-menu__account">
           {user ? user.username : "Sign in"}
         </a>

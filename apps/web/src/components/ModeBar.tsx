@@ -1,7 +1,7 @@
-import { LEVELS, LEVEL_ORDER } from "@trackle/shared";
+import { CHALLENGE_DIFFICULTY, LEVELS, LEVEL_ORDER, isDailyOnly } from "@trackle/shared";
 import { archiveUrl, dailyUrl, randomUrl } from "../routes";
 import { useAuth } from "../auth";
-import { forgetRandomSeeds, lastRandomSeed, rememberDifficulty } from "../storage/preferences";
+import { forgetRandomSeeds, lastRandomSeed, loadPreferredDifficulty, rememberDifficulty } from "../storage/preferences";
 
 interface ModeBarProps {
   kind: "daily" | "random" | "archive";
@@ -21,16 +21,25 @@ function urlFor(kind: ModeBarProps["kind"], d: number, date?: string | null): st
   return randomUrl(d, lastRandomSeed(d) ?? undefined);
 }
 
+/** The levels in the difficulty picker: the daily-only Challenge has its own button. */
+const PICKER_LEVELS = LEVEL_ORDER.filter((d) => !isDailyOnly(d));
+
 /**
- * Difficulty picker plus "Today" / "New random". On a daily page, picking a
- * difficulty shows that difficulty's daily puzzle; on a random page, the last
- * random puzzle you had at that difficulty (a new one if none). "New random"
- * sits beside all the difficulties, so it starts a new random puzzle for each
- * of them, not just this one. The choice is remembered for "/", and on the
- * account when signed in.
+ * Difficulty picker plus "Today" / "New random" / "Challenge". On a daily
+ * page, picking a difficulty shows that difficulty's daily puzzle; on a
+ * random page, the last random puzzle you had at that difficulty (a new one
+ * if none). "New random" sits beside all the difficulties, so it starts a new
+ * random puzzle for each of them, not just this one. The choice is
+ * remembered for "/", and on the account when signed in.
+ *
+ * The Challenge (ADR 0025) is a daily puzzle of its own, not a difficulty you
+ * play randomly, so it sits with Today and isn't remembered as your level:
+ * from it, Today and New random go to the level you usually play.
  */
 export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
   const { user } = useAuth();
+  const challenge = isDailyOnly(difficulty);
+  const level = challenge ? loadPreferredDifficulty() : difficulty;
   const go = (url: string, chosen: number) => {
     rememberDifficulty(chosen, user !== null);
     window.location.assign(url);
@@ -39,7 +48,7 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
   return (
     <nav className="mode-bar" aria-label="Puzzle selection">
       <div className="segmented" role="group" aria-label="Difficulty">
-        {LEVEL_ORDER.map((d) => ({ d, ...LEVELS[d]! })).map(({ d, name, shortName }) => (
+        {PICKER_LEVELS.map((d) => ({ d, ...LEVELS[d]! })).map(({ d, name, shortName }) => (
           <button
             key={d}
             type="button"
@@ -62,8 +71,8 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
         <button
           type="button"
           className="segmented__option"
-          aria-pressed={kind === "daily" && !date}
-          onClick={() => go(dailyUrl(difficulty), difficulty)}
+          aria-pressed={kind === "daily" && !date && !challenge}
+          onClick={() => go(dailyUrl(level), level)}
         >
           Today
         </button>
@@ -72,7 +81,7 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
           className="segmented__option"
           onClick={() => {
             forgetRandomSeeds();
-            go(randomUrl(difficulty), difficulty);
+            go(randomUrl(level), level);
           }}
         >
           <svg viewBox="0 0 20 20" aria-hidden="true" className="segmented__icon">
@@ -89,7 +98,36 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
           <span className="wide-only">New random</span>
           <span className="narrow-only">Random</span>
         </button>
+        <button
+          type="button"
+          className="segmented__option"
+          aria-pressed={challenge}
+          title="Today's Challenge: no hints, and points on the leaderboard"
+          onClick={() => {
+            // From an older Challenge, this goes to today's; otherwise it's where you are.
+            const here = challenge && (kind === "archive" || !date);
+            if (!here) window.location.assign(kind === "archive" ? archiveUrl(CHALLENGE_DIFFICULTY) : dailyUrl(CHALLENGE_DIFFICULTY));
+          }}
+        >
+          <TrophyIcon />
+          Challenge
+        </button>
       </div>
     </nav>
+  );
+}
+
+export function TrophyIcon({ className = "segmented__icon" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" className={className}>
+      <path
+        d="M6 3h8v4a4 4 0 0 1-8 0zM6 5H3.5v1A2.5 2.5 0 0 0 6 8.5M14 5h2.5v1A2.5 2.5 0 0 1 14 8.5M10 11v3M7 17h6M8 14h4v3H8z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

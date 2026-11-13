@@ -12,9 +12,10 @@ const MEDIUM = 1;
 const HARD = 2;
 const SUPER_DUPER = 3;
 const INSANE = 4;
+const CHALLENGE = 5;
 
 describe("generatePuzzle", () => {
-  it.each([EASY, MEDIUM, HARD, SUPER_DUPER, INSANE])("is deterministic for difficulty %i: same seed, same puzzle", (difficulty) => {
+  it.each([EASY, MEDIUM, HARD, SUPER_DUPER, INSANE, CHALLENGE])("is deterministic for difficulty %i: same seed, same puzzle", (difficulty) => {
     const a = generatePuzzle({ difficulty, seed: "same" });
     const b = generatePuzzle({ difficulty, seed: "same" });
     expect(a).toEqual(b);
@@ -36,6 +37,7 @@ describe("generatePuzzle", () => {
     [SUPER_DUPER, seeds("super", 20), "brute force"],
     [HARD, seeds("hard", 15), "counter"],
     [INSANE, seeds("insane", 15), "counter"],
+    [CHALLENGE, seeds("challenge", 15), "counter"],
   ])("difficulty %i", (difficulty, testSeeds, check) => {
     it.each(testSeeds)("is valid and has exactly one solution (%s)", (seed) => {
       const { layout, solution } = generatePuzzle({ difficulty, seed });
@@ -106,8 +108,20 @@ describe("generatePuzzle", () => {
     }
   }, 30_000);
 
+  it("gives only the two end pieces on a Challenge, and it still needs lots of trial reasoning", () => {
+    for (const seed of seeds("challenge-filters", 12)) {
+      const g = generatePuzzle({ difficulty: CHALLENGE, seed });
+      expect(g.accepted).toBe(true);
+      expect(g.layout.width).toBe(10);
+      expect(g.layout.hints).toEqual(g.layout.endpoints.map(({ row, col }) => ({ row, col, piece: g.solution[row]![col]! })));
+      expect(g.metrics.tier).toBe(3);
+      expect(g.metrics.tier3Steps).toBeGreaterThanOrEqual(20);
+      expect(g.metrics.giveawayLines).toBe(0);
+    }
+  }, 30_000);
+
   it("leaves the crossing count out of puzzles without crossings", () => {
-    for (const difficulty of [EASY, MEDIUM, HARD, SUPER_DUPER]) {
+    for (const difficulty of [EASY, MEDIUM, HARD, SUPER_DUPER, CHALLENGE]) {
       expect(generatePuzzle({ difficulty, seed: "no-cross" }).layout).not.toHaveProperty("crossings");
     }
   });

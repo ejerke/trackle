@@ -13,7 +13,7 @@ describe("rateLogic", () => {
   it("is sound: every deduction agrees with the solution (300 puzzles)", () => {
     const tiers = new Set<number | null>();
     for (let i = 0; i < 300; i++) {
-      const { layout, solution } = generateCandidate(attemptRng(`sound-${i}`, 0), 6, 6, RAW);
+      const { layout, solution } = generateCandidate(attemptRng(`sound-${i}`, 0), 6, 6, RAW)!;
       const rating = rateLogic(layout); // would throw on a false contradiction
       tiers.add(rating.tier);
       for (let r = 0; r < 6; r++) {
@@ -90,7 +90,7 @@ describe("rateLogic", () => {
 
   it("reports progress as a share between 0 and 1", () => {
     for (let i = 0; i < 20; i++) {
-      const { layout } = generateCandidate(attemptRng(`progress-${i}`, 0), 6, 6, RAW);
+      const { layout } = generateCandidate(attemptRng(`progress-${i}`, 0), 6, 6, RAW)!;
       const { tier1Progress } = rateLogic(layout);
       expect(tier1Progress).toBeGreaterThanOrEqual(0);
       expect(tier1Progress).toBeLessThanOrEqual(1);
@@ -121,7 +121,7 @@ describe("countSolutions", () => {
     const seen = new Set<number>();
     for (let i = 0; i < 150; i++) {
       const size = 4 + (i % 3); // 4x4, 5x5, 6x6
-      const { layout } = generateCandidate(attemptRng(`count-${i}`, 0), size, size, RAW);
+      const { layout } = generateCandidate(attemptRng(`count-${i}`, 0), size, size, RAW)!;
       for (const hints of [layout.hints, []]) {
         const variant = { ...layout, hints };
         const expected = solve(variant, 3).count;
@@ -151,7 +151,7 @@ describe("countSolutions", () => {
   it("with a step budget, agrees with the full count or says it doesn't know", () => {
     let gaveUp = 0;
     for (let i = 0; i < 30; i++) {
-      const { layout } = generateCandidate(attemptRng(`budget-${i}`, 0), 8, 8, RAW);
+      const { layout } = generateCandidate(attemptRng(`budget-${i}`, 0), 8, 8, RAW)!;
       const bare = { ...layout, hints: [] };
       const within = countSolutionsWithin(bare, 2, 50);
       if (within === null) gaveUp++;
@@ -163,7 +163,7 @@ describe("countSolutions", () => {
 
   it("only ever decides valid tracks", () => {
     for (let i = 0; i < 100; i++) {
-      const { layout, solution } = generateCandidate(attemptRng(`decided-${i}`, 0), 6, 6, RAW);
+      const { layout, solution } = generateCandidate(attemptRng(`decided-${i}`, 0), 6, 6, RAW)!;
       const masks = decidedMasks(layout);
       if (masks === null) continue; // tiers 1-2 alone didn't finish
       expect(validateTrack(layout, masks)).toEqual({ ok: true });
@@ -180,7 +180,7 @@ describe("crossings", () => {
     const seen = new Set<number>();
     for (let i = 0; i < 150; i++) {
       const size = 5 + (i % 2);
-      const { layout, solution } = generateCandidate(attemptRng(`cross-${i}`, 0), size, size, CROSSING_RAW);
+      const { layout, solution } = generateCandidate(attemptRng(`cross-${i}`, 0), size, size, CROSSING_RAW)!;
       expect(validateTrack(layout, solution)).toEqual({ ok: true });
       const rating = rateLogic(layout);
       for (let r = 0; r < size; r++) {
@@ -203,7 +203,7 @@ describe("crossings", () => {
 
   it("only ever decides valid crossing tracks", () => {
     for (let i = 0; i < 60; i++) {
-      const { layout, solution } = generateCandidate(attemptRng(`cross-decided-${i}`, 0), 6, 6, CROSSING_RAW);
+      const { layout, solution } = generateCandidate(attemptRng(`cross-decided-${i}`, 0), 6, 6, CROSSING_RAW)!;
       const masks = decidedMasks(layout);
       if (masks !== null) expect(masks).toEqual(solution);
     }

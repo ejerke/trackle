@@ -42,7 +42,7 @@ describe("records", () => {
     const v3 = { ...emptyProgress(key, "fp"), schemaVersion: 3, board: { edges: ["h:0:0"], marks: {} } } as Record<string, unknown>;
     delete v3.boardSavedAt;
     delete v3.boardDirty;
-    expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 8, emptyHintsUsed: 0, boardSavedAt: null, boardDirty: true });
+    expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 9, emptyHintsUsed: 0, boardSavedAt: null, boardDirty: true });
     const empty = { ...v3, board: { edges: [], marks: {} } };
     expect(migrateProgress(empty)).toMatchObject({ boardDirty: false });
   });
@@ -51,19 +51,19 @@ describe("records", () => {
     const v4 = { ...emptyProgress(key, "fp"), schemaVersion: 4 } as Record<string, unknown>;
     delete v4.hintsUsed;
     delete v4.revealedAt;
-    expect(migrateProgress(v4)).toMatchObject({ schemaVersion: 8, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null });
+    expect(migrateProgress(v4)).toMatchObject({ schemaVersion: 9, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null });
   });
 
   it("upgrades v5 records: not timed yet", () => {
     const v5 = { ...emptyProgress(key, "fp"), schemaVersion: 5 } as Record<string, unknown>;
     delete v5.timeMs;
-    expect(migrateProgress(v5)).toMatchObject({ schemaVersion: 8, emptyHintsUsed: 0, timeMs: 0 });
+    expect(migrateProgress(v5)).toMatchObject({ schemaVersion: 9, emptyHintsUsed: 0, timeMs: 0 });
   });
 
   it("upgrades v6 records: no 'no track' hints used", () => {
     const v6 = { ...emptyProgress(key, "fp"), schemaVersion: 6, hintsUsed: 2 } as Record<string, unknown>;
     delete v6.emptyHintsUsed;
-    expect(migrateProgress(v6)).toMatchObject({ schemaVersion: 8, hintsUsed: 2, emptyHintsUsed: 0 });
+    expect(migrateProgress(v6)).toMatchObject({ schemaVersion: 9, hintsUsed: 2, emptyHintsUsed: 0 });
   });
 });
 
@@ -145,5 +145,32 @@ describe("bookmark names", () => {
     expect(mergeSummary(renamed, named).bookmark?.name).toBe("the loop");
     expect(isProgressRecord(named)).toBe(true);
     expect(isProgressRecord({ ...base, bookmark: { on: true, at: "x", name: 3 } })).toBe(false);
+  });
+});
+
+describe("solve receipts (v9)", () => {
+  const base = emptyProgress(key, "fp");
+  const receipt = { at: "2026-11-10T10:00:00.000Z", sig: "sig" };
+  const solved = (solvedAt: string, solveReceipt: typeof receipt | null) => ({
+    ...base,
+    solvedAt,
+    solvedCells: [[1]],
+    solveReceipt,
+  });
+
+  it("upgrades v8 records with no receipt", () => {
+    const { solveReceipt, ...v8 } = base;
+    expect(migrateProgress({ ...v8, schemaVersion: 8 })).toEqual(base);
+  });
+
+  it("keeps the receipt with the solve that counts", () => {
+    expect(mergeSummary(null, solved("2026-11-10T10:00:00.000Z", receipt)).solveReceipt).toEqual(receipt);
+    // An earlier solve wins, and brings its own receipt (none here).
+    expect(mergeSummary(solved("2026-11-10T10:00:00.000Z", receipt), solved("2026-11-10T09:00:00.000Z", null)).solveReceipt).toBeNull();
+    // A later solve doesn't replace the first one's receipt.
+    const other = { at: "2026-11-11T10:00:00.000Z", sig: "other" };
+    expect(mergeSummary(solved("2026-11-10T10:00:00.000Z", receipt), solved("2026-11-11T10:00:00.000Z", other)).solveReceipt).toEqual(receipt);
+    // An unsolved record never carries one into the account.
+    expect(mergeSummary(null, { ...base, solveReceipt: receipt }).solveReceipt).toBeNull();
   });
 });

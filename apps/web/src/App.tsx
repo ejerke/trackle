@@ -4,6 +4,7 @@ import { ArchivePage } from "./components/ArchivePage";
 import { BookmarksPage } from "./components/BookmarksPage";
 import { DailyPage } from "./components/DailyPage";
 import { Lab } from "./components/Lab";
+import { LeaderboardPage } from "./components/LeaderboardPage";
 import { Page } from "./components/Page";
 import { RandomPage } from "./components/RandomPage";
 import { StatsPage } from "./components/StatsPage";
@@ -24,6 +25,8 @@ export function App({ store }: { store: ProgressStore }) {
       return <StatsPage store={store} />;
     case "bookmarks":
       return <BookmarksPage store={store} />;
+    case "leaderboard":
+      return <LeaderboardPage store={store} />;
     case "account":
       return <AccountPage />;
     case "lab":

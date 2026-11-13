@@ -8,6 +8,7 @@ import {
   type ChangePasswordRequest,
   type Credentials,
   type DeleteAccountRequest,
+  type LeaderboardVisibilityRequest,
   type PreferencesRequest,
 } from "@trackle/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -59,6 +60,7 @@ const passwordOnlySchema = {
  * Username + password accounts with cookie sessions (ADR 0012):
  *   POST /api/auth/register, /login, /logout, /password, /delete-account
  *   GET  /api/auth/me
+ *   PUT  /api/auth/preferences, /api/me/leaderboard
  */
 export function registerAuthRoutes(
   app: FastifyInstance,
@@ -161,6 +163,28 @@ export function registerAuthRoutes(
       if (DIFFICULTIES[d] === undefined) return reply.code(400).send(error("invalid_difficulty"));
       accounts.setPreferredDifficulty(user.id, d);
       const body: AuthResponse = { user: { ...user, preferredDifficulty: d } };
+      return body;
+    },
+  );
+
+  // Opt in to (or out of) the Challenge leaderboard by name (ADR 0025).
+  app.put<{ Body: LeaderboardVisibilityRequest }>(
+    "/api/me/leaderboard",
+    {
+      schema: {
+        body: {
+          type: "object",
+          required: ["visible"],
+          additionalProperties: false,
+          properties: { visible: { type: "boolean" } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const user = currentUser(req);
+      if (!user) return reply.code(401).send(error("unauthorized"));
+      accounts.setOnLeaderboard(user.id, req.body.visible);
+      const body: AuthResponse = { user: { ...user, onLeaderboard: req.body.visible } };
       return body;
     },
   );

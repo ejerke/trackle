@@ -34,10 +34,11 @@ const recordSchema = {
     "timeMs",
     "bookmark",
     "replay",
+    "solveReceipt",
   ],
   additionalProperties: false,
   properties: {
-    schemaVersion: { const: 8 },
+    schemaVersion: { const: 9 },
     key: {
       type: "object",
       required: ["kind", "difficulty"],
@@ -85,6 +86,12 @@ const recordSchema = {
     },
     // "Try again" stays on the device (ADR 0024): the account never takes one.
     replay: { type: "null" },
+    solveReceipt: {
+      anyOf: [
+        { type: "null" },
+        { type: "object", required: ["at", "sig"], additionalProperties: false, properties: { at: timestamp, sig: { type: "string", maxLength: 64 } } },
+      ],
+    },
   },
 } as const;
 

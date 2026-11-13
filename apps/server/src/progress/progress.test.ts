@@ -174,7 +174,7 @@ describe("records stored by older code", () => {
       "INSERT INTO user_progress (user_id, key_id, record_json, updated_at) SELECT id, '2026-11-10:0', ?, ? FROM users",
     ).run(JSON.stringify(v4), v4.updatedAt);
 
-    expect((await list(token))[0]).toMatchObject({ schemaVersion: 8, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null, timeMs: 0 });
+    expect((await list(token))[0]).toMatchObject({ schemaVersion: 9, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null, timeMs: 0, solveReceipt: null });
     const res = await sync(token, [drawn([], { hintsUsed: 1, timeMs: 5_000 })]);
     expect(res.statusCode).toBe(200);
     expect((await list(token))[0]).toMatchObject({ hintsUsed: 1, timeMs: 5_000 });

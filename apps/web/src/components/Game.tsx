@@ -5,6 +5,7 @@ import {
   isBookmarked,
   totalHints,
   validateTrack,
+  type CheckResponse,
   type HintKind,
   type HintResponse,
   type PlayablePuzzle,
@@ -32,8 +33,11 @@ interface GameProps {
   /** Where this puzzle's progress is saved. */
   progressKey: PuzzleKey;
   store: ProgressStore;
-  /** Asks the server whether the track is correct. Called by itself once the track looks complete. */
-  check(cells: number[][]): Promise<boolean>;
+  /**
+   * Asks the server whether the track is correct. Called by itself once the
+   * track looks complete. A correct daily puzzle also gets a solve receipt.
+   */
+  check(cells: number[][]): Promise<CheckResponse>;
   /** Asks the server for a hint of this kind about this board. Omitted: no hint buttons (e.g. the lab). */
   hint?(kind: HintKind, cells: number[][], emptyCells: [number, number][]): Promise<HintResponse>;
   /** Asks the server for the solution. Omitted: no "Show answer" button. */
@@ -88,8 +92,8 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   const runCheck = async (cells: number[][]) => {
     setCheck("checking");
     try {
-      const correct = await checkWithServer(cells);
-      recordCheck(correct, cells);
+      const { correct, receipt } = await checkWithServer(cells);
+      recordCheck(correct, cells, receipt ?? null);
       setCheck(correct ? "idle" : "wrong");
     } catch (err) {
       setCheck(err instanceof ApiRequestError && err.status === 429 ? "rateLimited" : "error");

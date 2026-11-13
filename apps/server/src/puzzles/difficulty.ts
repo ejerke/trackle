@@ -26,6 +26,13 @@ export interface GenerationSettings {
   /** How many times the track crosses itself (wander paths only). */
   crossings: number;
   /**
+   * Which pieces are given. "minimal" (default): random track squares until
+   * the solution is unique, minimised, plus `extraHints`. "ends": exactly the
+   * pieces on A's and B's squares and nothing else; a candidate that isn't
+   * unique with just those is thrown away, never patched with more hints.
+   */
+  givens?: "minimal" | "ends";
+  /**
    * Search steps one uniqueness check may take while choosing hints; running
    * out counts as "not unique", so another hint is given. Unset = no limit.
    * Needed on big grids: a 10x10 track with only the bridge given can take a
@@ -130,6 +137,22 @@ const GENERATION: readonly GenerationSettings[] = [
       maxTier1Progress: 0.2,
       tiers: [3],
       minTier3Steps: 12,
+    },
+  },
+  {
+    // Challenge (ADR 0025): 10x10, only the two end pieces given, no hints or
+    // answer to ask for. Needs at least 20 trial steps (Insane: 12, with up to
+    // three pieces given). About 1 path in 20 qualifies, in milliseconds each.
+    extraHints: 0,
+    maxAttempts: 3000,
+    pathStyle: "wander",
+    crossings: 0,
+    givens: "ends",
+    uniquenessBudget: 200_000,
+    filters: {
+      maxGiveawayLines: 0,
+      tiers: [3],
+      minTier3Steps: 20,
     },
   },
 ];

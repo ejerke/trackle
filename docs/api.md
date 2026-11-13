@@ -41,7 +41,8 @@ Retry-After: <seconds>
 
 ## Difficulty
 
-Every daily endpoint takes an optional `?difficulty=N` (0 Easy, 1 Medium).
+Every daily endpoint takes an optional `?difficulty=N` (the index into
+`LEVELS`: 0 Easy, 1 Medium, 2 Hard, 3 Super-duper hard, 4 Insane, 5 Challenge).
 Omitted means the default, Medium. Each difficulty has its own puzzle per day.
 An unknown level returns `400 { "error": "invalid_difficulty" }`.
 
@@ -72,9 +73,16 @@ Checks a track. The body is the full board as a mask grid (see
 ```
 
 ```json
-200 { "correct": true }
+200 { "correct": true, "receipt": { "at": "2026-11-10T12:00:00.000Z", "sig": "…" } }
 200 { "correct": false }
 ```
+
+`receipt` (correct answers only, daily puzzles only, signed in or not): the
+server's time, signed with its secret (HMAC-SHA256 over the key id and `at`).
+The browser keeps it as the record's `solveReceipt`; when the solve reaches an
+account, the server uses a valid receipt's time as `verified_at`
+([ADR 0025](adr/0025-challenge-and-leaderboard.md)). Random and lab checks
+answer `{ "correct" }` only.
 
 - The response says only *whether* the track is correct, never what is wrong.
 - `400 { "error": "invalid_body" }` if the body isn't `{ cells: integer[][] }`
@@ -105,7 +113,8 @@ Insane allow 5 of each per puzzle and Super-duper hard none (`hintLimit` and `em
 player the server enforces it: the next request gets
 `403 { "error": "hint_limit" }`. Signed out, the browser enforces it. On a puzzle the signed-in player
 has already finished (solved or answer shown), hints are for a "Try again" and are neither limited nor
-counted ([ADR 0024](adr/0024-bookmarks-and-try-again.md)).
+counted ([ADR 0024](adr/0024-bookmarks-and-try-again.md)). A level whose limit for a kind is 0 (the
+Challenge, Super-duper hard) refuses that kind to everyone, always: `403 hint_limit`.
 
 ### `POST …/answer`
 
@@ -127,7 +136,7 @@ first, never in the future. Only days someone visited have one (ADR 0005).
 Not stored: `(difficulty, seed)` *is* the puzzle, regenerated on demand
 ([ADR 0009](adr/0009-random-puzzles-by-seed.md)). Seeds must match
 `^[a-z0-9]{4,16}$` (`400 { "error": "invalid_seed" }` otherwise); unknown
-difficulties give `400 { "error": "invalid_difficulty" }`.
+difficulties, and daily-only ones (the Challenge), give `400 { "error": "invalid_difficulty" }`.
 
 ### `GET /api/random/:difficulty/:seed`
 
@@ -157,10 +166,29 @@ rate limit.
 | `POST /api/auth/logout` | `{}` | `204`, cookie cleared | |
 | `POST /api/auth/password` | `{ currentPassword, newPassword }` | `204`; other sessions ended | `401 unauthorized`, `401 invalid_credentials`, `400 invalid_password` |
 | `PUT /api/auth/preferences` | `{ preferredDifficulty }` | `200 { user }` | `401 unauthorized`, `400 invalid_difficulty` |
+| `PUT /api/me/leaderboard` | `{ visible }` | `200 { user }`: shown on the Challenge leaderboard or not | `401 unauthorized` |
 | `POST /api/auth/delete-account` | `{ password }` | `204`; user + sessions deleted | `401 unauthorized`, `401 invalid_credentials` |
 
-`AccountUser` is `{ id, username, createdAt, preferredDifficulty }`
-(`preferredDifficulty` is `null` until chosen while signed in).
+`AccountUser` is `{ id, username, createdAt, preferredDifficulty, onLeaderboard }`
+(`preferredDifficulty` is `null` until chosen while signed in; `onLeaderboard`
+is `false` until the player opts in).
+
+## `GET /api/leaderboard?period=month|all`
+
+Points from daily Challenges solved on their own UTC day without help (by
+the browser's `solvedAt` and the server's `verified_at`, with 10 minutes'
+grace), 5 per square of track ([ADR 0025](adr/0025-challenge-and-leaderboard.md)). `month`
+(the default) is the current UTC month. Public; `me` only when signed in.
+
+```json
+200 {
+  "period": "month", "from": "2026-11-01",              // from: null for "all"
+  "entries": [{ "rank": 1, "username": "alice", "points": 190, "solved": 1 }],  // opted-in players, top 100; ties share a rank
+  "me": { "rank": 1, "points": 190, "solved": 1, "visible": true }              // rank null while hidden
+}
+```
+
+Unknown period: `400 { "error": "invalid_period" }`.
 
 ## Progress sync (signed in)
 
@@ -178,7 +206,11 @@ require a session (`401 { "error": "unauthorized" }` otherwise).
 Records are validated (shape, sizes, ISO timestamps, a real date or seed, a
 known difficulty); an invalid record rejects the request with
 `400 invalid_body`. A daily record claiming a solve is re-checked against the
-stored puzzle; if `solvedCells` don't solve it, the solve is dropped.
+stored puzzle; if `solvedCells` don't solve it, the solve is dropped. For a correct
+daily solve the server also notes `verified_at`: the time in its
+`solveReceipt` if the server signed it for that puzzle, else the time the solve
+reached it; the earliest ever seen is kept. The Challenge leaderboard trusts
+that, not `solvedAt`.
 
 ## `GET /api/health`
 

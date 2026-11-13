@@ -31,7 +31,7 @@ type PuzzleKey =
   | { kind: "random"; seed: string; difficulty: number }; // "k3j9x2ab", 0
 
 interface PuzzleProgress {
-  schemaVersion: 8;
+  schemaVersion: 9;
   key: PuzzleKey;
   puzzleFingerprint: string | null; // which puzzle the board was drawn on
   board: {
@@ -52,6 +52,7 @@ interface PuzzleProgress {
   timeMs: number;              // active solving time; frozen at the solve, 0 = not timed
   bookmark: { on: boolean; at: string; name?: string } | null; // synced; newer change (incl. rename) wins
   replay: Replay | null;       // "Try again": its own board/hints/answer/time; device-local
+  solveReceipt: { at: string; sig: string } | null; // the server's signed receipt for a daily solve
 }
 ```
 
@@ -64,8 +65,13 @@ are not stored; they come from the puzzle.
 - `solvedCells` keeps the accepted answer. When accounts arrive, the server can
   **re-verify** imported progress instead of trusting the browser's word.
 - `startedAt` / `checks` / `timeMs` give stats something to work with. They come from
-  the client clock, which is fine for personal stats (there are no
-  leaderboards, [ADR 0015](adr/0015-no-leaderboards.md)).
+  the client clock, which is fine for personal stats ([ADR 0015](adr/0015-no-leaderboards.md)).
+- `solveReceipt` is the one exception: the daily check hands it out with a
+  correct answer, signed with a server secret, holding the server's time. It
+  travels with the solve, so the Challenge leaderboard can trust *when* a
+  solve happened even if it reaches an account days later, e.g. through
+  sign-up ([ADR 0025](adr/0025-challenge-and-leaderboard.md)). The browser
+  can't read anything useful from it, nor make one.
 - `schemaVersion` allows reading old data after the format changes.
 
 ### Schema history

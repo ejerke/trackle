@@ -31,6 +31,11 @@ export interface Level {
   emptyHintLimit: number | null;
   /** Whether "Show answer" is offered (and served by the API) at this level. */
   showAnswer: boolean;
+  /**
+   * Only a daily puzzle, never a random one (the Challenge, ADR 0025): its
+   * solves earn leaderboard points, which random puzzles could farm.
+   */
+  dailyOnly?: boolean;
 }
 
 /** Index = the difficulty number stored everywhere (0 = easiest). Append new levels at the end. */
@@ -42,10 +47,12 @@ export const LEVELS: readonly Level[] = [
   { name: "Super-duper hard", shortName: "Super-duper", width: 9, height: 9, hintLimit: 0, emptyHintLimit: 0, showAnswer: false },
   // The track crosses itself once.
   { name: "Insane", width: 10, height: 10, hintLimit: 5, emptyHintLimit: 5, showAnswer: false },
+  // No help of any kind, daily only, scores leaderboard points (ADR 0025).
+  { name: "Challenge", width: 10, height: 10, hintLimit: 0, emptyHintLimit: 0, showAnswer: false, dailyOnly: true },
 ];
 
-/** Order of levels in pickers and lists: Insane before the joke level. */
-export const LEVEL_ORDER: readonly number[] = [0, 1, 2, 4, 3];
+/** Order of levels in pickers and lists: Insane before the joke level, the Challenge last. */
+export const LEVEL_ORDER: readonly number[] = [0, 1, 2, 4, 3, 5];
 if (LEVEL_ORDER.length !== LEVELS.length) throw new Error("LEVEL_ORDER must list every level");
 
 /** The difficulty served when the player hasn't chosen one. */
@@ -58,6 +65,22 @@ export const DIFFICULTY_NAMES: Readonly<Record<number, string>> = Object.fromEnt
 
 export function difficultyName(difficulty: number): string {
   return LEVELS[difficulty]?.name ?? `Level ${difficulty}`;
+}
+
+/** The daily Challenge: no hints, and solves on the day score points (ADR 0025). */
+export const CHALLENGE_DIFFICULTY = 5;
+
+/** Points for solving a Challenge on its day, per square of track in the answer. */
+export const POINTS_PER_TRACK_SQUARE = 5;
+
+/** What a Challenge is worth: its track length (the clues add up to it) times the points per square. */
+export function challengePoints(layout: { rowClues: readonly number[] }): number {
+  return POINTS_PER_TRACK_SQUARE * layout.rowClues.reduce((sum, n) => sum + n, 0);
+}
+
+/** Levels that exist only as daily puzzles, never random ones. */
+export function isDailyOnly(difficulty: number): boolean {
+  return LEVELS[difficulty]?.dailyOnly ?? false;
 }
 
 export function canShowAnswer(difficulty: number): boolean {

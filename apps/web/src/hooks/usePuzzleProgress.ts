@@ -1,4 +1,4 @@
-import { edgesFromMasks, fixedEdges, isBookmarked, puzzleFingerprint, type HintKind, type PuzzleLayout } from "@trackle/shared";
+import { edgesFromMasks, fixedEdges, isBookmarked, puzzleFingerprint, type HintKind, type PuzzleLayout, type SolveReceipt } from "@trackle/shared";
 import { clearedBoard } from "../board/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { reconcileProgress } from "../storage/reconcile";
@@ -29,8 +29,11 @@ export interface PuzzleProgressApi {
    * stopped. Elapsed time = progress.timeMs + (now - runningSince).
    */
   runningSince: number | null;
-  /** Record a server check result; a correct one stops the clock. Saved immediately. */
-  recordCheck(correct: boolean, cells: number[][]): void;
+  /**
+   * Record a server check result; a correct one stops the clock and keeps the
+   * server's solve receipt (daily puzzles). Saved immediately.
+   */
+  recordCheck(correct: boolean, cells: number[][], receipt: SolveReceipt | null): void;
   clearBoard(): void;
   /** Count one hint of this kind (after the server gave it) and put it on the board. Saved immediately. */
   recordHint(kind: HintKind, apply: (board: BoardState) => BoardState): void;
@@ -196,7 +199,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
   );
 
   const recordCheck = useCallback(
-    (correct: boolean, cells: number[][]) => {
+    (correct: boolean, cells: number[][], receipt: SolveReceipt | null) => {
       const current = playing();
       if (!current) return;
       const now = new Date().toISOString();
@@ -206,6 +209,8 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
         updatedAt: now,
         solvedAt: correct ? now : null,
         solvedCells: correct ? cells : null,
+        // Ignored in a "Try again" (withAttempt keeps the first attempt's).
+        solveReceipt: correct ? receipt : null,
       });
       if (correct) setClock(null);
       commitAttempt(next, true);

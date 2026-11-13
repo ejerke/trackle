@@ -3,7 +3,7 @@
 ## Rules
 
 1. The grid (6 × 6 for Easy and Medium, 8 × 8 for Hard, 9 × 9 for
-   Super-duper hard, 10 × 10 for Insane) has two
+   Super-duper hard, 10 × 10 for Insane and the Challenge) has two
    track ends, **A** and **B**, on its border. Each end points out of the grid.
 2. Complete a single track from A to B.
 3. The clue above each column and to the right of each row is the number of
@@ -70,11 +70,29 @@ segments are deleted), otherwise one that tells you something: next to where
 your track (or A and B) has to continue, close to the real route, and never
 one the clues already make obvious. A revealed
 square is locked: it looks like a given piece, can't be changed, and stays
-through Clear. Hard and Insane allow 5 of each per puzzle and Super-duper hard
-none; Easy and Medium are unlimited. **Show answer** (Easy and Medium
+through Clear. Hard and Insane allow 5 of each per puzzle and Super-duper hard and the
+Challenge none; Easy and Medium are unlimited. **Show answer** (Easy and Medium
 only; asks for confirmation) shows the whole solution; the puzzle then counts
 as *answer shown*, never as solved. Both are counted: stats show "On your own"
 (solved without hints or the answer) next to "Solved".
+
+## The Challenge and the leaderboard
+
+The **Challenge** button (next to Today) opens a daily puzzle that exists
+only as a daily, never as a random one. It's 10 × 10, the pieces on A's and
+B's squares are given and nothing else, there are no hints and no Show
+answer, and it takes a lot of "if this were track" reasoning: not everyone
+will finish it. It still never needs guessing.
+
+Solved on its own day (UTC), it's worth **5 points per square of track**;
+the line above the board says how many. Older Challenges from the archive are
+playable but score nothing. The **Leaderboard** (`/leaderboard`, in the ☰
+menu) adds up the points this month or all time. It needs an account, and
+your username appears on it only after you tick "Show me on the leaderboard"
+there. A Challenge solved on its day before you had an account counts too,
+whenever you sign up: the server signs every correct daily answer with the
+time it saw it, and that receipt is saved with your progress
+([ADR 0025](adr/0025-challenge-and-leaderboard.md)).
 
 ## Try again
 
@@ -135,5 +153,6 @@ generator makes each level's puzzles is in
 | 2 Hard | 8×8, a long track, at most one piece given; no row or column gives itself away; needs "if this were track, something breaks" reasoning many times, but never guessing |
 | 4 Insane | 10×10 and a longer track that crosses itself once, over a given bridge; at most three pieces given besides the bridge; needs more "if this were track" reasoning than Hard |
 | 3 Super-duper hard | A joke: 9×9 and no hints, but the track is (almost) a straight line |
+| 5 Challenge | 10×10, only the two end pieces given, no hints or answer; needs more "if this were track" reasoning than Insane (at least 20 steps); daily only, scores leaderboard points |
 
 How levels are defined and measured: [architecture.md](architecture.md#puzzle-generation).

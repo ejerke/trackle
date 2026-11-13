@@ -40,7 +40,7 @@ Defined in [0002_users_and_sessions.sql](../apps/server/migrations/0002_users_an
 
 | Table | Columns | Notes |
 | ----- | ------- | ----- |
-| `users` | `id`, `username` (`UNIQUE COLLATE NOCASE`), `password_hash`, `created_at`, `password_changed_at`, `preferred_difficulty` (0004, NULL = not chosen) | hash is `scrypt$N$r$p$salt$hash`, never the password |
+| `users` | `id`, `username` (`UNIQUE COLLATE NOCASE`), `password_hash`, `created_at`, `password_changed_at`, `preferred_difficulty` (0004, NULL = not chosen), `on_leaderboard` (0008, 0/1, opt-in) | hash is `scrypt$N$r$p$salt$hash`, never the password |
 | `sessions` | `token_hash` (PK), `user_id` → `users` `ON DELETE CASCADE`, `created_at`, `expires_at` | SHA-256 of the cookie token; expired rows are pruned on login |
 
 ### `user_progress`
@@ -49,7 +49,21 @@ Defined in [0003_user_progress.sql](../apps/server/migrations/0003_user_progress
 ([ADR 0013](adr/0013-progress-sync.md)). One row per (user, puzzle):
 `user_id` → `users` `ON DELETE CASCADE`, `key_id` (e.g. `2026-11-10:1`),
 `record_json` (the browser's record), and `updated_at` / `solved_at` /
-`hints_used` / `revealed_at` (0005) copied out of it for querying. Primary key
+`hints_used` / `revealed_at` (0005) copied out of it for querying, plus
+`verified_at` (0009): the server's word on when a correct daily solve
+happened: the time in its signed receipt (0010) if it has a valid one, else
+when the solve reached the server; the earliest ever seen is kept. A
+backdated `solved_at` can't fool the leaderboard
+([ADR 0025](adr/0025-challenge-and-leaderboard.md)). 0010 also moved
+`record_json` to v9 (`solveReceipt: null`).
+
+### `server_secrets`
+
+Defined in [0010_solve_receipts.sql](../apps/server/migrations/0010_solve_receipts.sql).
+`name` (PK), `value` (hex). One row, `solve_receipt`: the HMAC key for solve
+receipts, made by the migration from SQLite's `randomblob(32)`. It's part of
+every backup. Losing or replacing it only makes old receipts invalid: their
+solves then count from when they reach the server, nothing worse. Primary key
 `(user_id, key_id)`. "Solved it yourself":
 `solved_at IS NOT NULL AND hints_used = 0 AND revealed_at IS NULL`
 ([ADR 0014](adr/0014-hints-and-answers.md)).
@@ -63,7 +77,13 @@ The account never stores a replay: `replay` is always null here.
 
 ### Expected future tables (not created yet)
 
-None planned. Leaderboards were dropped ([ADR 0015](adr/0015-no-leaderboards.md)).
+None planned. The Challenge leaderboard ([ADR 0025](adr/0025-challenge-and-leaderboard.md))
+stores nothing of its own: points are one query over `user_progress` joined
+to `puzzles` (`key_id = puzzle_date || ':' || difficulty`), counting Challenges
+solved on their day (`substr(solved_at, 1, 10) = puzzle_date`, and
+`verified_at` before the next midnight plus 10 minutes) without help,
+each worth 5 × the sum of its row clues (`json_each(puzzle_json, '$.rowClues')`).
+See `apps/server/src/leaderboard/leaderboard.ts`.
 
 ## Migrations
 

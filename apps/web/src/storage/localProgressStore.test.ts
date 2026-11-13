@@ -97,7 +97,7 @@ describe("migrateProgress", () => {
     };
     expect(migrateProgress(v1)).toEqual({
       ...v1,
-      schemaVersion: 8,
+      schemaVersion: 9,
       key: { kind: "daily", date: "2026-11-10", difficulty: 1 },
       puzzleFingerprint: null,
       boardSavedAt: null,
@@ -108,6 +108,7 @@ describe("migrateProgress", () => {
       timeMs: 0,
       bookmark: null,
       replay: null,
+      solveReceipt: null,
     });
 
     // And it is found under the same storage key as before the upgrade.

@@ -1,6 +1,7 @@
 # 0015. No leaderboards: personal stats on the honor system
 
-- Status: Accepted
+- Status: Superseded by [ADR 0025](0025-challenge-and-leaderboard.md) for the daily
+  Challenge, which has an (untimed) points leaderboard. Everything else stays personal.
 - Date: 2026-11-10
 - Closes the leaderboard part of [the accounts proposal](../proposals/accounts-and-leaderboards.md);
   supersedes the "future leaderboards" notes in ADRs 0004, 0007, 0012–0014.

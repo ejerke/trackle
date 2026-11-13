@@ -71,12 +71,24 @@ export interface Replay {
   timeMs: number;
 }
 
+/**
+ * The server's signed word that it accepted this daily solve at `at` (its
+ * own clock). Handed out by the daily check; lets a solve made signed out, or
+ * synced late, still prove it happened on the day (ADR 0025).
+ */
+export interface SolveReceipt {
+  /** Server time of the correct check (ISO). */
+  at: string;
+  /** HMAC-SHA256 over the puzzle key and `at`, base64url. Only the server can make or check it. */
+  sig: string;
+}
+
 export interface PuzzleProgress {
   /**
-   * 8: adds bookmark/replay. 7: adds emptyHintsUsed. 6: adds timeMs. 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
+   * 9: adds solveReceipt. 8: adds bookmark/replay. 7: adds emptyHintsUsed. 6: adds timeMs. 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
    * 3: adds puzzleFingerprint. 2: key has a `kind`. 1: key was { date, difficulty }.
    */
-  schemaVersion: 8;
+  schemaVersion: 9;
   key: PuzzleKey;
   /**
    * puzzleFingerprint() of the puzzle this board was drawn on, so it is never
@@ -121,9 +133,11 @@ export interface PuzzleProgress {
   bookmark: Bookmark | null;
   /** A "Try again" in progress or finished, or null. Device-local, never synced. */
   replay: Replay | null;
+  /** The server's receipt for the solve (daily puzzles), or null. Goes with `solvedAt`. */
+  solveReceipt: SolveReceipt | null;
 }
 
-export const CURRENT_SCHEMA_VERSION = 8 as const;
+export const CURRENT_SCHEMA_VERSION = 9 as const;
 
 /** Solved without any help: no hints and the answer never shown. */
 export function solvedUnaided(p: PuzzleProgress): boolean {
@@ -182,6 +196,7 @@ export function emptyProgress(key: PuzzleKey, fingerprint: string | null = null,
     timeMs: 0,
     bookmark: null,
     replay: null,
+    solveReceipt: null,
   };
 }
 
@@ -222,6 +237,10 @@ export function migrateProgress(raw: unknown): PuzzleProgress | null {
   if (record.schemaVersion === 7) {
     // Bookmarks and "Try again" didn't exist before v8.
     record = { ...record, schemaVersion: 8, bookmark: null, replay: null };
+  }
+  if (record.schemaVersion === 8) {
+    // Solve receipts didn't exist before v9.
+    record = { ...record, schemaVersion: 9, solveReceipt: null };
   }
   if (record.schemaVersion !== CURRENT_SCHEMA_VERSION) return null; // unknown (e.g. newer) version
   return isProgressRecord(record) ? record : null;
@@ -264,7 +283,9 @@ export function isProgressRecord(value: unknown): value is PuzzleProgress {
         typeof p.bookmark.on === "boolean" &&
         typeof p.bookmark.at === "string" &&
         (p.bookmark.name === undefined || typeof p.bookmark.name === "string"))) &&
-    (p.replay === null || isReplay(p.replay))
+    (p.replay === null || isReplay(p.replay)) &&
+    (p.solveReceipt === null ||
+      (typeof p.solveReceipt === "object" && typeof p.solveReceipt.at === "string" && typeof p.solveReceipt.sig === "string"))
   );
 }
 
@@ -324,6 +345,8 @@ const earliest = (a: string | null, b: string | null) => (a && b ? (a < b ? a : 
  *    account without a Save.
  *  - explicit Save (`saveBoard`): also stores the unfinished board.
  *
+ * The solve's receipt travels with the solve that counts.
+ *
  * Help can't be undone: hint counts only grow, a shown answer stays shown,
  * and a solve made after the answer was shown doesn't count. The bookmark
  * mark: the more recent change wins. A replay ("Try again") is device-local,
@@ -338,7 +361,7 @@ export function mergeSummary(existing: PuzzleProgress | null, incoming: PuzzlePr
         startedAt: incoming.startedAt < existing.startedAt ? incoming.startedAt : existing.startedAt,
         updatedAt: incoming.updatedAt > existing.updatedAt ? incoming.updatedAt : existing.updatedAt,
       }
-    : { ...incoming, board: EMPTY_BOARD, boardSavedAt: null, solvedAt: null, solvedCells: null, revealedAt: null };
+    : { ...incoming, board: EMPTY_BOARD, boardSavedAt: null, solvedAt: null, solvedCells: null, revealedAt: null, solveReceipt: null };
 
   let merged: PuzzleProgress = {
     ...base,
@@ -355,7 +378,14 @@ export function mergeSummary(existing: PuzzleProgress | null, incoming: PuzzlePr
     incoming.solvedAt !== null && (!existing || (betterSolve(existing, incoming) === incoming && incoming.solvedAt !== existing.solvedAt));
   if (newSolve && solveCounts) {
     // A new (or earlier) solve: its finished track becomes the saved board.
-    merged = { ...merged, solvedAt: incoming.solvedAt, solvedCells: incoming.solvedCells, board: incoming.board, boardSavedAt: incoming.solvedAt };
+    merged = {
+      ...merged,
+      solvedAt: incoming.solvedAt,
+      solvedCells: incoming.solvedCells,
+      solveReceipt: incoming.solveReceipt,
+      board: incoming.board,
+      boardSavedAt: incoming.solvedAt,
+    };
   } else if (!merged.solvedAt && merged.revealedAt && merged.revealedAt === incoming.revealedAt && existing?.revealedAt !== incoming.revealedAt) {
     // Newly shown answer: the board shows the solution from now on.
     merged = { ...merged, board: incoming.board, boardSavedAt: incoming.revealedAt };

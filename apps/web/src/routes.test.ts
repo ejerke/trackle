@@ -19,6 +19,7 @@ describe("parseRoute", () => {
     expect(parseRoute("/stats", "")).toEqual({ kind: "stats" });
     expect(parseRoute("/bookmarks", "")).toEqual({ kind: "bookmarks" });
     expect(parseRoute("/account", "")).toEqual({ kind: "account" });
+    expect(parseRoute("/leaderboard", "")).toEqual({ kind: "leaderboard" });
   });
 
   it("rejects unknown paths, difficulties and seeds", () => {
@@ -26,6 +27,7 @@ describe("parseRoute", () => {
     expect(parseRoute("/", "?difficulty=9").kind).toBe("unknown");
     expect(parseRoute("/random/9/abcd", "").kind).toBe("unknown");
     expect(parseRoute("/random/1/AB", "").kind).toBe("unknown");
+    expect(parseRoute("/random/5/abcd1234", "").kind).toBe("unknown"); // the Challenge is daily only
   });
 
   it("round-trips the URLs it builds", () => {

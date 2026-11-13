@@ -1,4 +1,4 @@
-import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES, isIsoDate, isRandomSeed } from "@trackle/shared";
+import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES, isDailyOnly, isIsoDate, isRandomSeed } from "@trackle/shared";
 
 /**
  * URL scheme (no router library needed yet):
@@ -8,6 +8,7 @@ import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES, isIsoDate, isRandomSeed } from "@
  *   /archive                   past daily puzzles (?difficulty=N)
  *   /stats                     personal statistics (from this browser's progress)
  *   /bookmarks                 puzzles the player bookmarked
+ *   /leaderboard               Challenge points (ADR 0025)
  *   /account                   sign in / create account / manage account
  *   /lab/<difficulty>/<seed>   development-only puzzle lab
  */
@@ -18,6 +19,7 @@ export type Route =
   | { kind: "archive"; difficulty: number | null }
   | { kind: "stats" }
   | { kind: "bookmarks" }
+  | { kind: "leaderboard" }
   | { kind: "account" }
   | { kind: "lab"; difficulty: number; seed: string }
   | { kind: "unknown" };
@@ -34,11 +36,15 @@ export function parseRoute(pathname: string, search: string): Route {
   if (random) {
     const difficulty = Number(random[1]);
     const seed = random[2]!;
-    return isKnownDifficulty(difficulty) && isRandomSeed(seed) ? { kind: "random", difficulty, seed } : { kind: "unknown" };
+    // Daily-only levels (the Challenge) have no random puzzles.
+    return isKnownDifficulty(difficulty) && !isDailyOnly(difficulty) && isRandomSeed(seed)
+      ? { kind: "random", difficulty, seed }
+      : { kind: "unknown" };
   }
 
   if (path === "/stats") return { kind: "stats" };
   if (path === "/bookmarks") return { kind: "bookmarks" };
+  if (path === "/leaderboard") return { kind: "leaderboard" };
   if (path === "/account") return { kind: "account" };
 
   const param = new URLSearchParams(search).get("difficulty");

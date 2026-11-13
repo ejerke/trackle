@@ -17,7 +17,8 @@ let now = new Date("2026-11-10T12:00:00Z");
 async function setup() {
   db = openDatabase(":memory:");
   migrate(db, loadMigrations(migrationsDir));
-  app = await buildApp({ db, now: () => now });
+  // Pacing of new random puzzles has its own tests (see "rate limiting").
+  app = await buildApp({ db, now: () => now, rateLimit: { policies: { newRandom: { intervalSeconds: 0 } } }, randomAnswerDelayMs: 0 });
 }
 
 afterEach(async () => {
@@ -200,7 +201,9 @@ describe("random puzzles", () => {
     expect(body.puzzle.difficulty).toBe(0);
     expect(a.body).not.toMatch(/solution/i);
     expect((await app.inject("/api/random/0/abc123")).json()).toEqual(body);
-    expect((await app.inject("/api/random/0/xyz789")).json<RandomPuzzleResponse>().puzzle).not.toEqual(body.puzzle);
+    const other = await app.inject("/api/random/0/xyz789");
+    expect(other.statusCode).toBe(200);
+    expect(other.json<RandomPuzzleResponse>().puzzle).not.toEqual(body.puzzle);
     expect(db.prepare("SELECT COUNT(*) FROM puzzles").pluck().get()).toBe(0);
   });
 
@@ -250,7 +253,7 @@ describe("rate limiting", () => {
   });
 
   it("charges random-puzzle generation, but not cache hits", async () => {
-    await setupWith({ policies: { generation: { capacity: 2, refillPerSecond: 0.01 } } });
+    await setupWith({ policies: { generation: { capacity: 2, refillPerSecond: 0.01 }, newRandom: { intervalSeconds: 0 } } });
     expect((await app.inject("/api/random/0/aaaa")).statusCode).toBe(200);
     expect((await app.inject("/api/random/0/bbbb")).statusCode).toBe(200);
     // Same puzzles again (and checking them) are cached: free.
@@ -261,6 +264,61 @@ describe("rate limiting", () => {
     expect((await app.inject("/api/random/0/cccc")).statusCode).toBe(429);
     // Daily puzzles are not affected by the generation limit.
     expect((await app.inject("/api/puzzles/today?difficulty=0")).statusCode).toBe(200);
+  });
+
+  describe("new random puzzles", () => {
+    let ms = 0;
+    const setupPaced = async () => {
+      ms = 0;
+      db = openDatabase(":memory:");
+      migrate(db, loadMigrations(migrationsDir));
+      app = await buildApp({ db, now: () => now, rateLimit: { now: () => ms }, randomAnswerDelayMs: 0 });
+    };
+    const get = (difficulty: number, seed: string) => app.inject(`/api/random/${difficulty}/${seed}`);
+    const solutionOf = (difficulty: number, seed: string) =>
+      generatePuzzle({ difficulty, seed: `random:${seed}` }).solution;
+    const post = (difficulty: number, seed: string, what: "check" | "answer", payload: Record<string, unknown> = {}) =>
+      app.inject({ method: "POST", url: `/api/random/${difficulty}/${seed}/${what}`, payload });
+
+    it("come one per 5 seconds per level, and going back is free", async () => {
+      await setupPaced();
+      expect((await get(0, "aaaa")).statusCode).toBe(200);
+      const limited = await get(0, "bbbb");
+      expect(limited.statusCode).toBe(429);
+      expect(limited.headers["retry-after"]).toBe("5");
+      expect((await get(0, "aaaa")).statusCode).toBe(200); // the current one
+      expect((await get(1, "cccc")).statusCode).toBe(200); // another level has its own pace
+      ms += 5000;
+      expect((await get(0, "bbbb")).statusCode).toBe(200);
+    });
+
+    it("come at once after solving the last one", async () => {
+      await setupPaced();
+      await get(0, "aaaa");
+      expect((await post(0, "aaaa", "check", { cells: [[0]] })).json()).toEqual({ correct: false });
+      expect((await get(0, "bbbb")).statusCode).toBe(429); // a wrong answer earns nothing
+      expect((await post(0, "aaaa", "check", { cells: solutionOf(0, "aaaa") })).json()).toEqual({ correct: true });
+      expect((await get(0, "bbbb")).statusCode).toBe(200);
+      // Re-checking the old solved one doesn't earn another.
+      await post(0, "aaaa", "check", { cells: solutionOf(0, "aaaa") });
+      expect((await get(0, "cccc")).statusCode).toBe(429);
+    });
+
+    it("come at once after showing the answer, which waits a little first", async () => {
+      await setupPaced();
+      await get(0, "aaaa");
+      expect((await post(0, "aaaa", "answer")).statusCode).toBe(200);
+      expect((await get(0, "bbbb")).statusCode).toBe(200);
+
+      // The real delay (default 300 ms).
+      db = openDatabase(":memory:");
+      migrate(db, loadMigrations(migrationsDir));
+      app = await buildApp({ db, now: () => now });
+      await get(0, "aaaa");
+      const t = performance.now();
+      expect((await post(0, "aaaa", "answer")).statusCode).toBe(200);
+      expect(performance.now() - t).toBeGreaterThanOrEqual(290);
+    });
   });
 
   it("limits each client separately when behind the proxy", async () => {

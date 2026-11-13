@@ -77,6 +77,15 @@ export class RateLimiter {
     };
   }
 
+  /** Give `amount` tokens back to a known key (never above capacity). */
+  give(key: string, amount = 1): void {
+    const bucket = this.buckets.get(key);
+    if (!bucket) return; // an unknown key's bucket starts full anyway
+    const t = this.now() / 1000;
+    bucket.tokens = Math.min(this.policy.capacity, bucket.tokens + (t - bucket.at) * this.policy.refillPerSecond + amount);
+    bucket.at = t;
+  }
+
   get size(): number {
     return this.buckets.size;
   }

@@ -1,6 +1,7 @@
 import type { ApiError } from "@trackle/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { clientIp } from "./clientIp.ts";
+import { NewRandomGate } from "./newRandomGate.ts";
 import { RateLimiter, type RateLimitPolicy } from "./tokenBucket.ts";
 
 /**
@@ -13,6 +14,10 @@ import { RateLimiter, type RateLimitPolicy } from "./tokenBucket.ts";
  *    puzzle (a random-puzzle cache miss, ~0.1-0.6 s of CPU each). Strict, per
  *    client, plus one bucket shared by all clients (`generationGlobal`) that
  *    caps total CPU even if an attacker spreads requests over many IPs.
+ *  - `newRandom`: per client and difficulty, a *new* random puzzle every
+ *    `intervalSeconds`, or straight away once the last one is solved or its
+ *    answer shown (NewRandomGate). Finishing also gives back the
+ *    `generation` token it cost, so solving and moving on is never limited.
  *
  * Denied requests get 429 { error: "rate_limited" } with a Retry-After header.
  */
@@ -22,6 +27,7 @@ export interface RateLimitPolicies {
   auth: RateLimitPolicy;
   generation: RateLimitPolicy;
   generationGlobal: RateLimitPolicy;
+  newRandom: { intervalSeconds: number };
 }
 
 export const DEFAULT_POLICIES: RateLimitPolicies = {
@@ -33,6 +39,8 @@ export const DEFAULT_POLICIES: RateLimitPolicies = {
   generation: { capacity: 10, refillPerSecond: 1 / 6 },
   // All clients together: at most ~2 generations/s sustained (~20-60% of a core).
   generationGlobal: { capacity: 30, refillPerSecond: 2 },
+  // Per level: one new random puzzle per 5 s, unless you finished the last one.
+  newRandom: { intervalSeconds: 5 },
 };
 
 export interface RateLimitOptions {
@@ -53,6 +61,14 @@ export interface RateLimits {
    * budget). Returns true if allowed; otherwise it has already sent the 429.
    */
   allowGeneration(req: FastifyRequest, reply: FastifyReply): boolean;
+  /**
+   * A new random puzzle (one that must be generated) for this client: the
+   * `newRandom` pace, then allowGeneration. Returns true if allowed;
+   * otherwise it has already sent the 429.
+   */
+  allowNewRandom(req: FastifyRequest, reply: FastifyReply, difficulty: number, seed: string): boolean;
+  /** This client solved (or was shown) a random puzzle: may earn the next one at once. */
+  finishedRandom(req: FastifyRequest, difficulty: number, seed: string): void;
 }
 
 const tooMany: ApiError = { error: "rate_limited" };
@@ -69,6 +85,7 @@ export function registerRateLimits(app: FastifyInstance, options: RateLimitOptio
   const auth = new RateLimiter(policies.auth, clock);
   const generation = new RateLimiter(policies.generation, clock);
   const generationGlobal = new RateLimiter(policies.generationGlobal, clock);
+  const newRandom = new NewRandomGate(policies.newRandom.intervalSeconds, clock);
   const keyOf = (req: FastifyRequest) => clientIp(req.socket.remoteAddress, req.headers, options.clientIpHeader);
 
   app.addHook("onRequest", async (req, reply) => {
@@ -80,6 +97,23 @@ export function registerRateLimits(app: FastifyInstance, options: RateLimitOptio
     }
   });
 
+  const allowGeneration = (req: FastifyRequest, reply: FastifyReply): boolean => {
+    const client = keyOf(req);
+    const own = generation.take(client);
+    if (!own.allowed) {
+      req.log.warn({ client, limit: "generation" }, "Rate limited");
+      deny(reply, own.retryAfterSeconds);
+      return false;
+    }
+    const global = generationGlobal.take("*");
+    if (!global.allowed) {
+      req.log.warn({ client, limit: "generationGlobal" }, "Rate limited (global generation budget)");
+      deny(reply, global.retryAfterSeconds);
+      return false;
+    }
+    return true;
+  };
+
   return {
     allowAuthAttempt(req, reply) {
       const client = keyOf(req);
@@ -89,21 +123,22 @@ export function registerRateLimits(app: FastifyInstance, options: RateLimitOptio
       deny(reply, decision.retryAfterSeconds);
       return false;
     },
-    allowGeneration(req, reply) {
+    allowGeneration,
+    allowNewRandom(req, reply, difficulty, seed) {
       const client = keyOf(req);
-      const own = generation.take(client);
-      if (!own.allowed) {
-        req.log.warn({ client, limit: "generation" }, "Rate limited");
-        deny(reply, own.retryAfterSeconds);
+      const wait = newRandom.waitSeconds(client, difficulty, seed);
+      if (wait > 0) {
+        req.log.info({ client, limit: "newRandom" }, "Rate limited");
+        deny(reply, wait);
         return false;
       }
-      const global = generationGlobal.take("*");
-      if (!global.allowed) {
-        req.log.warn({ client, limit: "generationGlobal" }, "Rate limited (global generation budget)");
-        deny(reply, global.retryAfterSeconds);
-        return false;
-      }
+      if (!allowGeneration(req, reply)) return false;
+      newRandom.handOut(client, difficulty, seed);
       return true;
+    },
+    finishedRandom(req, difficulty, seed) {
+      const client = keyOf(req);
+      if (newRandom.finish(client, difficulty, seed)) generation.give(client);
     },
   };
 }

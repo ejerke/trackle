@@ -41,7 +41,7 @@ export const LEVELS: readonly Level[] = [
   // A joke: the hardest-sounding level is (almost) a straight line.
   { name: "Super-duper hard", shortName: "Super-duper", width: 9, height: 9, hintLimit: 0, emptyHintLimit: 0, showAnswer: false },
   // The track crosses itself once.
-  { name: "Insane", width: 8, height: 8, hintLimit: 5, emptyHintLimit: 5, showAnswer: false },
+  { name: "Insane", width: 10, height: 10, hintLimit: 5, emptyHintLimit: 5, showAnswer: false },
 ];
 
 /** Order of levels in pickers and lists: Insane before the joke level. */

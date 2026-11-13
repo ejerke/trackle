@@ -28,7 +28,7 @@ describe("generatePuzzle", () => {
 
   // The most important property of the whole project. Checked with the
   // independent brute-force solver where it's fast enough; on 8x8 tracks it
-  // can take many seconds, so those use the propagate-and-branch counter,
+  // (and 10x10) can take many seconds, so those use the propagate-and-branch counter,
   // which logic.test.ts checks against brute force on hundreds of layouts.
   describe.each([
     [EASY, seeds("easy", 40), "brute force"],
@@ -92,12 +92,15 @@ describe("generatePuzzle", () => {
     }
   });
 
-  it("makes Insane tracks cross once, always given as a hint", () => {
+  it("makes Insane 10x10 tracks cross once, always given as a hint", () => {
     for (const seed of seeds("insane-filters", 12)) {
       const g = generatePuzzle({ difficulty: INSANE, seed });
       expect(g.accepted).toBe(true);
+      expect(g.layout.width).toBe(10);
       expect(g.layout.crossings).toBe(1);
       expect(g.metrics.tier).toBe(3);
+      expect(g.metrics.tier3Steps).toBeGreaterThanOrEqual(12);
+      expect(g.layout.hints.length).toBeLessThanOrEqual(4);
       expect(g.solution.flat().filter((m) => m === CROSSING)).toHaveLength(1);
       expect(g.layout.hints.filter((h) => h.piece === CROSSING)).toHaveLength(1);
     }

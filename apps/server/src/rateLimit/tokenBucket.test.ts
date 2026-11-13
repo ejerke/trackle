@@ -69,4 +69,17 @@ describe("RateLimiter", () => {
     expect(() => new RateLimiter({ capacity: 0, refillPerSecond: 1 })).toThrow();
     expect(() => new RateLimiter({ capacity: 1, refillPerSecond: 0 })).toThrow();
   });
+
+  it("gives tokens back, never above capacity", () => {
+    const { limiter } = setup(2, 0.001);
+    limiter.take("a");
+    limiter.take("a");
+    expect(limiter.take("a").allowed).toBe(false);
+    limiter.give("a");
+    expect(limiter.take("a").allowed).toBe(true);
+    limiter.give("a", 10);
+    expect(limiter.take("a").remaining).toBe(1); // back to 2, minus this one
+    limiter.give("unknown"); // no bucket yet: nothing to do
+    expect(limiter.size).toBe(1);
+  });
 });

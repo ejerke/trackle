@@ -2,8 +2,8 @@
 
 ## Rules
 
-1. The grid (6 × 6 for Easy and Medium, 8 × 8 for Hard and Insane, 9 × 9 for
-   Super-duper hard) has two
+1. The grid (6 × 6 for Easy and Medium, 8 × 8 for Hard, 9 × 9 for
+   Super-duper hard, 10 × 10 for Insane) has two
    track ends, **A** and **B**, on its border. Each end points out of the grid.
 2. Complete a single track from A to B.
 3. The clue above each column and to the right of each row is the number of
@@ -116,7 +116,7 @@ generator makes each level's puzzles is in
 | 0 Easy | A short, gently winding track; line counts and "two exits per square" solve the whole thing |
 | 1 Medium | No spare hints; needs "don't close a loop" reasoning, but never guessing |
 | 2 Hard | 8×8, a long track, at most one piece given; no row or column gives itself away; needs "if this were track, something breaks" reasoning many times, but never guessing |
-| 4 Insane | Hard's demands, plus the track crosses itself once, over a given bridge |
+| 4 Insane | 10×10 and a longer track that crosses itself once, over a given bridge; at most three pieces given besides the bridge; needs more "if this were track" reasoning than Hard |
 | 3 Super-duper hard | A joke: 9×9 and no hints, but the track is (almost) a straight line |
 
 How levels are defined and measured: [architecture.md](architecture.md#puzzle-generation).

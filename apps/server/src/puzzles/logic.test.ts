@@ -1,7 +1,7 @@
 import { E, N, S, W, validateTrack, type PuzzleLayout } from "@trackle/shared";
 import { describe, expect, it } from "vitest";
 import { attemptRng, generateCandidate } from "./generator.ts";
-import { countSolutions, decidedMasks, rateLogic } from "./logic.ts";
+import { countSolutions, countSolutionsWithin, decidedMasks, rateLogic } from "./logic.ts";
 import { solve } from "./solver.ts";
 
 /** Unfiltered random-walk candidates with no extra hints. */
@@ -146,6 +146,19 @@ describe("countSolutions", () => {
       hints: [],
     };
     expect(countSolutions(impossible)).toBe(0);
+  });
+
+  it("with a step budget, agrees with the full count or says it doesn't know", () => {
+    let gaveUp = 0;
+    for (let i = 0; i < 30; i++) {
+      const { layout } = generateCandidate(attemptRng(`budget-${i}`, 0), 8, 8, RAW);
+      const bare = { ...layout, hints: [] };
+      const within = countSolutionsWithin(bare, 2, 50);
+      if (within === null) gaveUp++;
+      else expect(within).toBe(countSolutions(bare, 2));
+      expect(countSolutionsWithin(layout, 2, Infinity)).toBe(countSolutions(layout, 2));
+    }
+    expect(gaveUp).toBeGreaterThan(0); // the budget really is small enough to run out
   });
 
   it("only ever decides valid tracks", () => {

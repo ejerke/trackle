@@ -1,6 +1,6 @@
 # 0019. Insane: tracks that cross themselves
 
-- Status: Accepted; "given or found" superseded by [0020](0020-crossings-are-given-bridges.md)
+- Status: Accepted; "given or found" superseded by [0020](0020-crossings-are-given-bridges.md); 8×8 and filters amended by [0022](0022-insane-10x10.md)
 - Date: 2026-11-11
 
 ## Context

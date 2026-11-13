@@ -51,7 +51,13 @@ const DR = [-1, 0, 1, 0];
 const DC = [0, 1, 0, -1];
 const opp = (k: number) => (k + 2) % 4;
 
-class Contradiction extends Error {}
+/**
+ * Thrown when the known facts can't all be true. Not an Error: search throws
+ * it constantly, and building a stack trace each time cost ~8% of all time.
+ * One shared instance, checked with instanceof.
+ */
+class Contradiction {}
+const CONTRADICTION = new Contradiction();
 
 /** Fixed facts about the puzzle. */
 interface Ctx {
@@ -68,6 +74,18 @@ interface Ctx {
   crossings: number;
   /** 1 for squares that can never be a crossing (A and B). */
   noCross: Uint8Array;
+  /** Scratch arrays for tier2, reused on every call (it runs constantly). */
+  scratch: Tier2Scratch;
+}
+
+interface Tier2Scratch {
+  parent: Int32Array;
+  inner: Uint8Array;
+  yesCount: Uint8Array;
+  plain: Uint8Array;
+  openEnds: Int32Array;
+  size: Int32Array;
+  hasPort: Uint8Array;
 }
 
 /** What is currently known. Cheap to clone for tier 3 trials. */
@@ -81,7 +99,7 @@ interface Knowledge {
 function setCell(s: Knowledge, i: number, v: number): void {
   const cur = s.cell[i]!;
   if (cur === v) return;
-  if (cur !== UNKNOWN) throw new Contradiction();
+  if (cur !== UNKNOWN) throw CONTRADICTION;
   s.cell[i] = v;
   s.changed = true;
 }
@@ -89,7 +107,7 @@ function setCell(s: Knowledge, i: number, v: number): void {
 function setEdge(ctx: Ctx, s: Knowledge, i: number, k: number, v: number): void {
   const cur = s.edge[i * 4 + k]!;
   if (cur === v) return;
-  if (cur !== UNKNOWN) throw new Contradiction();
+  if (cur !== UNKNOWN) throw CONTRADICTION;
   s.edge[i * 4 + k] = v;
   const j = ctx.nb[i * 4 + k]!;
   if (j >= 0) s.edge[j * 4 + opp(k)] = v;
@@ -122,6 +140,15 @@ function setup(layout: PuzzleLayout): { ctx: Ctx; s: Knowledge } {
     totalTrack: layout.rowClues.reduce((sum, x) => sum + x, 0),
     crossings: layout.crossings ?? 0,
     noCross: new Uint8Array(n),
+    scratch: {
+      parent: new Int32Array(n * 4),
+      inner: new Uint8Array(n * 4),
+      yesCount: new Uint8Array(n),
+      plain: new Uint8Array(n),
+      openEnds: new Int32Array(n * 4),
+      size: new Int32Array(n * 4),
+      hasPort: new Uint8Array(n * 4),
+    },
   };
   ctx.noCross[ctx.aIndex] = 1;
   ctx.noCross[ctx.bIndex] = 1;
@@ -152,7 +179,7 @@ function lineRule(s: Knowledge, cells: number[], clue: number): void {
     if (s.cell[i] === TRACK) track++;
     else if (s.cell[i] === UNKNOWN) unknown++;
   }
-  if (track > clue || track + unknown < clue) throw new Contradiction();
+  if (track > clue || track + unknown < clue) throw CONTRADICTION;
   if (unknown === 0) return;
   if (track === clue) for (const i of cells) if (s.cell[i] === UNKNOWN) setCell(s, i, EMPTY);
   if (track + unknown === clue) for (const i of cells) if (s.cell[i] === UNKNOWN) setCell(s, i, TRACK);
@@ -188,12 +215,12 @@ function cellRule(ctx: Ctx, s: Knowledge, i: number, crossingsLeft: number): num
     else if (e === UNKNOWN) unknown++;
   }
   if (yes === 4) {
-    if (ctx.noCross[i] || ctx.crossings === 0) throw new Contradiction();
+    if (ctx.noCross[i] || ctx.crossings === 0) throw CONTRADICTION;
     setCell(s, i, TRACK);
     return 0;
   }
   const canCross = mayCross(ctx, s, i, crossingsLeft);
-  if (yes > (canCross ? 4 : 2)) throw new Contradiction();
+  if (yes > (canCross ? 4 : 2)) throw CONTRADICTION;
   if (yes === 3) {
     // Three exits: only a crossing has more than two.
     setCell(s, i, TRACK);
@@ -206,7 +233,7 @@ function cellRule(ctx: Ctx, s: Knowledge, i: number, crossingsLeft: number): num
   if (state === EMPTY) {
     for (let k = 0; k < 4; k++) if (s.edge[i * 4 + k] === UNKNOWN) setEdge(ctx, s, i, k, NO);
   } else if (state === TRACK) {
-    if (yes + unknown < 2) throw new Contradiction();
+    if (yes + unknown < 2) throw CONTRADICTION;
     const fill = yes === 2 && !canCross ? NO : yes + unknown === 2 ? YES : UNKNOWN;
     if (fill !== UNKNOWN) {
       for (let k = 0; k < 4; k++) if (s.edge[i * 4 + k] === UNKNOWN) setEdge(ctx, s, i, k, fill);
@@ -225,14 +252,14 @@ function cellRule(ctx: Ctx, s: Knowledge, i: number, crossingsLeft: number): num
 function crossingRule(ctx: Ctx, s: Knowledge): void {
   if (ctx.crossings === 0) return;
   const left = ctx.crossings - knownCrossings(s);
-  if (left < 0) throw new Contradiction();
+  if (left < 0) throw CONTRADICTION;
   const possible: number[] = [];
   for (let i = 0; i < s.cell.length; i++) {
     const e = i * 4;
     const isCrossing = s.edge[e] === YES && s.edge[e + 1] === YES && s.edge[e + 2] === YES && s.edge[e + 3] === YES;
     if (!isCrossing && mayCross(ctx, s, i, left)) possible.push(i);
   }
-  if (possible.length < left) throw new Contradiction();
+  if (possible.length < left) throw CONTRADICTION;
   if (left > 0 && possible.length === left) {
     for (const i of possible) {
       setCell(s, i, TRACK);
@@ -293,8 +320,12 @@ function tier1(ctx: Ctx, s: Knowledge): void {
 function tier2(ctx: Ctx, s: Knowledge): boolean {
   const n = s.cell.length;
   const ports = n * 4;
-  const parent = new Int32Array(ports);
+  const { parent, inner, yesCount, plain, openEnds, size, hasPort } = ctx.scratch;
   for (let p = 0; p < ports; p++) parent[p] = p;
+  inner.fill(0);
+  openEnds.fill(0);
+  size.fill(0);
+  hasPort.fill(0);
   const find = (x: number): number => {
     while (parent[x] !== x) {
       parent[x] = parent[parent[x]!]!;
@@ -308,9 +339,8 @@ function tier2(ctx: Ctx, s: Knowledge): boolean {
   const crossingsLeft = ctx.crossings === 0 ? 0 : ctx.crossings - knownCrossings(s);
 
   // Which exits of each square are joined to each other inside it.
-  const inner = new Uint8Array(ports); // 1 = this port is joined to another port of its square
-  const yesCount = new Uint8Array(n);
-  const plain = new Uint8Array(n); // 1 = certainly not a crossing
+  // inner: 1 = this port is joined to another port of its square.
+  // plain: 1 = this square is certainly not a crossing.
   const join = (a: number, b: number) => {
     union(a, b);
     inner[a] = 1;
@@ -341,9 +371,6 @@ function tier2(ctx: Ctx, s: Knowledge): boolean {
   // Per piece: open ends (crossed sides not joined inside their square), and
   // the squares it covers. A square on two pieces counts for both, which can
   // only over-count, so the "finishes too early" rule stays sound.
-  const openEnds = new Int32Array(ports);
-  const size = new Int32Array(ports);
-  const hasPort = new Uint8Array(ports);
   const roots = [-1, -1, -1, -1];
   for (let i = 0; i < n; i++) {
     if (yesCount[i] === 0) continue;
@@ -370,9 +397,9 @@ function tier2(ctx: Ctx, s: Knowledge): boolean {
   // Contradictions: a closed loop, or A joined to B while track is missing.
   for (let p = 0; p < ports; p++) {
     if (!hasPort[p] || find(p) !== p) continue;
-    if (openEnds[p] === 0 && p !== rootA && p !== rootB) throw new Contradiction();
+    if (openEnds[p] === 0 && p !== rootA && p !== rootB) throw CONTRADICTION;
   }
-  if (rootA === rootB && size[rootA]! < ctx.totalTrack) throw new Contradiction();
+  if (rootA === rootB && size[rootA]! < ctx.totalTrack) throw CONTRADICTION;
 
   /** The piece port (i, k) would extend if its edge were crossed, or -1 if unclear. */
   const extends_ = (i: number, k: number): number => {
@@ -390,7 +417,7 @@ function tier2(ctx: Ctx, s: Knowledge): boolean {
 
   s.changed = false;
   for (let i = 0; i < n; i++) {
-    for (const k of [1, 2]) {
+    for (let k = 1; k <= 2; k++) {
       const j = ctx.nb[i * 4 + k]!;
       if (j < 0 || s.edge[i * 4 + k] !== UNKNOWN) continue;
       const ri = extends_(i, k);
@@ -443,7 +470,7 @@ function tier3(ctx: Ctx, s: Knowledge): boolean {
     }
   }
   for (let i = 0; i < s.cell.length; i++) {
-    for (const k of [1, 2]) {
+    for (let k = 1; k <= 2; k++) {
       const j = ctx.nb[i * 4 + k]!;
       if (j < 0 || s.edge[i * 4 + k] !== UNKNOWN) continue;
       for (const [assumed, otherwise] of [
@@ -471,6 +498,15 @@ function tier3(ctx: Ctx, s: Knowledge): boolean {
  * independent cross-check in tests.
  */
 export function countSolutions(layout: PuzzleLayout, limit = 2): number {
+  return countSolutionsWithin(layout, limit, Infinity)!;
+}
+
+/**
+ * countSolutions, but gives up after `maxNodes` search steps and returns
+ * null ("don't know"). The step count is a count, not a time, so the result
+ * is the same on every machine.
+ */
+export function countSolutionsWithin(layout: PuzzleLayout, limit: number, maxNodes: number): number | null {
   let ctx: Ctx;
   let start: Knowledge;
   try {
@@ -480,14 +516,25 @@ export function countSolutions(layout: PuzzleLayout, limit = 2): number {
     throw err;
   }
   let count = 0;
+  let nodes = 0;
 
   const search = (s: Knowledge): void => {
-    if (count >= limit) return;
+    if (count >= limit || nodes > maxNodes) return;
+    nodes++;
     try {
       propagate(ctx, s);
     } catch (err) {
       if (err instanceof Contradiction) return;
       throw err;
+    }
+    const pick = branchCell(ctx, s);
+    if (pick >= 0) {
+      for (const value of [TRACK, EMPTY]) {
+        const branch = clone(s);
+        setCell(branch, pick, value);
+        search(branch);
+      }
+      return;
     }
     const unknown = s.edge.indexOf(UNKNOWN);
     if (unknown < 0) {
@@ -506,7 +553,30 @@ export function countSolutions(layout: PuzzleLayout, limit = 2): number {
   };
 
   search(start);
-  return count;
+  return nodes > maxNodes ? null : count;
+}
+
+/**
+ * An undecided square in the row or column with the fewest undecided squares
+ * (where the clue bites hardest), or -1 when every square is decided.
+ */
+function branchCell(ctx: Ctx, s: Knowledge): number {
+  let best = -1;
+  let bestUnknown = Infinity;
+  for (const line of lines(ctx)) {
+    let unknown = 0;
+    let first = -1;
+    for (const i of line.cells) {
+      if (s.cell[i] !== UNKNOWN) continue;
+      unknown++;
+      if (first < 0) first = i;
+    }
+    if (unknown > 0 && unknown < bestUnknown) {
+      best = first;
+      bestUnknown = unknown;
+    }
+  }
+  return best;
 }
 
 /** Mask grid of a fully decided state (for tests). */

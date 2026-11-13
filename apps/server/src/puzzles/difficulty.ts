@@ -25,6 +25,13 @@ export interface GenerationSettings {
   pathStyle: "wander" | "straight";
   /** How many times the track crosses itself (wander paths only). */
   crossings: number;
+  /**
+   * Search steps one uniqueness check may take while choosing hints; running
+   * out counts as "not unique", so another hint is given. Unset = no limit.
+   * Needed on big grids: a 10x10 track with only the bridge given can take a
+   * minute to prove ambiguous. A count, not a time, so output stays the same.
+   */
+  uniquenessBudget?: number;
   filters: DifficultyFilters;
 }
 
@@ -106,19 +113,23 @@ const GENERATION: readonly GenerationSettings[] = [
     filters: {},
   },
   {
-    // Insane: Hard's demands plus one crossing, always given as a hint (a
-    // bridge). maxHints counts it, so: at most 2 hints besides the bridge.
+    // Insane: 10x10, one crossing, always given as a hint (a bridge).
+    // maxHints counts it, so: at most 3 hints besides the bridge. On 8x8 the
+    // bridge pinned down too much of a small grid; the bigger grid and longer
+    // track give it room, and asks for half again Hard's trial steps. Each
+    // filter is a trade against generation time (ADR 0022).
     extraHints: 0,
     maxAttempts: 3000,
     pathStyle: "wander",
     crossings: 1,
+    uniquenessBudget: 1_000,
     filters: {
-      trackCells: [28, 44],
+      trackCells: [42, 66],
       maxGiveawayLines: 0,
-      maxHints: 3,
+      maxHints: 4,
       maxTier1Progress: 0.2,
       tiers: [3],
-      minTier3Steps: 8,
+      minTier3Steps: 12,
     },
   },
 ];

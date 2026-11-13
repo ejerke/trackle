@@ -67,7 +67,9 @@ not stored: `(difficulty, seed)` regenerates them deterministically
 ([ADR 0009](adr/0009-random-puzzles-by-seed.md)).
 
 Generation costs CPU, so the API is rate limited per client, with a strict
-extra budget for puzzle generation ([ADR 0010](adr/0010-rate-limiting.md)).
+extra budget for puzzle generation ([ADR 0010](adr/0010-rate-limiting.md)),
+and new random puzzles are paced per level: one per 5 s, or at once after
+finishing the last ([ADR 0023](adr/0023-paced-random-puzzles.md)).
 
 ## Daily puzzle flow
 
@@ -128,7 +130,7 @@ metrics above):
 | 1 Medium (default) | 6×6; no extra hints; tier exactly 2; tier 1 decides ≤ 60%; ≤ 1 giveaway line; 16–26 track squares |
 | 2 Hard | 8×8; ≤ 1 hint; tier exactly 3, at least 8 trial steps; tier 1 decides ≤ 20%; no giveaway lines; 28–44 track squares |
 | 3 Super-duper hard | 9×9; `pathStyle: "straight"`: edge to opposite edge with at most one one-square jog; no filters |
-| 4 Insane | Hard's filters plus `crossings: 1`: the random walk must cross itself once; the crossing is always a hint (≤ 3 hints including it) |
+| 4 Insane | 10×10; `crossings: 1`: the random walk must cross itself once; the crossing is always a hint (≤ 4 hints including it); tier exactly 3, at least 12 trial steps; tier 1 decides ≤ 20%; no giveaway lines; 42–66 track squares; `uniquenessBudget` caps each uniqueness check while choosing hints |
 
 Levels are numbered in the order they were added; `LEVEL_ORDER` (shared)
 is the order pickers and stats show them in.

@@ -27,7 +27,11 @@ interface Hint     { row: number; col: number; piece: number } // 2-bit directio
 
 All `/api/*` requests are rate limited per client, and requests that make the
 server generate a random puzzle have a stricter limit
-([ADR 0010](adr/0010-rate-limiting.md)). Over the limit:
+([ADR 0010](adr/0010-rate-limiting.md)). On top of that, a client gets one
+*new* random puzzle per level every 5 seconds, or straight away once it has
+solved the last one or been shown its answer; going back to that last puzzle
+is always allowed ([ADR 0023](adr/0023-paced-random-puzzles.md)). Random
+answers are sent after a deliberate ~300 ms wait. Over a limit:
 
 ```
 429 Too Many Requests

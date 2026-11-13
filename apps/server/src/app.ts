@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import {
@@ -49,6 +50,12 @@ export interface AppOptions {
   secureCookies?: boolean;
   /** Password hashing cost; tests use cheaper settings. */
   passwordParams?: ScryptParams;
+  /**
+   * Deliberate wait before a random puzzle's answer, in ms (default 300).
+   * Showing the answer earns the next random puzzle at once, like solving,
+   * so this keeps "answer, next, answer, next" from being instant.
+   */
+  randomAnswerDelayMs?: number;
 }
 
 /** Build the Fastify app without listening, so tests can use app.inject(). */
@@ -217,8 +224,10 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
   app.get<RandomRequest>("/api/random/:difficulty/:seed", async (req, reply) => {
     const parsed = parseRandom(req.params);
     if ("error" in parsed) return reply.code(400).send(parsed);
-    // Only a cache miss costs CPU, so only that is charged against the generation limit.
-    if (!random.has(parsed.difficulty, parsed.seed) && !limits.allowGeneration(req, reply)) return reply;
+    // Only a cache miss costs CPU, so only that is a *new* puzzle for the limits.
+    if (!random.has(parsed.difficulty, parsed.seed) && !limits.allowNewRandom(req, reply, parsed.difficulty, parsed.seed)) {
+      return reply;
+    }
     const body: RandomPuzzleResponse = { puzzle: random.get(parsed.difficulty, parsed.seed).puzzle, seed: parsed.seed };
     return body;
   });
@@ -231,6 +240,7 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
       if ("error" in parsed) return reply.code(400).send(parsed);
       if (!random.has(parsed.difficulty, parsed.seed) && !limits.allowGeneration(req, reply)) return reply;
       const body: CheckResponse = { correct: random.check(parsed.difficulty, parsed.seed, req.body.cells) };
+      if (body.correct) limits.finishedRandom(req, parsed.difficulty, parsed.seed);
       return body;
     },
   );
@@ -253,6 +263,8 @@ export async function buildApp(options: AppOptions): Promise<FastifyInstance> {
     if (!canShowAnswer(parsed.difficulty)) return reply.code(403).send({ error: "answer_unavailable" } satisfies ApiError);
     if (!random.has(parsed.difficulty, parsed.seed) && !limits.allowGeneration(req, reply)) return reply;
     const { puzzle, solution } = random.get(parsed.difficulty, parsed.seed);
+    await sleep(options.randomAnswerDelayMs ?? 300);
+    limits.finishedRandom(req, parsed.difficulty, parsed.seed);
     return giveAnswer(req, reply, { kind: "random", seed: parsed.seed, difficulty: parsed.difficulty }, puzzle, solution);
   });
 

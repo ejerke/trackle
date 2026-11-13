@@ -17,7 +17,7 @@ import {
   type PuzzleMetrics,
 } from "@trackle/shared";
 import { cheapViolations, profileFor, violations, type GenerationSettings } from "./difficulty.ts";
-import { countSolutions } from "./logic.ts";
+import { countSolutions, countSolutionsWithin } from "./logic.ts";
 import { countTurns, giveawayLines, measure } from "./metrics.ts";
 import { createRng, type Rng } from "./rng.ts";
 
@@ -30,7 +30,8 @@ import { createRng, type Rng } from "./rng.ts";
  * v2: difficulty profiles; generate-and-filter with logic rating.
  * v3: Easy filtered to tier 1 and few turns; Hard on 8x8; Super-duper hard
  *     (straight paths). Insane (crossings) added later without a bump: it
- *     is a new level, and the other levels' puzzles didn't change.
+ *     is a new level, and the other levels' puzzles didn't change. Insane
+ *     later moved to 10x10 (ADR 0022), also without a bump, for the same reason.
  */
 export const GENERATOR_VERSION = 3;
 
@@ -109,7 +110,7 @@ export function generateCandidate(
   rng: Rng,
   width: number,
   height: number,
-  settings: Pick<GenerationSettings, "extraHints" | "pathStyle" | "crossings">,
+  settings: Pick<GenerationSettings, "extraHints" | "pathStyle" | "crossings" | "uniquenessBudget">,
 ): Candidate {
   return completeCandidate(rng, width, height, makePath(settings, rng, width, height), settings);
 }
@@ -126,7 +127,7 @@ function completeCandidate(
   width: number,
   height: number,
   path: RandomPath,
-  settings: Pick<GenerationSettings, "extraHints" | "crossings">,
+  settings: Pick<GenerationSettings, "extraHints" | "crossings" | "uniquenessBudget">,
 ): Candidate {
   const { cells, start, end } = path;
   const solution = pathToMasks(width, height, cells, start.dir, end.dir);
@@ -147,7 +148,10 @@ function completeCandidate(
   // Crossing squares are always given up front.
   const crossingCells = [...new Map(cells.filter((c) => solution[c.row]![c.col] === CROSSING).map((c) => [key(c), c])).values()];
   const forced = crossingCells.map(hintFor);
-  const isUnique = (hints: Hint[]) => hasUniqueSolution({ ...base, hints: [...forced, ...hints] });
+  // A check that runs out of budget counts as "not unique": it only means one
+  // more hint is added (or kept), never that an ambiguous puzzle gets out.
+  const budget = settings.uniquenessBudget ?? Infinity;
+  const isUnique = (hints: Hint[]) => countSolutionsWithin({ ...base, hints: [...forced, ...hints] }, 2, budget) === 1;
 
   // Candidate hint cells: track cells other than A, B and crossings, in random order.
   const inner = cells.slice(1, -1);

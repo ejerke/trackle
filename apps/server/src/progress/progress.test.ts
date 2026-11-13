@@ -182,7 +182,7 @@ describe("records stored by older code", () => {
 });
 
 describe("merge rules", () => {
-  const base = (over: Partial<PuzzleProgress> = {}): PuzzleProgress => ({ ...emptyProgress(daily, "fp"), ...over });
+  const base = (over: Partial<PuzzleProgress> = {}): PuzzleProgress => ({ ...emptyProgress(daily, "fp", new Date("2026-11-10T08:00:00Z")), ...over });
 
   it("mergeSummary takes the max checks, the earliest start, and keeps the saved board", () => {
     const existing = base({ checks: 3, startedAt: "2026-11-10T08:00:00.000Z", board: { edges: ["h:0:0"], marks: {} }, boardSavedAt: "2026-11-10T09:00:00.000Z" });

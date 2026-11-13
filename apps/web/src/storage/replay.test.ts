@@ -14,7 +14,9 @@ const layout: PuzzleLayout = {
   endpoints: [{ row: 0, col: 0, dir: W }, { row: 1, col: 1, dir: S }],
   hints: [],
 };
-const first = (over: Partial<PuzzleProgress>): PuzzleProgress => ({ ...emptyProgress(key, "fp"), checks: 1, timeMs: 90_000, ...over });
+// A fixed start time: records made a millisecond apart must still compare equal.
+const STARTED = new Date("2026-11-10T08:00:00Z");
+const first = (over: Partial<PuzzleProgress>): PuzzleProgress => ({ ...emptyProgress(key, "fp", STARTED), checks: 1, timeMs: 90_000, ...over });
 const revealed = first({ revealedAt: "2026-11-10T10:00:00.000Z", hintsUsed: 5, board: { edges: ["h:0:0", "v:0:1"], marks: {} } });
 const solvedWithHints = first({ solvedAt: "2026-11-10T10:00:00.000Z", solvedCells: solution, hintsUsed: 2 });
 

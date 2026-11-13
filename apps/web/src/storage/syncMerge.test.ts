@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { mergeOnDevice, summaryKey, toSummary } from "./syncMerge";
 
 const key = { kind: "daily", date: "2026-11-10", difficulty: 1 } as const;
-const rec = (over: Partial<PuzzleProgress>): PuzzleProgress => ({ ...emptyProgress(key, "fp"), ...over });
+const rec = (over: Partial<PuzzleProgress>): PuzzleProgress => ({ ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")), ...over });
 const board = (...edges: string[]) => ({ edges, marks: {} });
 
 describe("toSummary / summaryKey", () => {

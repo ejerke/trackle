@@ -3,7 +3,7 @@ import { betterSolve, emptyProgress, isProgressRecord, mergeSummary, migrateProg
 
 const key = { kind: "daily", date: "2026-11-10", difficulty: 1 } as const;
 const solvedAt = (iso: string | null): PuzzleProgress => ({
-  ...emptyProgress(key, "fp"),
+  ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")),
   solvedAt: iso,
   solvedCells: iso ? [[0]] : null,
 });
@@ -39,7 +39,7 @@ describe("records", () => {
   });
 
   it("upgrades v3 records: anything already drawn counts as unsaved", () => {
-    const v3 = { ...emptyProgress(key, "fp"), schemaVersion: 3, board: { edges: ["h:0:0"], marks: {} } } as Record<string, unknown>;
+    const v3 = { ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")), schemaVersion: 3, board: { edges: ["h:0:0"], marks: {} } } as Record<string, unknown>;
     delete v3.boardSavedAt;
     delete v3.boardDirty;
     expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 9, emptyHintsUsed: 0, boardSavedAt: null, boardDirty: true });
@@ -48,27 +48,27 @@ describe("records", () => {
   });
 
   it("upgrades v4 records: no hints used, answer never shown", () => {
-    const v4 = { ...emptyProgress(key, "fp"), schemaVersion: 4 } as Record<string, unknown>;
+    const v4 = { ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")), schemaVersion: 4 } as Record<string, unknown>;
     delete v4.hintsUsed;
     delete v4.revealedAt;
     expect(migrateProgress(v4)).toMatchObject({ schemaVersion: 9, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null });
   });
 
   it("upgrades v5 records: not timed yet", () => {
-    const v5 = { ...emptyProgress(key, "fp"), schemaVersion: 5 } as Record<string, unknown>;
+    const v5 = { ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")), schemaVersion: 5 } as Record<string, unknown>;
     delete v5.timeMs;
     expect(migrateProgress(v5)).toMatchObject({ schemaVersion: 9, emptyHintsUsed: 0, timeMs: 0 });
   });
 
   it("upgrades v6 records: no 'no track' hints used", () => {
-    const v6 = { ...emptyProgress(key, "fp"), schemaVersion: 6, hintsUsed: 2 } as Record<string, unknown>;
+    const v6 = { ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")), schemaVersion: 6, hintsUsed: 2 } as Record<string, unknown>;
     delete v6.emptyHintsUsed;
     expect(migrateProgress(v6)).toMatchObject({ schemaVersion: 9, hintsUsed: 2, emptyHintsUsed: 0 });
   });
 });
 
 describe("solving time on the account", () => {
-  const rec = (over: Partial<PuzzleProgress>): PuzzleProgress => ({ ...emptyProgress(key, "fp"), ...over });
+  const rec = (over: Partial<PuzzleProgress>): PuzzleProgress => ({ ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")), ...over });
   const solve = { solvedAt: "2026-11-10T09:00:00.000Z", solvedCells: [[0]] };
 
   it("keeps the time of the solve that counts", () => {
@@ -87,7 +87,7 @@ describe("solving time on the account", () => {
 });
 
 describe("bookmarks and replays (v8)", () => {
-  const base = emptyProgress(key, "fp");
+  const base = emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z"));
   const fav = (on: boolean, at: string) => ({ ...base, bookmark: { on, at } });
 
   it("upgrades v7 records with no bookmark and no replay", () => {
@@ -138,7 +138,7 @@ describe("bookmark names", () => {
   });
 
   it("a rename is a change: the newest name wins on the account", () => {
-    const base = emptyProgress(key, "fp");
+    const base = emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z"));
     const named = { ...base, bookmark: { on: true, at: "2026-11-10T09:00:00.000Z", name: "spiral" } };
     const renamed = { ...base, bookmark: { on: true, at: "2026-11-10T10:00:00.000Z", name: "the loop" } };
     expect(mergeSummary(named, renamed).bookmark?.name).toBe("the loop");
@@ -149,7 +149,7 @@ describe("bookmark names", () => {
 });
 
 describe("solve receipts (v9)", () => {
-  const base = emptyProgress(key, "fp");
+  const base = emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z"));
   const receipt = { at: "2026-11-10T10:00:00.000Z", sig: "sig" };
   const solved = (solvedAt: string, solveReceipt: typeof receipt | null) => ({
     ...base,

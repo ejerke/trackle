@@ -70,7 +70,7 @@ describe("hints and answers", () => {
     expect(help()!.revealed_at).toBe("2026-11-10T12:00:00.000Z");
 
     const lateSolve: PuzzleProgress = {
-      ...emptyProgress({ kind: "daily", date: "2026-11-10", difficulty: 0 }, "fp"),
+      ...emptyProgress({ kind: "daily", date: "2026-11-10", difficulty: 0 }, "fp", new Date("2026-11-10T08:00:00Z")),
       solvedAt: "2026-11-10T12:05:00.000Z",
       solvedCells: stored().solution,
       checks: 1,
@@ -150,7 +150,7 @@ describe("hint limits", () => {
 
     // Solve it (with all those hints), then play it again.
     const key = { kind: "daily", date: "2026-11-10", difficulty: 2 } as const;
-    const solved = { ...emptyProgress(key, "fp"), hintsUsed: limit, checks: 1, solvedAt: "2026-11-10T12:00:00.000Z", solvedCells: solution };
+    const solved = { ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")), hintsUsed: limit, checks: 1, solvedAt: "2026-11-10T12:00:00.000Z", solvedCells: solution };
     const sync = await app.inject({ method: "PUT", url: "/api/me/progress", payload: { records: [solved] }, headers: { cookie: `${SESSION_COOKIE}=${token}` } });
     expect(sync.json().records[0].solvedAt).not.toBeNull();
     expect((await ask()).statusCode).toBe(200);
@@ -199,7 +199,7 @@ describe("answers per level", () => {
 
 describe("help can't be undone by syncing", () => {
   const key = { kind: "daily", date: "2026-11-10", difficulty: 0 } as const;
-  const rec = (over: Partial<PuzzleProgress>): PuzzleProgress => ({ ...emptyProgress(key, "fp"), ...over });
+  const rec = (over: Partial<PuzzleProgress>): PuzzleProgress => ({ ...emptyProgress(key, "fp", new Date("2026-11-10T08:00:00Z")), ...over });
 
   it("keeps the highest hint count and the earliest shown answer", () => {
     const merged = mergeSummary(rec({ hintsUsed: 3, revealedAt: "2026-11-10T10:00:00.000Z" }), rec({ hintsUsed: 1, revealedAt: null }));

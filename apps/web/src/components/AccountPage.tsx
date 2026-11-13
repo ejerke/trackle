@@ -104,7 +104,8 @@ function SignIn() {
         </Field>
         {mode === "register" && (
           <p className="form__hint">
-            There's no email, so a forgotten password <b>can't be reset</b>. Use a password manager.
+            There's no email, so a forgotten password <b>can't be reset</b>. Use a password manager. What's stored:{" "}
+            <a href="/privacy">privacy</a>.
           </p>
         )}
         {error && <p className="form__error" role="alert">{error}</p>}

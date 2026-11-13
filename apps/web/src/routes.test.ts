@@ -20,6 +20,7 @@ describe("parseRoute", () => {
     expect(parseRoute("/bookmarks", "")).toEqual({ kind: "bookmarks" });
     expect(parseRoute("/account", "")).toEqual({ kind: "account" });
     expect(parseRoute("/leaderboard", "")).toEqual({ kind: "leaderboard" });
+    expect(parseRoute("/privacy", "")).toEqual({ kind: "privacy" });
   });
 
   it("rejects unknown paths, difficulties and seeds", () => {

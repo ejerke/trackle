@@ -9,6 +9,7 @@ import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES, isDailyOnly, isIsoDate, isRandomS
  *   /stats                     personal statistics (from this browser's progress)
  *   /bookmarks                 puzzles the player bookmarked
  *   /leaderboard               Challenge points (ADR 0025)
+ *   /privacy                   what is stored, and why
  *   /account                   sign in / create account / manage account
  *   /lab/<difficulty>/<seed>   development-only puzzle lab
  */
@@ -20,6 +21,7 @@ export type Route =
   | { kind: "stats" }
   | { kind: "bookmarks" }
   | { kind: "leaderboard" }
+  | { kind: "privacy" }
   | { kind: "account" }
   | { kind: "lab"; difficulty: number; seed: string }
   | { kind: "unknown" };
@@ -45,6 +47,7 @@ export function parseRoute(pathname: string, search: string): Route {
   if (path === "/stats") return { kind: "stats" };
   if (path === "/bookmarks") return { kind: "bookmarks" };
   if (path === "/leaderboard") return { kind: "leaderboard" };
+  if (path === "/privacy") return { kind: "privacy" };
   if (path === "/account") return { kind: "account" };
 
   const param = new URLSearchParams(search).get("difficulty");

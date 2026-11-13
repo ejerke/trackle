@@ -113,6 +113,14 @@ bookmark a **name** there (up to 40 characters; it also shows above the puzzle) 
 otherwise all read "Random · Insane". Bookmarks and their names sync with an
 account like solves do.
 
+## Privacy
+
+`/privacy` (in the ☰ menu, and linked from sign-up) lists everything Trackle
+stores, in the browser and on the server, and why. It has no cookie banner
+because the only cookie is the sign-in session. Its contact address
+(`CONTACT` in `apps/web/src/components/PrivacyPage.tsx`) is a Cloudflare
+Email Routing alias: if it attracts spam, replace it there.
+
 ## Archive and stats
 
 - **Archive** (`/archive`): a calendar of past daily puzzles at the chosen

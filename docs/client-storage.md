@@ -143,6 +143,9 @@ so switching difficulty on random puzzles returns to it (per browser).
 by itself, and `trackle:prefs:challengeLeaderboardHidden` (`"1"`) remembers
 that the player hid the leaderboard under the Challenge.
 
+Everything stored here is listed for players on the privacy page (`/privacy`,
+`components/PrivacyPage.tsx`): keep the two in step.
+
 ## Robustness rules
 
 - Every `localStorage` access is wrapped in `try/catch`. Private browsing,

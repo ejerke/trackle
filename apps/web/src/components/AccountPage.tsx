@@ -8,6 +8,7 @@ import {
 import { useState, type FormEvent, type ReactNode } from "react";
 import { ApiRequestError, changePassword, deleteAccount, login, register } from "../api";
 import { useAuth } from "../auth";
+import type { ProgressStore } from "../storage/progressStore";
 import { Page } from "./Page";
 
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
@@ -24,10 +25,10 @@ function messageFor(err: unknown): string {
   return "Something went wrong. Try again.";
 }
 
-export function AccountPage() {
+export function AccountPage({ store }: { store: ProgressStore }) {
   const { user } = useAuth();
   return (
-    <Page subtitle="Account">
+    <Page subtitle="Account" store={store}>
       {user === null && <SignIn />}
       {user && <SignedIn username={user.username} createdAt={user.createdAt} />}
     </Page>

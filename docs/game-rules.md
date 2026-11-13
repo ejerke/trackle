@@ -78,8 +78,10 @@ as *answer shown*, never as solved. Both are counted: stats show "On your own"
 
 ## The Challenge and the leaderboard
 
-The **Challenge** button (next to Today) opens a daily puzzle that exists
-only as a daily, never as a random one. It's 10 × 10, the pieces on A's and
+The **Challenge** button (next to Today and New random) opens a daily
+puzzle that exists only as a daily, never as a random one. On it, the
+difficulties are hidden and only Today / New random are shown, which lead
+back to the level you usually play. It isn't remembered as your level. It's 10 × 10, the pieces on A's and
 B's squares are given and nothing else, there are no hints and no Show
 answer, and it takes a lot of "if this were track" reasoning: not everyone
 will finish it. It still never needs guessing.

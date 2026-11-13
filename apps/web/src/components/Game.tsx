@@ -81,7 +81,8 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   const [check, setCheck] = useState<CheckState>("idle");
   const [confirmClear, setConfirmClear] = useState(false);
   const [helping, setHelping] = useState(false);
-  const [helpMessage, setHelpMessage] = useState<string | null>(null);
+  // What a hint (or a failed hint/answer request) said; only failures are shown as errors.
+  const [helpMessage, setHelpMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [highlight, setHighlight] = useState<Highlight | null>(null);
   // One wagon per day of the player's streak, counted again after a solve.
   const streak = useStreak(store).current;
@@ -203,7 +204,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
     try {
       const res = await hint(kind, boardMasks(puzzle, progress.board), emptyCells);
       if (res.kind === "complete") {
-        setHelpMessage(kind === "track" ? "All the track is in place." : "Every square without track is marked.");
+        setHelpMessage({ text: kind === "track" ? "All the track is in place." : "Every square without track is marked." });
         return;
       }
       const cleared =
@@ -212,19 +213,22 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
           : progress.board.edges.some((e) => edgeCells(e).some((c) => c.row === res.row && c.col === res.col));
       recordHint(kind, (b) => applyHint(puzzle, b, res));
       setHighlight({ tone: "hint", cells: [{ row: res.row, col: res.col }], edges: [] });
-      setHelpMessage(
-        (res.kind === "piece" ? "Here's a piece of track." : "This square has no track.") +
+      setHelpMessage({
+        text:
+          (res.kind === "piece" ? "Here's a piece of track." : "This square has no track.") +
           (cleared ? " Wrong segments were removed." : ""),
-      );
+      });
     } catch (err) {
       const code = err instanceof ApiRequestError ? err.code : null;
-      setHelpMessage(
-        code === "hint_limit"
-          ? "No hints left for this puzzle."
-          : code === "rate_limited"
-            ? "Slow down a little and try again."
-            : "Couldn't get a hint. Try again.",
-      );
+      setHelpMessage({
+        error: true,
+        text:
+          code === "hint_limit"
+            ? "No hints left for this puzzle."
+            : code === "rate_limited"
+              ? "Slow down a little and try again."
+              : "Couldn't get a hint. Try again.",
+      });
     } finally {
       setHelping(false);
     }
@@ -239,7 +243,7 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
       setHelpMessage(null);
       setHighlight(null);
     } catch {
-      setHelpMessage("Couldn't load the answer. Try again.");
+      setHelpMessage({ error: true, text: "Couldn't load the answer. Try again." });
     } finally {
       setHelping(false);
     }
@@ -426,7 +430,9 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
                 </button>
               </>
             )}
-            {check === "idle" && helpMessage}
+            {check === "idle" && helpMessage && (
+              <span className={helpMessage.error ? undefined : "message--info"}>{helpMessage.text}</span>
+            )}
           </p>
           {(hint || answer) && (
             <div className="help-row">

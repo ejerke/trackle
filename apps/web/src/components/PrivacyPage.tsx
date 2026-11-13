@@ -1,3 +1,4 @@
+import type { ProgressStore } from "../storage/progressStore";
 import { Page } from "./Page";
 
 /**
@@ -15,9 +16,9 @@ const UPDATED = "13 November 2026";
  * (server), deploy/Caddyfile (access log), ADR 0010 (rate limits), ADR 0025
  * (leaderboard).
  */
-export function PrivacyPage() {
+export function PrivacyPage({ store }: { store: ProgressStore }) {
   return (
-    <Page subtitle="Privacy">
+    <Page subtitle="Privacy" store={store}>
       <article className="prose">
         <p className="prose__lead">
           Trackle is a hobby project. It has no ads, no analytics, no trackers and no third-party scripts, and it

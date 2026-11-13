@@ -2,14 +2,9 @@ import { CHALLENGE_DIFFICULTY, POINTS_PER_TRACK_SQUARE, type LeaderboardPeriod }
 import { useState } from "react";
 import { dailyUrl } from "../routes";
 import type { ProgressStore } from "../storage/progressStore";
-import { LeaderboardTable, MyStanding, useLeaderboard } from "./Leaderboard";
+import { LeaderboardTable, MyStanding, PeriodPicker, useLeaderboard } from "./Leaderboard";
 import { TrophyIcon } from "./ModeBar";
 import { Page } from "./Page";
-
-const PERIODS: { period: LeaderboardPeriod; label: string }[] = [
-  { period: "month", label: "This month" },
-  { period: "all", label: "All time" },
-];
 
 /**
  * Points from daily Challenges solved on their day (ADR 0025). The server
@@ -23,19 +18,7 @@ export function LeaderboardPage({ store }: { store: ProgressStore }) {
   return (
     <Page subtitle="Challenge leaderboard" store={store}>
       <nav className="mode-bar" aria-label="Period">
-        <div className="segmented" role="group">
-          {PERIODS.map((p) => (
-            <button
-              key={p.period}
-              type="button"
-              className="segmented__option"
-              aria-pressed={p.period === period}
-              onClick={() => setPeriod(p.period)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        <PeriodPicker period={period} onChange={setPeriod} />
       </nav>
 
       <p className="notice">

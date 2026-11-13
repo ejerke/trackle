@@ -89,15 +89,22 @@ a {
   color: var(--accent);
 }
 
+/* Keyboard focus in the site's colours, not the browser's blue. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .app {
   max-width: 34rem;
   margin: 0 auto;
   padding: 0.75rem 1rem 3rem;
 }
-/* Phones: every pixel of width goes to the board. */
+/* Phones: nearly all the width goes to the board, with just enough edge
+   that the board, its clues and the train don't touch the screen's sides. */
 @media (max-width: 480px) {
   .app {
-    padding: 0.5rem 0.4rem 2rem;
+    padding: 0.5rem 0.6rem 2rem;
   }
 }
 
@@ -111,6 +118,7 @@ a {
 }
 .header__brand {
   min-width: 0;
+  min-height: 2.6rem;
 }
 .header__title {
   margin: 0;
@@ -127,6 +135,9 @@ a {
   margin: 0;
   color: var(--muted);
   font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .header__actions {
   display: flex;
@@ -485,10 +496,22 @@ button,
   margin: 0;
 }
 @media (max-width: 480px) {
+  .play-bar {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+  }
+  .bookmark-button {
+    width: 1.6rem;
+    flex-shrink: 0;
+  }
+  .clock {
+    flex-shrink: 0;
+  }
   .toolbar__button {
-    padding: 0.4rem 0.5rem;
-    gap: 0.3rem;
+    padding: 0.4rem 0.45rem;
+    gap: 0.25rem;
     font-size: 0.85rem;
+    white-space: nowrap;
   }
   .toolbar__button svg {
     width: 1rem;
@@ -522,6 +545,10 @@ button,
 .message--quiet {
   color: var(--muted);
   font-weight: 500;
+}
+/* News that isn't a problem, e.g. what a hint revealed. */
+.message--info {
+  color: var(--text);
 }
 
 /* A fact about this puzzle, e.g. that its track crosses itself. */
@@ -848,6 +875,13 @@ button,
   gap: 0.4rem;
   margin-bottom: 0.5rem;
 }
+/* Today / New random beside the Challenge button. */
+.mode-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: inherit;
+}
 .narrow-only {
   display: none;
 }
@@ -876,6 +910,7 @@ button,
 }
 .segmented__option {
   display: flex;
+  white-space: nowrap;
   align-items: center;
   gap: 0.3rem;
   padding: 0.35rem 0.8rem;
@@ -894,6 +929,10 @@ button,
 .segmented__option[aria-pressed="true"] {
   background: var(--text);
   color: var(--bg);
+}
+/* A single-option pill that's a link (the Challenge button). */
+.segmented__link {
+  text-decoration: none;
 }
 .segmented__icon {
   width: 0.95rem;
@@ -1007,9 +1046,17 @@ button,
   color: var(--muted);
   font-size: 0.85rem;
 }
+.archive-legend {
+  column-gap: 1rem;
+}
+.archive-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
 .archive-legend .archive-day {
   width: 1.4rem;
-  margin-left: 0.6rem;
 }
 
 /* ---- stats ---- */
@@ -1121,10 +1168,6 @@ button,
   font: inherit;
   font-weight: 400;
 }
-.form__field input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
 .form__hint {
   margin: 0;
   color: var(--muted);
@@ -1186,6 +1229,7 @@ button,
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
+  border-radius: 4px; /* rounds the keyboard focus ring */
   cursor: pointer;
 }
 .link-button:hover {
@@ -1334,12 +1378,18 @@ button,
 .bookmarks__rename input {
   flex: 1 1 10rem;
   min-width: 0;
-  padding: 0.45rem 0.6rem;
+  align-self: stretch;
+  padding: 0.6rem 0.75rem;
   border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 4px);
-  background: var(--bg);
+  border-radius: var(--radius);
+  background: var(--cell);
   color: var(--text);
   font: inherit;
+}
+.bookmarks__rename input:focus,
+.form__field input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 /* The bookmark's name, under the play bar. */
 .bookmark-name {
@@ -1383,17 +1433,6 @@ button,
 }
 .leaderboard-me p:last-child {
   margin-bottom: 0;
-}
-.leaderboard-me__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--muted);
-  font-size: 0.92rem;
-  cursor: pointer;
-}
-.leaderboard-me__toggle input {
-  accent-color: var(--accent);
 }
 .leaderboard {
   width: 100%;
@@ -1452,21 +1491,8 @@ button,
 }
 .challenge-board__period {
   display: flex;
-  gap: 1rem;
-  margin: 0.4rem 0 0;
-  padding: 0;
-  border: 0;
-  font-size: 0.92rem;
-}
-.challenge-board__period label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  cursor: pointer;
-}
-.challenge-board__period input {
-  margin: 0;
-  accent-color: var(--accent);
+  justify-content: center;
+  margin: 0.6rem 0 0;
 }
 .challenge-board .message--quiet {
   margin: 0.5rem 0 0;
@@ -1511,4 +1537,90 @@ button,
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* ---- on/off switch (Switch.tsx) ---- */
+.switch {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.switch:hover,
+.switch[aria-checked="true"] {
+  color: var(--text);
+}
+.switch:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.switch__track {
+  position: relative;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  transition: background 0.15s, border-color 0.15s;
+}
+.switch__thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.15rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--muted);
+  transform: translateY(-50%);
+  transition: left 0.15s, background 0.15s;
+}
+.switch[aria-checked="true"] .switch__track {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.switch[aria-checked="true"] .switch__thumb {
+  left: calc(100% - 0.9rem);
+  background: var(--accent-text);
+}
+.switch__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch__track,
+  .switch__thumb {
+    transition: none;
+  }
+}
+
+/* Small phones: the drawing modes, clock and bookmark still share one row,
+   and so do the difficulties. */
+@media (max-width: 380px) {
+  .mode-bar .segmented__option {
+    padding: 0.3rem 0.42rem;
+  }
+  .help-row {
+    gap: 0.6rem;
+  }
+  .help-row .link-button {
+    font-size: 0.85rem;
+  }
+  .toolbar__button {
+    padding: 0.4rem 0.35rem;
+    font-size: 0.8rem;
+  }
+  .toolbar__button svg {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
 }

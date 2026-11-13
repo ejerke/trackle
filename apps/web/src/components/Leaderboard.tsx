@@ -2,11 +2,36 @@ import type { LeaderboardEntry, LeaderboardPeriod, LeaderboardResponse } from "@
 import { useCallback, useEffect, useState } from "react";
 import { fetchLeaderboard, setLeaderboardVisibility } from "../api";
 import { useAuth } from "../auth";
+import { Switch } from "./Switch";
 
 /**
  * Pieces of the Challenge leaderboard (ADR 0025), shared by the full page and
  * the board under the Challenge.
  */
+
+const PERIODS: { period: LeaderboardPeriod; label: string }[] = [
+  { period: "month", label: "This month" },
+  { period: "all", label: "All time" },
+];
+
+/** This month / all time, as the site's segmented pill. */
+export function PeriodPicker({ period, onChange }: { period: LeaderboardPeriod; onChange: (p: LeaderboardPeriod) => void }) {
+  return (
+    <div className="segmented" role="group" aria-label="Period">
+      {PERIODS.map((p) => (
+        <button
+          key={p.period}
+          type="button"
+          className="segmented__option"
+          aria-pressed={p.period === period}
+          onClick={() => onChange(p.period)}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /** The board for a period, loaded again whenever `refreshKey` changes or reload() is called. */
 export function useLeaderboard(period: LeaderboardPeriod, refreshKey = 0) {
@@ -73,10 +98,9 @@ export function MyStanding({ board, onChanged }: { board: LeaderboardResponse; o
           </>
         )}
       </p>
-      <label className="leaderboard-me__toggle">
-        <input type="checkbox" checked={user.onLeaderboard} disabled={busy} onChange={(e) => void toggle(e.target.checked)} />
+      <Switch checked={user.onLeaderboard} disabled={busy} onChange={(on) => void toggle(on)}>
         Show <b>{user.username}</b> on the leaderboard
-      </label>
+      </Switch>
       {error && <p className="form__error">Couldn't change that. Try again.</p>}
     </div>
   );

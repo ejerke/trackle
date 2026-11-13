@@ -29,14 +29,14 @@ export function App({ store }: { store: ProgressStore }) {
     case "leaderboard":
       return <LeaderboardPage store={store} />;
     case "privacy":
-      return <PrivacyPage />;
+      return <PrivacyPage store={store} />;
     case "account":
-      return <AccountPage />;
+      return <AccountPage store={store} />;
     case "lab":
       return <Lab difficulty={route.difficulty} seed={route.seed} />;
     case "unknown":
       return (
-        <Page>
+        <Page subtitle="Page not found" store={store}>
           <div className="status">
             <p>There's no track here.</p>
             <a className="button button--primary" href="/">

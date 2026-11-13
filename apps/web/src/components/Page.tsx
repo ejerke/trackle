@@ -12,7 +12,7 @@ import { SiteMenu } from "./SiteMenu";
 interface PageProps {
   subtitle?: ReactNode;
   badge?: string;
-  /** Where progress lives; shows the streak in the header. Omitted (the lab, account page): no streak. */
+  /** Where progress lives; shows the streak in the header. Omitted (the lab): no streak. */
   store?: ProgressStore;
   children: ReactNode;
 }

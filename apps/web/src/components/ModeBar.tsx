@@ -21,20 +21,21 @@ function urlFor(kind: ModeBarProps["kind"], d: number, date?: string | null): st
   return randomUrl(d, lastRandomSeed(d) ?? undefined);
 }
 
-/** The levels in the difficulty picker: the daily-only Challenge has its own button. */
+/** The levels in the difficulty picker; the daily-only Challenge has its own button. */
 const PICKER_LEVELS = LEVEL_ORDER.filter((d) => !isDailyOnly(d));
 
 /**
- * Difficulty picker plus "Today" / "New random" / "Challenge". On a daily
- * page, picking a difficulty shows that difficulty's daily puzzle; on a
+ * Difficulty picker, "Today" / "New random", and a Challenge button. On a
+ * daily page, picking a difficulty shows that difficulty's daily puzzle; on a
  * random page, the last random puzzle you had at that difficulty (a new one
  * if none). "New random" sits beside all the difficulties, so it starts a new
  * random puzzle for each of them, not just this one. The choice is
  * remembered for "/", and on the account when signed in.
  *
  * The Challenge (ADR 0025) is a daily puzzle of its own, not a difficulty you
- * play randomly, so it sits with Today and isn't remembered as your level:
- * from it, Today and New random go to the level you usually play.
+ * play randomly, so it's a mode rather than a level: on it, only Today and
+ * New random are shown, and they lead back to the level you usually play.
+ * It follows the URL; it isn't remembered as your level.
  */
 export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
   const { user } = useAuth();
@@ -44,6 +45,49 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
     rememberDifficulty(chosen, user !== null);
     window.location.assign(url);
   };
+
+  const todayAndRandom = (
+    <div className="segmented" role="group" aria-label="Puzzle">
+      <button
+        type="button"
+        className="segmented__option"
+        aria-pressed={kind === "daily" && !date && !challenge}
+        onClick={() => go(dailyUrl(level), level)}
+      >
+        Today
+      </button>
+      <button
+        type="button"
+        className="segmented__option"
+        onClick={() => {
+          forgetRandomSeeds();
+          go(randomUrl(level), level);
+        }}
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true" className="segmented__icon">
+          <path
+            d="M15.5 6.5A6 6 0 1 0 16 12M16 3v4h-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        {/* "New random" doesn't fit next to the difficulties on a phone. */}
+        <span className="wide-only">New random</span>
+        <span className="narrow-only">Random</span>
+      </button>
+    </div>
+  );
+
+  if (challenge) {
+    return (
+      <nav className="mode-bar" aria-label="Puzzle selection">
+        {todayAndRandom}
+      </nav>
+    );
+  }
 
   return (
     <nav className="mode-bar" aria-label="Puzzle selection">
@@ -67,51 +111,18 @@ export function ModeBar({ kind, difficulty, date }: ModeBarProps) {
           </button>
         ))}
       </div>
-      <div className="segmented" role="group" aria-label="Puzzle">
-        <button
-          type="button"
-          className="segmented__option"
-          aria-pressed={kind === "daily" && !date && !challenge}
-          onClick={() => go(dailyUrl(level), level)}
+      <div className="mode-bar__row">
+        {todayAndRandom}
+        <a
+          className="segmented segmented__link"
+          href={kind === "archive" ? archiveUrl(CHALLENGE_DIFFICULTY) : dailyUrl(CHALLENGE_DIFFICULTY)}
+          title="The daily Challenge: no hints, and points on the leaderboard"
         >
-          Today
-        </button>
-        <button
-          type="button"
-          className="segmented__option"
-          onClick={() => {
-            forgetRandomSeeds();
-            go(randomUrl(level), level);
-          }}
-        >
-          <svg viewBox="0 0 20 20" aria-hidden="true" className="segmented__icon">
-            <path
-              d="M15.5 6.5A6 6 0 1 0 16 12M16 3v4h-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          {/* "New random" doesn't fit next to the difficulties on a phone. */}
-          <span className="wide-only">New random</span>
-          <span className="narrow-only">Random</span>
-        </button>
-        <button
-          type="button"
-          className="segmented__option"
-          aria-pressed={challenge}
-          title="Today's Challenge: no hints, and points on the leaderboard"
-          onClick={() => {
-            // From an older Challenge, this goes to today's; otherwise it's where you are.
-            const here = challenge && (kind === "archive" || !date);
-            if (!here) window.location.assign(kind === "archive" ? archiveUrl(CHALLENGE_DIFFICULTY) : dailyUrl(CHALLENGE_DIFFICULTY));
-          }}
-        >
-          <TrophyIcon />
-          Challenge
-        </button>
+          <span className="segmented__option">
+            <TrophyIcon />
+            Challenge
+          </span>
+        </a>
       </div>
     </nav>
   );

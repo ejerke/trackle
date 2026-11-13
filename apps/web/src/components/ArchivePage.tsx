@@ -64,10 +64,18 @@ export function ArchivePage({ difficulty: fromUrl, store }: { difficulty: number
           ))}
           {months.length > 0 && (
             <p className="archive-legend">
-              <span className="archive-day archive-day--solved">✓</span> solved
-              <span className="archive-day archive-day--revealed">?</span> answer shown
-              <span className="archive-day archive-day--started">•</span> started
-              <span className="archive-day archive-day--unplayed">·</span> not played
+              <span className="archive-legend__item">
+                <span className="archive-day archive-day--solved">✓</span> solved
+              </span>
+              <span className="archive-legend__item">
+                <span className="archive-day archive-day--revealed">?</span> answer shown
+              </span>
+              <span className="archive-legend__item">
+                <span className="archive-day archive-day--started">•</span> started
+              </span>
+              <span className="archive-legend__item">
+                <span className="archive-day archive-day--unplayed">·</span> not played
+              </span>
             </p>
           )}
         </>

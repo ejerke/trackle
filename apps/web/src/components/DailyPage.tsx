@@ -18,14 +18,24 @@ type LoadState =
   | { status: "missing" }
   | { status: "error" };
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, style: "long" | "short"): string {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, {
-    weekday: "long",
+    weekday: style,
     day: "numeric",
-    month: "long",
+    month: style,
     year: "numeric",
     timeZone: "UTC",
   });
+}
+
+/** The date in full, or abbreviated on a phone so the header stays one line. */
+function HeaderDate({ iso }: { iso: string }) {
+  return (
+    <>
+      <span className="wide-only">{formatDate(iso, "long")}</span>
+      <span className="narrow-only">{formatDate(iso, "short")}</span>
+    </>
+  );
 }
 
 /** Today's (or an archive day's) puzzle at one difficulty. */
@@ -53,7 +63,15 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
 
   return (
     <Page
-      subtitle={ready ? `${formatDate(ready.puzzle.date)} · ${difficultyName(difficulty)}` : difficultyName(difficulty)}
+      subtitle={
+        ready ? (
+          <>
+            <HeaderDate iso={ready.puzzle.date} /> · {difficultyName(difficulty)}
+          </>
+        ) : (
+          difficultyName(difficulty)
+        )
+      }
       store={store}
     >
       <ModeBar kind="daily" difficulty={difficulty} date={date} />
@@ -78,7 +96,7 @@ export function DailyPage({ date, difficulty: fromUrl, store }: { date: string |
           )}
           {challenge && !date && (
             <p className="notice challenge-note">
-              No hints today. Solve it before midnight (UTC) for <b>{challengePoints(ready.puzzle)} points</b>
+              Solve before midnight (UTC) for <b>{challengePoints(ready.puzzle)} points</b>
               {user ? (
                 <>
                   {" "}

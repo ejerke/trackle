@@ -1,16 +1,11 @@
 import type { LeaderboardPeriod } from "@trackle/shared";
 import { useCallback, useState } from "react";
 import { useDailySolveSaved } from "../hooks/useStreak";
-import { LeaderboardTable, MyStanding, useLeaderboard } from "./Leaderboard";
+import { LeaderboardTable, MyStanding, PeriodPicker, useLeaderboard } from "./Leaderboard";
 
 /** How many players the board under the Challenge lists; the full page has the rest. */
 const SHOWN = 10;
 const HIDDEN_KEY = "trackle:prefs:challengeLeaderboardHidden";
-
-const PERIODS: { period: LeaderboardPeriod; label: string }[] = [
-  { period: "month", label: "This month" },
-  { period: "all", label: "All time" },
-];
 
 function loadHidden(): boolean {
   try {
@@ -56,21 +51,9 @@ export function ChallengeLeaderboard() {
       </div>
       {!hidden && (
         <>
-          <fieldset className="challenge-board__period">
-            <legend className="visually-hidden">Period</legend>
-            {PERIODS.map((p) => (
-              <label key={p.period}>
-                <input
-                  type="radio"
-                  name="challenge-board-period"
-                  value={p.period}
-                  checked={period === p.period}
-                  onChange={() => setPeriod(p.period)}
-                />
-                {p.label}
-              </label>
-            ))}
-          </fieldset>
+          <div className="challenge-board__period">
+            <PeriodPicker period={period} onChange={setPeriod} />
+          </div>
           {failed && <p className="message--quiet">Couldn't load the leaderboard.</p>}
           {!board && !failed && <p className="message--quiet">Loading…</p>}
           {board && (

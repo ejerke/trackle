@@ -43,7 +43,7 @@ describe("computeStats", () => {
       daily("2026-11-06", 1, null, 5_000), // started, not solved
       onDay("2026-11-10", 2, 90_000),
       { ...emptyProgress({ kind: "random", seed: "abcd", difficulty: 1 }), solvedAt: "2026-11-10T10:00:00.000Z" },
-      emptyProgress({ kind: "random", seed: "efgh", difficulty: 0 }),
+      { ...emptyProgress({ kind: "random", seed: "efgh", difficulty: 0 }), timeMs: 5_000 }, // started
     ];
     const stats = computeStats(records, "2026-11-10");
     const medium = stats.daily.find((d) => d.difficulty === 1)!;
@@ -73,5 +73,15 @@ describe("computeStats", () => {
     expect(computeStats(records, "2026-11-10").streak).toEqual({ current: 3, best: 3, today: false });
     expect(computeStats([...records, onDay("2026-11-10", 0)], "2026-11-10").streak).toEqual({ current: 4, best: 4, today: true });
     expect(computeStats(records, "2026-11-11").streak.current).toBe(0);
+  });
+});
+
+describe("bookmarks in stats", () => {
+  it("a puzzle that was only bookmarked doesn't count as played", () => {
+    const bookmarked: PuzzleProgress = { ...emptyProgress({ kind: "daily", date: "2026-11-09", difficulty: 1 }), bookmark: { on: true, at: "2026-11-10T09:00:00.000Z" } };
+    const random: PuzzleProgress = { ...emptyProgress({ kind: "random", seed: "abcd1234", difficulty: 1 }), bookmark: { on: true, at: "2026-11-10T09:00:00.000Z" } };
+    const stats = computeStats([bookmarked, random, onDay("2026-11-10")], "2026-11-10");
+    expect(stats.daily.find((d) => d.difficulty === 1)?.played).toBe(1);
+    expect(stats.random.played).toBe(0);
   });
 });

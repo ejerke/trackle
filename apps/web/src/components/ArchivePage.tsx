@@ -1,4 +1,4 @@
-import { difficultyName, type ArchiveResponse } from "@trackle/shared";
+import { difficultyName, played, type ArchiveResponse } from "@trackle/shared";
 import { useEffect, useMemo, useState } from "react";
 import { fetchArchive } from "../api";
 import { dailyUrl } from "../routes";
@@ -26,7 +26,7 @@ export function ArchivePage({ difficulty: fromUrl, store }: { difficulty: number
   const status = useMemo(() => {
     const byDate = new Map<string, Status>();
     for (const p of records) {
-      if (p.key.kind === "daily" && p.key.difficulty === difficulty) {
+      if (p.key.kind === "daily" && p.key.difficulty === difficulty && played(p)) {
         byDate.set(p.key.date, p.solvedAt ? "solved" : p.revealedAt ? "revealed" : "started");
       }
     }

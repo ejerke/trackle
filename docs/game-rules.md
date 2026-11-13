@@ -76,6 +76,23 @@ only; asks for confirmation) shows the whole solution; the puzzle then counts
 as *answer shown*, never as solved. Both are counted: stats show "On your own"
 (solved without hints or the answer) next to "Solved".
 
+## Try again
+
+A finished puzzle (solved, or answer shown) offers **Try again**: an empty
+board, new hints and the clock at zero, and **Show answer** on every level,
+Insane included. A retry is practice: it never changes the puzzle's result,
+so a solve after a shown answer doesn't count as solved or build a streak, and
+the first try's hints are still counted. **Back to your result** leaves the
+retry. Retries stay on the device; they aren't synced.
+
+## Bookmarks
+
+The bookmark next to the clock keeps a puzzle on the **Bookmarks** page
+(`/bookmarks`, in the ☰ menu), with the ones not solved yet first. Give a
+bookmark a **name** there (up to 40 characters; it also shows above the puzzle) to tell puzzles apart that would
+otherwise all read "Random · Insane". Bookmarks and their names sync with an
+account like solves do.
+
 ## Archive and stats
 
 - **Archive** (`/archive`): a calendar of past daily puzzles at the chosen
@@ -99,7 +116,7 @@ what you'd already solved in that browser. Your chosen difficulty follows the
 account too. An unfinished puzzle stays on the
 device (autosaved) until you press **Save** under it; then other devices can
 continue it. Signing out removes your progress from the browser (it stays in
-the account).
+the account). **Sign out** is on the account page and in the ☰ menu.
 
 ## Difficulty
 

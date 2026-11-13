@@ -42,7 +42,7 @@ describe("records", () => {
     const v3 = { ...emptyProgress(key, "fp"), schemaVersion: 3, board: { edges: ["h:0:0"], marks: {} } } as Record<string, unknown>;
     delete v3.boardSavedAt;
     delete v3.boardDirty;
-    expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 7, emptyHintsUsed: 0, boardSavedAt: null, boardDirty: true });
+    expect(migrateProgress(v3)).toMatchObject({ schemaVersion: 8, emptyHintsUsed: 0, boardSavedAt: null, boardDirty: true });
     const empty = { ...v3, board: { edges: [], marks: {} } };
     expect(migrateProgress(empty)).toMatchObject({ boardDirty: false });
   });
@@ -51,19 +51,19 @@ describe("records", () => {
     const v4 = { ...emptyProgress(key, "fp"), schemaVersion: 4 } as Record<string, unknown>;
     delete v4.hintsUsed;
     delete v4.revealedAt;
-    expect(migrateProgress(v4)).toMatchObject({ schemaVersion: 7, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null });
+    expect(migrateProgress(v4)).toMatchObject({ schemaVersion: 8, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null });
   });
 
   it("upgrades v5 records: not timed yet", () => {
     const v5 = { ...emptyProgress(key, "fp"), schemaVersion: 5 } as Record<string, unknown>;
     delete v5.timeMs;
-    expect(migrateProgress(v5)).toMatchObject({ schemaVersion: 7, emptyHintsUsed: 0, timeMs: 0 });
+    expect(migrateProgress(v5)).toMatchObject({ schemaVersion: 8, emptyHintsUsed: 0, timeMs: 0 });
   });
 
   it("upgrades v6 records: no 'no track' hints used", () => {
     const v6 = { ...emptyProgress(key, "fp"), schemaVersion: 6, hintsUsed: 2 } as Record<string, unknown>;
     delete v6.emptyHintsUsed;
-    expect(migrateProgress(v6)).toMatchObject({ schemaVersion: 7, hintsUsed: 2, emptyHintsUsed: 0 });
+    expect(migrateProgress(v6)).toMatchObject({ schemaVersion: 8, hintsUsed: 2, emptyHintsUsed: 0 });
   });
 });
 
@@ -83,5 +83,67 @@ describe("solving time on the account", () => {
   it("keeps the longer time while unsolved", () => {
     expect(saveBoard(rec({ timeMs: 40_000 }), rec({ timeMs: 10_000 }), new Date()).timeMs).toBe(40_000);
     expect(saveBoard(rec({ timeMs: 10_000 }), rec({ timeMs: 40_000 }), new Date()).timeMs).toBe(40_000);
+  });
+});
+
+describe("bookmarks and replays (v8)", () => {
+  const base = emptyProgress(key, "fp");
+  const fav = (on: boolean, at: string) => ({ ...base, bookmark: { on, at } });
+
+  it("upgrades v7 records with no bookmark and no replay", () => {
+    const { bookmark, replay, ...v7 } = base;
+    expect(migrateProgress({ ...v7, schemaVersion: 7 })).toEqual({ ...base, bookmark: null, replay: null });
+  });
+
+  it("keeps the more recent bookmark change, on or off", () => {
+    const on = fav(true, "2026-11-10T09:00:00.000Z");
+    const off = fav(false, "2026-11-10T10:00:00.000Z");
+    expect(mergeSummary(on, off).bookmark).toEqual(off.bookmark);
+    expect(mergeSummary(off, on).bookmark).toEqual(off.bookmark);
+    expect(mergeSummary(null, on).bookmark).toEqual(on.bookmark);
+    expect(mergeSummary(on, base).bookmark).toEqual(on.bookmark);
+  });
+
+  it("never stores a replay on the account, and a replay never changes the first attempt", () => {
+    const first = {
+      ...solvedAt("2026-11-10T09:00:00.000Z"),
+      hintsUsed: 3,
+      timeMs: 60_000,
+    };
+    const replaying = {
+      ...first,
+      replay: {
+        startedAt: "2026-11-10T11:00:00.000Z",
+        board: { edges: [], marks: {} },
+        hintsUsed: 0,
+        emptyHintsUsed: 0,
+        solvedAt: "2026-11-10T11:05:00.000Z",
+        revealedAt: null,
+        timeMs: 5_000,
+      },
+    };
+    expect(isProgressRecord(replaying)).toBe(true);
+    const stored = mergeSummary(first, replaying);
+    expect(stored.replay).toBeNull();
+    expect(stored).toMatchObject({ solvedAt: "2026-11-10T09:00:00.000Z", hintsUsed: 3, timeMs: 60_000 });
+  });
+});
+
+describe("bookmark names", () => {
+  it("cleans names: trimmed, single spaces, at most 40 characters, empty = none", async () => {
+    const { cleanBookmarkName } = await import("./progress.ts");
+    expect(cleanBookmarkName("  the  spiral one ")).toBe("the spiral one");
+    expect(cleanBookmarkName("   ")).toBeUndefined();
+    expect(cleanBookmarkName("x".repeat(60))).toHaveLength(40);
+  });
+
+  it("a rename is a change: the newest name wins on the account", () => {
+    const base = emptyProgress(key, "fp");
+    const named = { ...base, bookmark: { on: true, at: "2026-11-10T09:00:00.000Z", name: "spiral" } };
+    const renamed = { ...base, bookmark: { on: true, at: "2026-11-10T10:00:00.000Z", name: "the loop" } };
+    expect(mergeSummary(named, renamed).bookmark?.name).toBe("the loop");
+    expect(mergeSummary(renamed, named).bookmark?.name).toBe("the loop");
+    expect(isProgressRecord(named)).toBe(true);
+    expect(isProgressRecord({ ...base, bookmark: { on: true, at: "x", name: 3 } })).toBe(false);
   });
 });

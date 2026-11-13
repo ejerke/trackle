@@ -83,7 +83,7 @@ export class SyncedProgressStore implements ProgressStore {
   /** The Save button: put this board in the account. Returns the record as stored there. */
   async saveToAccount(progress: PuzzleProgress): Promise<PuzzleProgress> {
     if (this.userId === null) throw new Error("Not signed in");
-    const stored = await this.remote.save(progress);
+    const stored = await this.remote.save({ ...progress, replay: null }); // a replay stays on this device
     const id = puzzleKeyId(stored.key);
     this.synced.set(id, summaryKey(stored));
     this.pending.delete(id); // the save carried the summary too

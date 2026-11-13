@@ -1,10 +1,22 @@
-import { canShowAnswer, edgeCells, hintsLeft, totalHints, validateTrack, type HintKind, type HintResponse, type PlayablePuzzle } from "@trackle/shared";
+import {
+  canShowAnswer,
+  edgeCells,
+  hintsLeft,
+  isBookmarked,
+  totalHints,
+  validateTrack,
+  type HintKind,
+  type HintResponse,
+  type PlayablePuzzle,
+  type PuzzleProgress,
+} from "@trackle/shared";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ApiRequestError } from "../api";
 import { applyHint, boardMasks, type Mode } from "../board/model";
 import { usePuzzleProgress } from "../hooks/usePuzzleProgress";
 import { useStreak } from "../hooks/useStreak";
 import type { ProgressStore, PuzzleKey } from "../storage/progressStore";
+import { knownSolution } from "../storage/replay";
 import { formatDuration } from "../time";
 import { Board, type Highlight } from "./Board";
 import { Clock } from "./Clock";
@@ -32,11 +44,17 @@ interface GameProps {
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+/** "solved with 2 hints in 3:10" / "answer shown": the first attempt's result, which is what counts. */
+function firstResult(record: PuzzleProgress): string {
+  if (!record.solvedAt) return "answer shown";
+  const how = totalHints(record) === 0 ? "solved on your own" : `solved with ${plural(totalHints(record), "hint")}`;
+  return record.timeMs > 0 ? `${how} in ${formatDuration(record.timeMs)}` : how;
+}
+
 export function Game({ puzzle, progressKey, store, check: checkWithServer, hint, answer: answerProp, afterSolve }: GameProps) {
-  // Some levels (Hard) never offer the answer.
-  const answer = canShowAnswer(puzzle.difficulty) ? answerProp : undefined;
   const {
     progress,
+    record,
     runningSince,
     updateBoard,
     recordCheck,
@@ -45,6 +63,9 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
     clearBoard,
     canSaveToAccount,
     saveToAccount,
+    playAgain,
+    stopReplay,
+    toggleBookmark,
   } = usePuzzleProgress(store, progressKey, puzzle);
   const [saving, setSaving] = useState<"idle" | "saving" | "error">("idle");
   const [mode, setMode] = useState<Mode>("track");
@@ -95,13 +116,14 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
   // phone feel faster, not to hide a short, one-off celebration.
   useEffect(() => {
     if (!progress) return;
-    const key = JSON.stringify(progressKey);
+    // Each attempt (the first, every replay) is its own: switching isn't a solve.
+    const key = JSON.stringify(progressKey) + (record?.replay?.startedAt ?? "");
     const solved = progress.solvedAt !== null;
     const before = lastSolved.current;
     lastSolved.current = { key, solved };
     if (before && before.key !== key) setTrainRun(0); // a new puzzle: no train left over
     if (before?.key === key && !before.solved && solved) setTrainRun((n) => n + 1);
-  }, [progress?.solvedAt, progressKey]);
+  }, [progress?.solvedAt, progressKey, record?.replay?.startedAt]);
 
   useEffect(() => {
     if (!confirmClear) return;
@@ -115,10 +137,48 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
     return () => window.clearTimeout(id);
   }, [highlight]);
 
-  if (!progress) return <p className="status">Loading…</p>;
+  if (!progress || !record) return <p className="status">Loading…</p>;
   const solved = progress.solvedAt !== null;
   const revealed = progress.revealedAt !== null;
   const finished = solved || revealed;
+  // "Try again" (ADR 0024): a replay of a finished puzzle, which never changes its result.
+  const replaying = record.replay !== null;
+  // The answer: from the server where the level offers it (never Hard). In a
+  // replay the record already holds it, so every level offers it.
+  const solution = replaying ? knownSolution(record, puzzle) : null;
+  const answer = replaying
+    ? solution
+      ? async () => solution
+      : undefined
+    : canShowAnswer(puzzle.difficulty)
+      ? answerProp
+      : undefined;
+
+  const onPlayAgain = () => {
+    lastChecked.current = null; // the same track drawn again gets checked again
+    setCheck("idle");
+    setHelpMessage(null);
+    setHighlight(null);
+    setConfirmClear(false);
+    playAgain();
+  };
+  const onStopReplay = () => {
+    setHelpMessage(null);
+    setHighlight(null);
+    stopReplay();
+  };
+  const bookmark = isBookmarked(record);
+  const bookmarkName = bookmark ? record.bookmark?.name : undefined;
+  const tryAgain = (
+    <button type="button" className="button" onClick={onPlayAgain}>
+      Try again
+    </button>
+  );
+  const backToResult = (
+    <button type="button" className="link-button" onClick={onStopReplay}>
+      Back to your result
+    </button>
+  );
 
   const retryCheck = () => void runCheck(boardMasks(puzzle, progress.board));
 
@@ -199,7 +259,36 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
         {!revealed && !(solved && progress.timeMs === 0) && (
           <Clock timeMs={progress.timeMs} runningSince={runningSince} />
         )}
+        <button
+          type="button"
+          className={`bookmark-button${bookmark ? " bookmark-button--on" : ""}`}
+          onClick={toggleBookmark}
+          aria-pressed={bookmark}
+          aria-label={bookmark ? "Remove bookmark" : "Bookmark this puzzle"}
+          title={
+            bookmark
+              ? `Bookmarked${bookmarkName ? ` as “${bookmarkName}”` : ""}. Tap to remove.`
+              : "Bookmark this puzzle, to find it again under Bookmarks"
+          }
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M5.5 3h9v14l-4.5-3.6L5.5 17z"
+              fill={bookmark ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </div>
+      {bookmarkName && (
+        <p className="bookmark-name">
+          <a href="/bookmarks" title="Your bookmarks: rename it there">
+            {bookmarkName}
+          </a>
+        </p>
+      )}
 
       <Board
         layout={puzzle}
@@ -220,7 +309,39 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
         </p>
       )}
 
-      {solved ? (
+      {replaying && solved ? (
+        <div className="result result--solved" role="status">
+          <p className="result__title">Track complete again</p>
+          <p className="result__detail">
+            {totalHints(progress) === 0 ? "Solved on your own" : `Solved with ${plural(totalHints(progress), "hint")}`}
+            {progress.timeMs > 0 && (
+              <>
+                {" "}
+                in <b className="result__time">{formatDuration(progress.timeMs)}</b>
+              </>
+            )}
+            . A retry doesn't change your result: your first try counts ({firstResult(record)}).
+          </p>
+          <div className="result__actions">
+            {tryAgain}
+            {afterSolve}
+          </div>
+          <button type="button" className="link-button" onClick={() => setTrainRun((n) => n + 1)}>
+            Run the train
+          </button>{" "}
+          {backToResult}
+        </div>
+      ) : replaying && revealed ? (
+        <div className="result result--revealed" role="status">
+          <p className="result__title">Answer shown</p>
+          <p className="result__detail">This try is over. Your first try still counts ({firstResult(record)}).</p>
+          <div className="result__actions">
+            {tryAgain}
+            {afterSolve}
+          </div>
+          {backToResult}
+        </div>
+      ) : solved ? (
         <div className="result result--solved" role="status">
           <p className="result__title">{totalHints(progress) === 0 ? "Track complete!" : "Track complete"}</p>
           <p className="result__detail">
@@ -233,7 +354,10 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
             )}
             .
           </p>
-          {afterSolve && <div className="result__actions">{afterSolve}</div>}
+          <div className="result__actions">
+            {afterSolve}
+            {tryAgain}
+          </div>
           <button type="button" className="link-button" onClick={() => setTrainRun((n) => n + 1)}>
             Run the train
           </button>
@@ -242,10 +366,19 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
         <div className="result result--revealed" role="status">
           <p className="result__title">Answer shown</p>
           <p className="result__detail">This is the solution. It doesn't count as solved.</p>
-          {afterSolve && <div className="result__actions">{afterSolve}</div>}
+          <div className="result__actions">
+            {afterSolve}
+            {tryAgain}
+          </div>
         </div>
       ) : (
         <>
+          {replaying && (
+            <p className="notice replay-note">
+              Trying again: new hints, and the answer if you need it. This doesn't change your result; your first
+              try counts ({firstResult(record)}). {backToResult}
+            </p>
+          )}
           <div className="actions">
             <button type="button" className="button" onClick={onClear} disabled={check === "checking"}>
               {confirmClear ? "Really clear?" : "Clear"}
@@ -326,10 +459,11 @@ export function Game({ puzzle, progressKey, store, check: checkWithServer, hint,
           <div className="confirm__body">
             <h2 id="confirm-answer-title">Show the answer?</h2>
             <p>
-              {progressKey.kind === "daily"
-                ? "This puzzle won't count as solved, and it won't count toward your streak."
-                : "This puzzle won't count as solved."}{" "}
-              You can't undo this.
+              {replaying
+                ? `This ends this try. Your first try still counts (${firstResult(record)}).`
+                : progressKey.kind === "daily"
+                  ? "This puzzle won't count as solved, and it won't count toward your streak. You can't undo this."
+                  : "This puzzle won't count as solved. You can't undo this."}
             </p>
             <div className="confirm__buttons">
               <button type="button" className="button" onClick={() => answerDialog.current?.close()} autoFocus>

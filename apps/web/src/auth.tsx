@@ -1,5 +1,6 @@
 import type { AccountUser } from "@trackle/shared";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { fetchMe, logout } from "./api";
 import { syncDifficultyWithAccount } from "./storage/preferences";
 import type { SyncedProgressStore } from "./storage/syncedProgressStore";
@@ -26,6 +27,7 @@ export function AuthProvider({ store, children }: { store: SyncedProgressStore; 
   // undefined until we know who's signed in *and* their progress is synced, so
   // no page ever renders with stale progress.
   const [user, setUser] = useState<AccountUser | null | undefined>(undefined);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -39,6 +41,7 @@ export function AuthProvider({ store, children }: { store: SyncedProgressStore; 
   }, [store]);
 
   if (user === undefined) return <p className="status">Loading…</p>;
+  if (signingOut) return <p className="status">Signing out…</p>;
 
   const state: AuthState = {
     user,
@@ -48,10 +51,17 @@ export function AuthProvider({ store, children }: { store: SyncedProgressStore; 
       setUser(u);
     },
     async signOut() {
+      // Take the page down first: an open puzzle saves itself as it unmounts,
+      // and that save must land *before* this browser's copy is cleared, or
+      // the account's progress would be left behind as anonymous progress
+      // (and imported into whoever signs in next).
+      flushSync(() => setSigningOut(true));
+      await new Promise((resolve) => setTimeout(resolve, 0));
       await store.flush().catch(() => {});
       await logout().catch(() => {});
       await store.signOut();
       setUser(null);
+      setSigningOut(false);
     },
     accountDeleted() {
       store.forgetAccount();

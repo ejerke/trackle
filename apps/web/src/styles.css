@@ -1236,3 +1236,123 @@ button,
 .result--revealed .result__title {
   color: var(--muted);
 }
+
+/* ---- bookmarks ---- */
+.bookmark-button {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.bookmark-button svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.bookmark-button:hover,
+.bookmark-button--on {
+  color: var(--accent);
+}
+.bookmarks {
+  margin-top: 1rem;
+}
+.bookmarks h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+.bookmarks ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+.bookmarks__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.bookmarks__link {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  color: var(--text);
+  text-decoration: none;
+}
+.bookmarks__link:hover .bookmarks__title {
+  color: var(--accent);
+}
+.bookmarks__title {
+  font-weight: 700;
+}
+.bookmarks__status,
+.bookmarks__empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.bookmarks__empty {
+  margin: 0;
+}
+
+/* "Try again": the note above a replay */
+.replay-note .link-button {
+  font-size: inherit;
+  padding: 0;
+}
+
+/* A button in the site menu that looks like its links (Sign out). */
+.site-menu .site-menu__item {
+  padding: 0.6rem 0.8rem;
+  border: 0;
+  border-radius: calc(var(--radius) - 4px);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.site-menu .site-menu__item:hover {
+  background: var(--bg);
+  color: var(--accent);
+}
+.bookmarks__rename {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.bookmarks__rename input {
+  flex: 1 1 10rem;
+  min-width: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+/* The bookmark's name, under the play bar. */
+.bookmark-name {
+  margin: -0.15rem 0 0.4rem;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.bookmark-name a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.bookmark-name a:hover {
+  text-decoration: underline;
+}

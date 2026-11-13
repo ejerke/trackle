@@ -1,3 +1,4 @@
+import { BOOKMARK_NAME_MAX } from "@trackle/shared";
 import type {
   AccountUser,
   ApiError,
@@ -31,10 +32,12 @@ const recordSchema = {
     "emptyHintsUsed",
     "revealedAt",
     "timeMs",
+    "bookmark",
+    "replay",
   ],
   additionalProperties: false,
   properties: {
-    schemaVersion: { const: 7 },
+    schemaVersion: { const: 8 },
     key: {
       type: "object",
       required: ["kind", "difficulty"],
@@ -74,6 +77,14 @@ const recordSchema = {
     revealedAt: { anyOf: [timestamp, { type: "null" }] },
     // Up to a year of active play on one puzzle.
     timeMs: { type: "integer", minimum: 0, maximum: 31_536_000_000 },
+    bookmark: {
+      anyOf: [
+        { type: "null" },
+        { type: "object", required: ["on", "at"], additionalProperties: false, properties: { on: { type: "boolean" }, at: timestamp, name: { type: "string", maxLength: BOOKMARK_NAME_MAX } } },
+      ],
+    },
+    // "Try again" stays on the device (ADR 0024): the account never takes one.
+    replay: { type: "null" },
   },
 } as const;
 

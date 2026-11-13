@@ -7,6 +7,7 @@ import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES, isIsoDate, isRandomSeed } from "@
  *   /random/<difficulty>/<seed> a random puzzle; the URL is the puzzle, so it can be shared
  *   /archive                   past daily puzzles (?difficulty=N)
  *   /stats                     personal statistics (from this browser's progress)
+ *   /bookmarks                 puzzles the player bookmarked
  *   /account                   sign in / create account / manage account
  *   /lab/<difficulty>/<seed>   development-only puzzle lab
  */
@@ -16,6 +17,7 @@ export type Route =
   | { kind: "random"; difficulty: number; seed: string }
   | { kind: "archive"; difficulty: number | null }
   | { kind: "stats" }
+  | { kind: "bookmarks" }
   | { kind: "account" }
   | { kind: "lab"; difficulty: number; seed: string }
   | { kind: "unknown" };
@@ -36,6 +38,7 @@ export function parseRoute(pathname: string, search: string): Route {
   }
 
   if (path === "/stats") return { kind: "stats" };
+  if (path === "/bookmarks") return { kind: "bookmarks" };
   if (path === "/account") return { kind: "account" };
 
   const param = new URLSearchParams(search).get("difficulty");

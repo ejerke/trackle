@@ -93,3 +93,17 @@ describe("mergeOnDevice: time", () => {
     expect(merged.push).toBe(false);
   });
 });
+
+describe("mergeOnDevice: bookmarks", () => {
+  const on = { on: true, at: "2026-11-10T09:00:00.000Z" };
+  const off = { on: false, at: "2026-11-10T10:00:00.000Z" };
+  it("keeps the newer change and uploads it when it's this device's", () => {
+    expect(mergeOnDevice(rec({ bookmark: on }), rec({ bookmark: off }))).toMatchObject({ local: { bookmark: off }, push: false });
+    expect(mergeOnDevice(rec({ bookmark: off }), rec({ bookmark: on }))).toMatchObject({ local: { bookmark: off }, push: true });
+    expect(mergeOnDevice(rec({ bookmark: on }), rec({}))).toMatchObject({ local: { bookmark: on }, push: true });
+    expect(mergeOnDevice(rec({ bookmark: on }), rec({ bookmark: { ...on } })).push).toBe(false);
+  });
+  it("a bookmark change is an account-level change", () => {
+    expect(summaryKey(rec({}))).not.toBe(summaryKey(rec({ bookmark: on })));
+  });
+});

@@ -77,6 +77,51 @@ describe("SyncedProgressStore", () => {
     expect((await store.get(day("2026-11-10")))?.board.edges).toEqual(["h:0:0", "h:0:1"]);
   });
 
+  it("creating an account keeps the streak, help and bookmarks from playing signed out", async () => {
+    const { computeStats } = await import("../stats");
+    const days = ["2026-11-08", "2026-11-09", "2026-11-10"];
+    for (const d of days) await store.save(solved(d));
+    await store.save(rec("2026-11-07", { revealedAt: "2026-11-07T10:00:00.000Z", hintsUsed: 4 }));
+    await store.save(rec("2026-11-06", { bookmark: { on: true, at: "2026-11-06T10:00:00.000Z" } }));
+    const before = computeStats(await store.list(), "2026-11-10");
+    expect(before.streak.current).toBe(3);
+
+    await store.signIn(7); // a brand-new account
+    expect(server.records.size).toBe(5);
+    expect(server.records.get("2026-11-07:1")).toMatchObject({ revealedAt: "2026-11-07T10:00:00.000Z", hintsUsed: 4 });
+    expect(server.records.get("2026-11-06:1")?.bookmark?.on).toBe(true);
+    // Another device signing in to the account sees the same streak.
+    const otherStorage = new MemoryStorage();
+    const laptop = new SyncedProgressStore(new LocalProgressStore(otherStorage), server, otherStorage);
+    await laptop.signIn(7);
+    expect(computeStats(await laptop.list(), "2026-11-10")).toEqual(before);
+  });
+
+  it("removing a bookmark on one device removes it on the others", async () => {
+    await store.signIn(7);
+    await store.save(rec("2026-11-10", { bookmark: { on: true, at: "2026-11-10T09:00:00.000Z" } }));
+    await store.flush();
+    const otherStorage = new MemoryStorage();
+    const laptop = new SyncedProgressStore(new LocalProgressStore(otherStorage), server, otherStorage);
+    await laptop.signIn(7);
+    const there = (await laptop.get(day("2026-11-10")))!;
+    await laptop.save({ ...there, bookmark: { on: false, at: "2026-11-10T10:00:00.000Z" } });
+    await laptop.flush();
+    await store.signIn(7); // next page load on the first device, which still has it on
+    expect((await store.get(day("2026-11-10")))?.bookmark?.on).toBe(false);
+  });
+
+  it("a replay stays on this device", async () => {
+    await store.signIn(7);
+    await store.save(solved("2026-11-10"));
+    const replay = { startedAt: "2026-11-10T11:00:00.000Z", board: { edges: ["h:1:1"], marks: {} }, hintsUsed: 1, emptyHintsUsed: 0, solvedAt: null, revealedAt: null, timeMs: 3000 };
+    await store.save({ ...(await store.get(day("2026-11-10")))!, replay });
+    await store.flush();
+    expect(server.records.get("2026-11-10:1")?.replay).toBeNull();
+    await store.signIn(7);
+    expect((await store.get(day("2026-11-10")))?.replay).toEqual(replay);
+  });
+
   it("board edits alone never contact the server; solves sync straight away", async () => {
     vi.useFakeTimers();
     await store.signIn(7);

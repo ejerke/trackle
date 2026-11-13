@@ -57,7 +57,9 @@ Defined in [0003_user_progress.sql](../apps/server/migrations/0003_user_progress
 `record_json` can hold older record versions (rows written by older code);
 the server upgrades them with `migrateProgress()` whenever it reads one.
 0006 additionally rewrote v5 rows to v6 (`timeMs: 0`) in place
-([ADR 0017](adr/0017-timed-solves.md)).
+([ADR 0017](adr/0017-timed-solves.md)), and 0007 v7 rows to v8
+(`bookmark: null, replay: null`; [ADR 0024](adr/0024-bookmarks-and-try-again.md)).
+The account never stores a replay: `replay` is always null here.
 
 ### Expected future tables (not created yet)
 

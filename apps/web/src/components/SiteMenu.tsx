@@ -6,7 +6,7 @@ import { useAuth } from "../auth";
  * anywhere else, with no state or listeners of our own.
  */
 export function SiteMenu() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   return (
     <>
       <button type="button" className="icon-button" popoverTarget="site-menu" aria-label="Menu" title="Menu">
@@ -18,9 +18,22 @@ export function SiteMenu() {
         <a href="/">Today</a>
         <a href="/archive">Archive</a>
         <a href="/stats">Stats</a>
+        <a href="/bookmarks">Bookmarks</a>
         <a href="/account" className="site-menu__account">
           {user ? user.username : "Sign in"}
         </a>
+        {user && (
+          <button
+            type="button"
+            className="site-menu__item"
+            popoverTarget="site-menu"
+            popoverTargetAction="hide"
+            onClick={() => void signOut()}
+            title="Your progress stays in your account; this browser forgets it"
+          >
+            Sign out
+          </button>
+        )}
       </nav>
     </>
   );

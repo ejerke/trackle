@@ -130,7 +130,15 @@ describe("progress sync API", () => {
     expect(db.prepare("SELECT COUNT(*) FROM user_progress").pluck().get()).toBe(0);
   });
 
-  it("rejects malformed or oversized records", async () => {
+  it("keeps a named bookmark", async () => {
+    await setup();
+    const token = await signIn("alice");
+    const bookmark = { on: true, at: "2026-11-10T09:00:00.000Z", name: "the spiral one" };
+    expect((await sync(token, [drawn([], { bookmark })])).statusCode).toBe(200);
+    expect((await list(token))[0]?.bookmark).toEqual(bookmark);
+  });
+
+    it("rejects malformed or oversized records", async () => {
     await setup();
     const token = await signIn("alice");
     const ok = drawn([]);
@@ -141,6 +149,8 @@ describe("progress sync API", () => {
       { ...ok, updatedAt: "yesterday" },
       { ...ok, board: { edges: Array(801).fill("h:0:0"), marks: {} } },
       { ...ok, schemaVersion: 3 }, // old format: clients upgrade before sending
+      { ...ok, bookmark: { on: true, at: "2026-11-10T09:00:00.000Z", name: "x".repeat(41) } },
+      { ...ok, replay: { startedAt: "2026-11-10T09:00:00.000Z" } }, // replays never reach the account
     ];
     for (const r of bad) {
       expect((await sync(token, [r as PuzzleProgress])).statusCode, JSON.stringify(r).slice(0, 80)).toBe(400);
@@ -164,7 +174,7 @@ describe("records stored by older code", () => {
       "INSERT INTO user_progress (user_id, key_id, record_json, updated_at) SELECT id, '2026-11-10:0', ?, ? FROM users",
     ).run(JSON.stringify(v4), v4.updatedAt);
 
-    expect((await list(token))[0]).toMatchObject({ schemaVersion: 7, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null, timeMs: 0 });
+    expect((await list(token))[0]).toMatchObject({ schemaVersion: 8, emptyHintsUsed: 0, hintsUsed: 0, revealedAt: null, timeMs: 0 });
     const res = await sync(token, [drawn([], { hintsUsed: 1, timeMs: 5_000 })]);
     expect(res.statusCode).toBe(200);
     expect((await list(token))[0]).toMatchObject({ hintsUsed: 1, timeMs: 5_000 });

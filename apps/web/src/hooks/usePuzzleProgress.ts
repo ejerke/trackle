@@ -1,7 +1,8 @@
-import { edgesFromMasks, fixedEdges, puzzleFingerprint, type HintKind, type PuzzleLayout } from "@trackle/shared";
+import { edgesFromMasks, fixedEdges, isBookmarked, puzzleFingerprint, type HintKind, type PuzzleLayout } from "@trackle/shared";
 import { clearedBoard } from "../board/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { reconcileProgress } from "../storage/reconcile";
+import { canReplay, currentAttempt, startReplay, withAttempt } from "../storage/replay";
 import { streakChanged } from "./useStreak";
 import {
   puzzleKeyId,
@@ -14,8 +15,13 @@ import {
 const SAVE_DELAY_MS = 300;
 
 export interface PuzzleProgressApi {
-  /** null while loading from the store. */
+  /**
+   * The attempt on screen: the first one, or a replay ("Try again"). null
+   * while loading from the store. Everything below acts on this attempt.
+   */
   progress: PuzzleProgress | null;
+  /** The whole record: the first attempt (what stats count), the bookmark, the replay. */
+  record: PuzzleProgress | null;
   /** Apply an edit. Ignored once solved. `fn` may return the same board for "no change". */
   updateBoard(fn: (board: BoardState) => BoardState): void;
   /**
@@ -34,6 +40,12 @@ export interface PuzzleProgressApi {
   canSaveToAccount: boolean;
   /** Save the current board to the account; marks it saved unless edited meanwhile. */
   saveToAccount(): Promise<void>;
+  /** "Try again" on a finished puzzle: a new replay with an empty board and fresh hints. */
+  playAgain(): void;
+  /** Leave the replay and show the first attempt's result again. */
+  stopReplay(): void;
+  /** Add or remove the bookmark. */
+  toggleBookmark(): void;
 }
 
 const finished = (p: PuzzleProgress) => p.solvedAt !== null || p.revealedAt !== null;
@@ -47,6 +59,7 @@ const finished = (p: PuzzleProgress) => p.solvedAt !== null || p.revealedAt !== 
  * and stops at the solve. Time is folded into progress.timeMs at every save.
  */
 export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: PuzzleLayout): PuzzleProgressApi {
+  // The whole record. Edits act on currentAttempt(record) and go back via withAttempt().
   const [progress, setProgress] = useState<PuzzleProgress | null>(null);
   // The latest value, so several edits in one event chain correctly.
   const latest = useRef<PuzzleProgress | null>(null);
@@ -80,7 +93,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
   /** Start the clock if the puzzle is in play and the page is visible. */
   const startClock = useCallback(() => {
     const current = latest.current;
-    if (since.current !== null || !current || finished(current) || document.visibilityState === "hidden") return;
+    if (since.current !== null || !current || finished(currentAttempt(current)) || document.visibilityState === "hidden") return;
     setClock(performance.now());
   }, [setClock]);
 
@@ -88,7 +101,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
     window.clearTimeout(timer.current);
     // Bank the running time, so a closed tab doesn't lose it.
     if (since.current !== null && latest.current) {
-      latest.current = withTime(latest.current);
+      latest.current = withAttempt(latest.current, withTime(currentAttempt(latest.current)));
       pending.current = latest.current;
       setProgress(latest.current);
     }
@@ -131,7 +144,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
       latest.current = loaded;
       setProgress(loaded);
       // Coming back to a puzzle already under way: the clock carries on.
-      if (loaded.timeMs > 0) startClock();
+      if (currentAttempt(loaded).timeMs > 0) startClock();
     });
     return () => {
       cancelled = true;
@@ -146,7 +159,7 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
       if (document.visibilityState === "hidden") {
         flush();
         setClock(null);
-      } else if ((latest.current?.timeMs ?? 0) > 0) {
+      } else if (latest.current && currentAttempt(latest.current).timeMs > 0) {
         startClock();
       }
     };
@@ -159,22 +172,33 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
     };
   }, [flush, setClock, startClock]);
 
+  /** The attempt on screen, if it is still being played. */
+  const playing = (): PuzzleProgress | null => {
+    const current = latest.current && currentAttempt(latest.current);
+    return current && !finished(current) ? current : null;
+  };
+  /** Store the edited attempt on screen. */
+  const commitAttempt = useCallback(
+    (attempt: PuzzleProgress, immediate: boolean) => commit(withAttempt(latest.current!, attempt), immediate),
+    [commit],
+  );
+
   const updateBoard = useCallback(
     (fn: (board: BoardState) => BoardState) => {
-      const current = latest.current;
-      if (!current || current.solvedAt || current.revealedAt) return;
+      const current = playing();
+      if (!current) return;
       const board = fn(current.board);
       if (board === current.board) return;
       startClock(); // the first move starts the clock
-      commit(withTime({ ...current, board, boardDirty: true, updatedAt: new Date().toISOString() }), false);
+      commitAttempt(withTime({ ...current, board, boardDirty: true, updatedAt: new Date().toISOString() }), false);
     },
-    [commit, startClock, withTime],
+    [commitAttempt, startClock, withTime],
   );
 
   const recordCheck = useCallback(
     (correct: boolean, cells: number[][]) => {
-      const current = latest.current;
-      if (!current || current.solvedAt || current.revealedAt) return;
+      const current = playing();
+      if (!current) return;
       const now = new Date().toISOString();
       const next = withTime({
         ...current,
@@ -184,38 +208,59 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
         solvedCells: correct ? cells : null,
       });
       if (correct) setClock(null);
-      commit(next, true);
+      commitAttempt(next, true);
     },
-    [commit, setClock, withTime],
+    [commitAttempt, setClock, withTime],
   );
 
   const recordHint = useCallback(
     (kind: HintKind, apply: (board: BoardState) => BoardState) => {
-      const current = latest.current;
-      if (!current || current.solvedAt || current.revealedAt) return;
+      const current = playing();
+      if (!current) return;
       startClock(); // asking for a hint counts as starting
       const board = apply(current.board);
       const count = kind === "track" ? { hintsUsed: current.hintsUsed + 1 } : { emptyHintsUsed: current.emptyHintsUsed + 1 };
       const changed = board === current.board ? {} : { board, boardDirty: true };
-      commit(withTime({ ...current, ...count, ...changed, updatedAt: new Date().toISOString() }), true);
+      commitAttempt(withTime({ ...current, ...count, ...changed, updatedAt: new Date().toISOString() }), true);
     },
-    [commit, startClock, withTime],
+    [commitAttempt, startClock, withTime],
   );
 
   const revealAnswer = useCallback(
     (solution: number[][]) => {
-      const current = latest.current;
-      if (!current || current.solvedAt || current.revealedAt) return;
+      const current = playing();
+      if (!current) return;
       const layout = layoutRef.current;
       const fixed = fixedEdges(layout);
       const edges = edgesFromMasks(layout.width, layout.height, solution).filter((e) => !fixed.has(e));
       const now = new Date().toISOString();
       const next = withTime({ ...current, board: { edges, marks: {} }, revealedAt: now, updatedAt: now, boardDirty: false });
       setClock(null);
-      commit(next, true);
+      commitAttempt(next, true);
     },
-    [commit, setClock, withTime],
+    [commitAttempt, setClock, withTime],
   );
+
+  const playAgain = useCallback(() => {
+    const current = latest.current;
+    if (!current || !canReplay(current)) return;
+    setClock(null); // runs again from the first move
+    commit(startReplay(current), true);
+  }, [commit, setClock]);
+
+  const stopReplay = useCallback(() => {
+    const current = latest.current;
+    if (!current?.replay) return;
+    setClock(null);
+    commit({ ...current, replay: null }, true);
+  }, [commit, setClock]);
+
+  const toggleBookmark = useCallback(() => {
+    const current = latest.current;
+    if (!current) return;
+    // A name survives switching the bookmark off and on again.
+    commit({ ...current, bookmark: { ...current.bookmark, on: !isBookmarked(current), at: new Date().toISOString() } }, true);
+  }, [commit]);
 
   const clearBoard = useCallback(() => updateBoard(clearedBoard), [updateBoard]);
 
@@ -231,14 +276,19 @@ export function usePuzzleProgress(store: ProgressStore, key: PuzzleKey, layout: 
   }, [store, flush, commit]);
 
   return {
-    progress,
+    progress: progress && currentAttempt(progress),
+    record: progress,
     runningSince,
     updateBoard,
     recordCheck,
     recordHint,
     revealAnswer,
     clearBoard,
-    canSaveToAccount: Boolean(store.signedIn && store.saveToAccount),
+    // A replay never goes to the account.
+    canSaveToAccount: Boolean(store.signedIn && store.saveToAccount && !progress?.replay),
     saveToAccount,
+    playAgain,
+    stopReplay,
+    toggleBookmark,
   };
 }

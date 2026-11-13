@@ -135,6 +135,30 @@ describe("hint limits", () => {
     expect(db.prepare("SELECT hints_used FROM user_progress WHERE key_id = '2026-11-10:2'").pluck().get()).toBe(limit + 1);
   });
 
+  it("gives new hints on a finished puzzle (Try again) without counting them", async () => {
+    await setup();
+    const token = await signUp();
+    await app.inject("/api/puzzles/today?difficulty=2");
+    const { puzzle: hard, solution } = new PuzzleRepository(db).find("2026-11-10", 2)!;
+    const cells = emptyGrid(hard.width, hard.height);
+    for (const ep of hard.endpoints) cells[ep.row]![ep.col]! |= ep.dir;
+    for (const h of hard.hints) cells[h.row]![h.col] = h.piece;
+    const ask = () => call("/api/puzzles/2026-11-10/hint?difficulty=2", { cells }, token);
+    const limit = LEVELS[2]!.hintLimit!;
+    for (let i = 0; i < limit; i++) await ask();
+    expect((await ask()).statusCode).toBe(403);
+
+    // Solve it (with all those hints), then play it again.
+    const key = { kind: "daily", date: "2026-11-10", difficulty: 2 } as const;
+    const solved = { ...emptyProgress(key, "fp"), hintsUsed: limit, checks: 1, solvedAt: "2026-11-10T12:00:00.000Z", solvedCells: solution };
+    const sync = await app.inject({ method: "PUT", url: "/api/me/progress", payload: { records: [solved] }, headers: { cookie: `${SESSION_COOKIE}=${token}` } });
+    expect(sync.json().records[0].solvedAt).not.toBeNull();
+    expect((await ask()).statusCode).toBe(200);
+    // The account still says: solved with exactly `limit` hints.
+    const record = JSON.parse(db.prepare("SELECT record_json FROM user_progress WHERE key_id = '2026-11-10:2'").pluck().get() as string);
+    expect(record).toMatchObject({ hintsUsed: limit, solvedAt: "2026-11-10T12:00:00.000Z", replay: null });
+  });
+
   it("gives no hints at all on Super-duper hard", async () => {
     await setup();
     const token = await signUp();

@@ -31,7 +31,7 @@ type PuzzleKey =
   | { kind: "random"; seed: string; difficulty: number }; // "k3j9x2ab", 0
 
 interface PuzzleProgress {
-  schemaVersion: 7;
+  schemaVersion: 8;
   key: PuzzleKey;
   puzzleFingerprint: string | null; // which puzzle the board was drawn on
   board: {
@@ -50,6 +50,8 @@ interface PuzzleProgress {
   emptyHintsUsed: number;      // "no track" hints; only ever grows
   revealedAt: string | null;   // answer shown: locked, never counts as solved
   timeMs: number;              // active solving time; frozen at the solve, 0 = not timed
+  bookmark: { on: boolean; at: string; name?: string } | null; // synced; newer change (incl. rename) wins
+  replay: Replay | null;       // "Try again": its own board/hints/answer/time; device-local
 }
 ```
 
@@ -76,7 +78,8 @@ are not stored; they come from the puzzle.
 | 4 | adds `boardSavedAt`, `boardDirty` (Save button) | → 5: `hintsUsed: 0`, `revealedAt: null` |
 | 5 | adds `hintsUsed`, `revealedAt` (hints and answers) | → 6: `timeMs: 0` (not timed) |
 | 6 | adds `timeMs` (timed solves) | → 7: `emptyHintsUsed: 0` |
-| 7 | adds `emptyHintsUsed`, `board.locked` (two kinds of hint) | (current) |
+| 7 | adds `emptyHintsUsed`, `board.locked` (two kinds of hint) | → 8: `bookmark: null`, `replay: null` |
+| 8 | adds `bookmark`, `replay` ([ADR 0024](adr/0024-bookmarks-and-try-again.md)) | (current) |
 
 `migrateProgress()` walks old records up one version at a time, so the
 storage key layout (`v1`) did not need to change. Tested in
@@ -156,7 +159,11 @@ board locally, so reloads never lose work.
   this browser with the account: the better solve wins (`betterSolve`); a board
   saved elsewhere replaces the local one only if the local one has no unsaved
   edits. No device clocks are compared.
-- **Sign-in** imports this browser's anonymous solves and checks.
+- **Sign-in** (or creating an account) imports this browser's anonymous
+  solves, checks, hints, shown answers and bookmarks, so a streak built signed
+  out carries over.
+- **Bookmarks** sync (the newer change wins); a **replay** ("Try again")
+  never leaves the device ([ADR 0024](adr/0024-bookmarks-and-try-again.md)).
 - **Sign-out** removes the account's progress from the browser.
   `trackle:sync:owner` records whose progress the browser holds, so a
   different account never inherits or uploads it.

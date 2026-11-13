@@ -1,4 +1,4 @@
-import { EMPTY_BOARD, betterSolve, mergedTime, type PuzzleProgress } from "@trackle/shared";
+import { EMPTY_BOARD, betterSolve, mergedTime, newerBookmark, type PuzzleProgress } from "@trackle/shared";
 
 /**
  * Device-side merge rules for progress sync (ADR 0013). The server keeps the
@@ -8,15 +8,16 @@ import { EMPTY_BOARD, betterSolve, mergedTime, type PuzzleProgress } from "@trac
 
 /**
  * The account-level part of a record, as sent by automatic sync: an
- * unfinished board is left out (it only reaches the account via Save).
+ * unfinished board is left out (it only reaches the account via Save), and so
+ * is a replay ("Try again"), which never leaves this device.
  */
 export function toSummary(p: PuzzleProgress): PuzzleProgress {
-  return p.solvedAt || p.revealedAt ? p : { ...p, board: EMPTY_BOARD };
+  return { ...p, board: p.solvedAt || p.revealedAt ? p.board : EMPTY_BOARD, replay: null };
 }
 
 /** Changes when something the account cares about changes (not on board edits). */
 export function summaryKey(p: PuzzleProgress): string {
-  return JSON.stringify([p.puzzleFingerprint, p.checks, p.solvedAt, p.hintsUsed, p.emptyHintsUsed, p.revealedAt]);
+  return JSON.stringify([p.puzzleFingerprint, p.checks, p.solvedAt, p.hintsUsed, p.emptyHintsUsed, p.revealedAt, p.bookmark]);
 }
 
 export interface DeviceMerge {
@@ -34,6 +35,8 @@ export interface DeviceMerge {
  *  - Help (ADR 0014) only ever adds up: the higher hint count and an answer
  *    shown on either side win; a shown answer brings the solution board.
  *  - Time: the solve's time once solved, else the longer of the two.
+ *  - Bookmark: the more recent change wins.
+ *  - A replay ("Try again") is this device's own; the account never has one.
  *  - Boards: a board saved from another device replaces this device's board
  *    only if this device has no unsaved edits. Unsaved work is never
  *    overwritten, and no device clocks are compared.
@@ -49,8 +52,13 @@ export function mergeOnDevice(local: PuzzleProgress | null, remote: PuzzleProgre
     hintsUsed: Math.max(local.hintsUsed, remote.hintsUsed),
     emptyHintsUsed: Math.max(local.emptyHintsUsed, remote.emptyHintsUsed),
   };
+  const bookmark = newerBookmark(remote.bookmark, local.bookmark);
+  out.bookmark = bookmark;
   let push =
-    local.checks > remote.checks || local.hintsUsed > remote.hintsUsed || local.emptyHintsUsed > remote.emptyHintsUsed;
+    local.checks > remote.checks ||
+    local.hintsUsed > remote.hintsUsed ||
+    local.emptyHintsUsed > remote.emptyHintsUsed ||
+    (bookmark !== null && bookmark === local.bookmark && bookmark !== remote.bookmark);
 
   if (remote.revealedAt && !local.revealedAt && !local.solvedAt) {
     out = { ...out, revealedAt: remote.revealedAt, board: remote.board, boardSavedAt: remote.boardSavedAt, boardDirty: false };

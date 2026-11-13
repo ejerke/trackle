@@ -1,4 +1,4 @@
-import { LEVEL_ORDER, addDays, solvedUnaided } from "@trackle/shared";
+import { LEVEL_ORDER, addDays, played, solvedUnaided } from "@trackle/shared";
 import type { PuzzleProgress } from "./storage/progressStore";
 
 /**
@@ -67,7 +67,8 @@ export function streaks(days: ReadonlySet<string>, today: string): { current: nu
 
 export function computeStats(records: readonly PuzzleProgress[], today: string): PlayerStats {
   const daily = LEVEL_ORDER.map((difficulty): DifficultyStats => {
-    const mine = records.filter((p) => p.key.kind === "daily" && p.key.difficulty === difficulty);
+    // Records that only hold a bookmark weren't played.
+    const mine = records.filter((p) => p.key.kind === "daily" && p.key.difficulty === difficulty && played(p));
     const solved = mine.filter((p) => p.solvedAt !== null);
     // Times only count without help, and solves from before timing (timeMs 0) aren't timed.
     const times = solved.filter((p) => solvedUnaided(p) && p.timeMs > 0).map((p) => p.timeMs);
@@ -83,6 +84,6 @@ export function computeStats(records: readonly PuzzleProgress[], today: string):
   });
   const onTheDay = new Set(records.filter(solvedOnTheDay).map((p) => (p.key.kind === "daily" ? p.key.date : "")));
   const streak = { ...streaks(onTheDay, today), today: onTheDay.has(today) };
-  const random = records.filter((p) => p.key.kind === "random");
+  const random = records.filter((p) => p.key.kind === "random" && played(p));
   return { streak, daily, random: { played: random.length, solved: random.filter((p) => p.solvedAt !== null).length } };
 }

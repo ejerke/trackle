@@ -32,3 +32,4 @@ Template: copy [0000-template.md](0000-template.md) to the next number.
 | 0021 | [Two kinds of hint, and hints that stay](0021-two-kinds-of-hint.md) | Accepted |
 | 0022 | [Insane on 10×10, and a faster solution counter](0022-insane-10x10.md) | Accepted |
 | 0023 | [Pace new random puzzles: one per 5 s, or solve the last](0023-paced-random-puzzles.md) | Accepted |
+| 0024 | [Bookmarks, and "Try again" that never changes a result](0024-bookmarks-and-try-again.md) | Accepted |

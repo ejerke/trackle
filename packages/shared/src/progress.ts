@@ -33,12 +33,50 @@ export interface BoardState {
   locked?: string[];
 }
 
+/**
+ * The player's bookmark on a puzzle. Kept (not deleted) when turned off,
+ * so the newer of two changes wins when devices meet. Compares device clocks,
+ * which is fine for a bookmark (boards never do, ADR 0013).
+ */
+export interface Bookmark {
+  on: boolean;
+  /** When it was last switched on or off, or renamed (client clock). */
+  at: string;
+  /** The player's own name for it, to tell bookmarks apart. Absent: none. */
+  name?: string;
+}
+
+/** Longest bookmark name, in characters. */
+export const BOOKMARK_NAME_MAX = 40;
+
+/** A name as typed, cleaned up: trimmed, at most BOOKMARK_NAME_MAX characters; undefined when empty. */
+export function cleanBookmarkName(name: string): string | undefined {
+  const clean = name.trim().replace(/\s+/g, " ").slice(0, BOOKMARK_NAME_MAX);
+  return clean === "" ? undefined : clean;
+}
+
+/**
+ * Playing a finished (solved or revealed) puzzle again: "Try again". It has its
+ * own board, hints, answer and time, so the first attempt's facts (the solve,
+ * hints used, answer shown: what stats and streaks count) are never touched.
+ * A replay never counts for anything. Device-local: never synced (ADR 0024).
+ */
+export interface Replay {
+  startedAt: string;
+  board: BoardState;
+  hintsUsed: number;
+  emptyHintsUsed: number;
+  solvedAt: string | null;
+  revealedAt: string | null;
+  timeMs: number;
+}
+
 export interface PuzzleProgress {
   /**
-   * 7: adds emptyHintsUsed. 6: adds timeMs. 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
+   * 8: adds bookmark/replay. 7: adds emptyHintsUsed. 6: adds timeMs. 5: adds hintsUsed/revealedAt. 4: adds boardSavedAt/boardDirty.
    * 3: adds puzzleFingerprint. 2: key has a `kind`. 1: key was { date, difficulty }.
    */
-  schemaVersion: 7;
+  schemaVersion: 8;
   key: PuzzleKey;
   /**
    * puzzleFingerprint() of the puzzle this board was drawn on, so it is never
@@ -79,13 +117,44 @@ export interface PuzzleProgress {
    * 0 on a solved record means "not timed" (solved before v6).
    */
   timeMs: number;
+  /** The bookmark, or null if never set. Synced. */
+  bookmark: Bookmark | null;
+  /** A "Try again" in progress or finished, or null. Device-local, never synced. */
+  replay: Replay | null;
 }
 
-export const CURRENT_SCHEMA_VERSION = 7 as const;
+export const CURRENT_SCHEMA_VERSION = 8 as const;
 
 /** Solved without any help: no hints and the answer never shown. */
 export function solvedUnaided(p: PuzzleProgress): boolean {
   return p.solvedAt !== null && totalHints(p) === 0 && p.revealedAt === null;
+}
+
+/** Bookmarked by the player. */
+export function isBookmarked(p: PuzzleProgress): boolean {
+  return p.bookmark?.on === true;
+}
+
+/**
+ * The player actually did something with this puzzle. A record can also exist
+ * only because the puzzle was bookmarked; that isn't playing it.
+ */
+export function played(p: PuzzleProgress): boolean {
+  return (
+    p.solvedAt !== null ||
+    p.revealedAt !== null ||
+    totalHints(p) > 0 ||
+    p.checks > 0 ||
+    p.timeMs > 0 ||
+    p.board.edges.length > 0 ||
+    Object.keys(p.board.marks).length > 0
+  );
+}
+
+/** Of two bookmarks, the more recent change (ties keep `a`). */
+export function newerBookmark(a: Bookmark | null, b: Bookmark | null): Bookmark | null {
+  if (!a || !b) return a ?? b;
+  return b.at > a.at ? b : a;
 }
 
 /** Hints of both kinds. */
@@ -111,6 +180,8 @@ export function emptyProgress(key: PuzzleKey, fingerprint: string | null = null,
     emptyHintsUsed: 0,
     revealedAt: null,
     timeMs: 0,
+    bookmark: null,
+    replay: null,
   };
 }
 
@@ -148,6 +219,10 @@ export function migrateProgress(raw: unknown): PuzzleProgress | null {
     // "No track" hints didn't exist before v7.
     record = { ...record, schemaVersion: 7, emptyHintsUsed: 0 };
   }
+  if (record.schemaVersion === 7) {
+    // Bookmarks and "Try again" didn't exist before v8.
+    record = { ...record, schemaVersion: 8, bookmark: null, replay: null };
+  }
   if (record.schemaVersion !== CURRENT_SCHEMA_VERSION) return null; // unknown (e.g. newer) version
   return isProgressRecord(record) ? record : null;
 }
@@ -183,7 +258,31 @@ export function isProgressRecord(value: unknown): value is PuzzleProgress {
     typeof p.hintsUsed === "number" &&
     typeof p.emptyHintsUsed === "number" &&
     (p.revealedAt === null || typeof p.revealedAt === "string") &&
-    typeof p.timeMs === "number"
+    typeof p.timeMs === "number" &&
+    (p.bookmark === null ||
+      (typeof p.bookmark === "object" &&
+        typeof p.bookmark.on === "boolean" &&
+        typeof p.bookmark.at === "string" &&
+        (p.bookmark.name === undefined || typeof p.bookmark.name === "string"))) &&
+    (p.replay === null || isReplay(p.replay))
+  );
+}
+
+function isReplay(value: unknown): value is Replay {
+  const r = value as Replay;
+  return (
+    typeof r === "object" &&
+    r !== null &&
+    typeof r.startedAt === "string" &&
+    Array.isArray(r.board?.edges) &&
+    typeof r.board?.marks === "object" &&
+    r.board.marks !== null &&
+    (r.board.locked === undefined || Array.isArray(r.board.locked)) &&
+    typeof r.hintsUsed === "number" &&
+    typeof r.emptyHintsUsed === "number" &&
+    (r.solvedAt === null || typeof r.solvedAt === "string") &&
+    (r.revealedAt === null || typeof r.revealedAt === "string") &&
+    typeof r.timeMs === "number"
   );
 }
 
@@ -226,7 +325,9 @@ const earliest = (a: string | null, b: string | null) => (a && b ? (a < b ? a : 
  *  - explicit Save (`saveBoard`): also stores the unfinished board.
  *
  * Help can't be undone: hint counts only grow, a shown answer stays shown,
- * and a solve made after the answer was shown doesn't count.
+ * and a solve made after the answer was shown doesn't count. The bookmark
+ * mark: the more recent change wins. A replay ("Try again") is device-local,
+ * so the account never keeps one.
  */
 export function mergeSummary(existing: PuzzleProgress | null, incoming: PuzzleProgress): PuzzleProgress {
   const base: PuzzleProgress = existing
@@ -245,6 +346,8 @@ export function mergeSummary(existing: PuzzleProgress | null, incoming: PuzzlePr
     hintsUsed: Math.max(existing?.hintsUsed ?? 0, incoming.hintsUsed),
     emptyHintsUsed: Math.max(existing?.emptyHintsUsed ?? 0, incoming.emptyHintsUsed),
     revealedAt: earliest(existing?.revealedAt ?? null, incoming.revealedAt),
+    bookmark: newerBookmark(existing?.bookmark ?? null, incoming.bookmark),
+    replay: null,
   };
 
   const solveCounts = !merged.revealedAt || (incoming.solvedAt !== null && incoming.solvedAt < merged.revealedAt);

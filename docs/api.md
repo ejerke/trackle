@@ -103,7 +103,9 @@ For a signed-in player the server records the help on the account.
 Both prefer squares where the player's board is wrong (ADR 0021). Each kind has its own limit: Hard and
 Insane allow 5 of each per puzzle and Super-duper hard none (`hintLimit` and `emptyHintLimit` in `LEVELS`). For a signed-in
 player the server enforces it: the next request gets
-`403 { "error": "hint_limit" }`. Signed out, the browser enforces it.
+`403 { "error": "hint_limit" }`. Signed out, the browser enforces it. On a puzzle the signed-in player
+has already finished (solved or answer shown), hints are for a "Try again" and are neither limited nor
+counted ([ADR 0024](adr/0024-bookmarks-and-try-again.md)).
 
 ### `POST …/answer`
 

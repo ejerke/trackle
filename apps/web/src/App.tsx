@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AccountPage } from "./components/AccountPage";
 import { ArchivePage } from "./components/ArchivePage";
+import { BookmarksPage } from "./components/BookmarksPage";
 import { DailyPage } from "./components/DailyPage";
 import { Lab } from "./components/Lab";
 import { Page } from "./components/Page";
@@ -21,6 +22,8 @@ export function App({ store }: { store: ProgressStore }) {
       return <ArchivePage difficulty={route.difficulty} store={store} />;
     case "stats":
       return <StatsPage store={store} />;
+    case "bookmarks":
+      return <BookmarksPage store={store} />;
     case "account":
       return <AccountPage />;
     case "lab":

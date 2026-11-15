@@ -44,6 +44,13 @@ const TAP_EDGE_DISTANCE = 0.32;
 
 type Point = { x: number; y: number };
 
+/**
+ * A lone stub stops this far from the cell centre (0.5 is the side), so it is
+ * 0.3 long: with the sleeper dashes (0.07 on, 0.13 off, offset 0.03, in
+ * styles.css) that ends right at the far edge of its second sleeper.
+ */
+const LONE_STUB_INNER = 0.2;
+
 const midpoint = (cell: Cell, d: Dir): Point => ({
   x: cell.col + 0.5 + DELTA[d][1] * 0.5,
   y: cell.row + 0.5 + DELTA[d][0] * 0.5,
@@ -52,7 +59,9 @@ const midpoint = (cell: Cell, d: Dir): Point => ({
 /**
  * SVG path for one cell's track: a straight, a quarter-circle curve, or a
  * half-length stub. Three or four segments (a crossing, or one being drawn)
- * are straights across plus stubs for what's left over.
+ * are straights across plus stubs for what's left over. A lone stub (a given
+ * piece spilling into its neighbour, or the tip of a drawn line) is shorter,
+ * running in from the shared side and ending flush with a sleeper.
  */
 function piecePath(cell: Cell, mask: number): string {
   const dirs = DIRS.filter((d) => mask & d);
@@ -61,7 +70,13 @@ function piecePath(cell: Cell, mask: number): string {
     const p = midpoint(cell, d);
     return `M${center.x} ${center.y}L${p.x} ${p.y}`;
   };
-  if (dirs.length === 1) return stub(dirs[0]!);
+  if (dirs.length === 1) {
+    const d = dirs[0]!;
+    const p = midpoint(cell, d);
+    const q = { x: cell.col + 0.5 + DELTA[d][1] * LONE_STUB_INNER, y: cell.row + 0.5 + DELTA[d][0] * LONE_STUB_INNER };
+    // From the side inwards, so the sleeper pattern carries on from the neighbour.
+    return `M${p.x} ${p.y}L${q.x} ${q.y}`;
+  }
   if (dirs.length > 2) {
     const parts: string[] = [];
     let rest = mask;
@@ -87,7 +102,7 @@ function piecePath(cell: Cell, mask: number): string {
 }
 
 /** Railway look: sleepers, two rails, sleepers visible between the rails. */
-function Rails({ d, kind, gap }: { d: string; kind: "player" | "fixed"; gap: string }) {
+function Rails({ d, kind, gap }: { d: string; kind: RailKind; gap: string }) {
   return (
     <g className={`rails rails--${kind}`}>
       <path d={d} className="rails__sleepers" />
@@ -98,11 +113,50 @@ function Rails({ d, kind, gap }: { d: string; kind: "player" | "fixed"; gap: str
   );
 }
 
+type RailKind = "player" | "fixed";
+type RailPiece = { d: string; kind: RailKind; gap: string };
+
+/** The gap colour most track sits on; drawn under every piece first. */
+const BASE_GAP = "var(--cell)";
+
+/**
+ * Many pieces of track drawn as Rails would be, but one layer at a time for
+ * the whole board, each layer a single path where it can be. Drawn piece by
+ * piece, the half-covered pixels where two pieces meet let the rail colour
+ * bleed into the gap between the rails as a faint seam; one path per layer has
+ * no such joins. Pieces whose gap isn't the usual cell colour are painted over
+ * a full-board base gap, so their joins blend gap with gap, never with rail.
+ */
+function RailLayers({ pieces }: { pieces: RailPiece[] }) {
+  const join = (ps: RailPiece[]) => ps.map((p) => p.d).join("");
+  const all = join(pieces);
+  if (!all) return null;
+  const otherGaps = [...new Set(pieces.map((p) => p.gap))].filter((g) => g !== BASE_GAP);
+  return (
+    <g className="rails">
+      <path d={all} className="rails__sleepers" />
+      {(["fixed", "player"] as const).map((kind) => {
+        const d = join(pieces.filter((p) => p.kind === kind));
+        return d ? (
+          <g key={kind} className={`rails--${kind}`}>
+            <path d={d} className="rails__rail" />
+          </g>
+        ) : null;
+      })}
+      <path d={all} className="rails__gap" style={{ stroke: BASE_GAP }} />
+      {otherGaps.map((gap) => (
+        <path key={gap} d={join(pieces.filter((p) => p.gap === gap))} className="rails__gap" style={{ stroke: gap }} />
+      ))}
+      <path d={all} className="rails__sleepers rails__sleepers--inner" />
+    </g>
+  );
+}
+
 /**
  * A crossing, drawn as a bridge: the north-south track runs underneath, the
  * east-west track over a deck with flared parapets (the map symbol for a bridge).
  */
-function Bridge({ cell, kind, gap }: { cell: Cell; kind: "player" | "fixed"; gap: string }) {
+function Bridge({ cell, kind, gap }: { cell: Cell; kind: RailKind; gap: string }) {
   const x = cell.col;
   const y = cell.row + 0.5;
   const parapet = (side: 1 | -1) =>
@@ -285,6 +339,29 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
   const fillFor = (cell: Cell) =>
     board.marks[cellKey(cell)] === "track" ? "var(--cell-marked)" : "var(--cell)";
 
+  // Endpoint stubs reaching out of the grid, then each cell's track.
+  const railPieces: RailPiece[] = layout.endpoints.map((ep, i) => {
+    const edge = midpoint(ep, ep.dir);
+    const [dr, dc] = DELTA[ep.dir];
+    const stub = stubLength(i);
+    return { d: `M${edge.x} ${edge.y}L${edge.x + dc * stub} ${edge.y + dr * stub}`, kind: "fixed", gap: "var(--bg)" };
+  });
+  const bridges: { cell: Cell; kind: RailKind }[] = [];
+  for (const cell of cells) {
+    const m = masks[cell.row]![cell.col]!;
+    if (m === 0) continue;
+    const fixed = hintCells.has(cellKey(cell)) || revealed.has(cellKey(cell));
+    // A cell with one player segment and one fixed segment is drawn as player track.
+    const anyPlayer = DIRS.some((d) => {
+      if (!(m & d)) return false;
+      const key = edgeBetween(cell, { row: cell.row + DELTA[d][0], col: cell.col + DELTA[d][1] });
+      return key !== null && playerEdges.has(key);
+    });
+    const kind: RailKind = fixed || !anyPlayer ? "fixed" : "player";
+    if (m === CROSSING) bridges.push({ cell, kind });
+    else railPieces.push({ d: piecePath(cell, m), kind, gap: fillFor(cell) });
+  }
+
   return (
     <svg
       ref={svgRef}
@@ -325,41 +402,28 @@ export function Board({ layout, board, mode, locked, onChange, highlight, trainR
         ) : null,
       )}
 
-      {/* Endpoint stubs reaching out of the grid, labelled A/B beside the stub. */}
+      {/* All track except bridges, drawn layer by layer across the whole board (see RailLayers). */}
+      <RailLayers pieces={railPieces} />
+
+      {/* A/B labels beside the endpoint stubs. */}
       {layout.endpoints.map((ep, i) => {
         const edge = midpoint(ep, ep.dir);
         const [dr, dc] = DELTA[ep.dir];
-        const stub = stubLength(i);
-        const tip = { x: edge.x + dc * stub, y: edge.y + dr * stub };
         const vertical = ep.dir === N || ep.dir === S;
         const label = {
           x: edge.x + dc * 0.24 + (vertical ? 0.46 : 0),
           y: edge.y + dr * 0.24 + (vertical ? 0 : -0.46),
         };
         return (
-          <g key={`ep${i}`}>
-            <Rails d={`M${edge.x} ${edge.y}L${tip.x} ${tip.y}`} kind="fixed" gap="var(--bg)" />
-            <text x={label.x} y={label.y} className="board__endpoint">
-              {i === 0 ? "A" : "B"}
-            </text>
-          </g>
+          <text key={`ep${i}`} x={label.x} y={label.y} className="board__endpoint">
+            {i === 0 ? "A" : "B"}
+          </text>
         );
       })}
 
-      {cells.map((cell) => {
-        const m = masks[cell.row]![cell.col]!;
-        if (m === 0) return null;
-        const fixed = hintCells.has(cellKey(cell)) || revealed.has(cellKey(cell));
-        // A cell with one player segment and one fixed segment is drawn as player track.
-        const anyPlayer = DIRS.some((d) => {
-          if (!(m & d)) return false;
-          const key = edgeBetween(cell, { row: cell.row + DELTA[d][0], col: cell.col + DELTA[d][1] });
-          return key !== null && playerEdges.has(key);
-        });
-        const kind = fixed || !anyPlayer ? "fixed" : "player";
-        if (m === CROSSING) return <Bridge key={`t${cellKey(cell)}`} cell={cell} kind={kind} gap={fillFor(cell)} />;
-        return <Rails key={`t${cellKey(cell)}`} d={piecePath(cell, m)} kind={kind} gap={fillFor(cell)} />;
-      })}
+      {bridges.map(({ cell, kind }) => (
+        <Bridge key={`t${cellKey(cell)}`} cell={cell} kind={kind} gap={fillFor(cell)} />
+      ))}
 
       {/* Given and hint-revealed squares get a subtle corner tick so they read as "given". */}
       {givenSquares.map((h) => (

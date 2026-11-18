@@ -8,6 +8,7 @@ import { DEFAULT_DIFFICULTY, DIFFICULTY_NAMES, isDailyOnly, isIsoDate, isRandomS
  *   /archive                   past daily puzzles (?difficulty=N)
  *   /stats                     personal statistics (from this browser's progress)
  *   /bookmarks                 puzzles the player bookmarked
+ *   /history                   the Challenges the player solved, with points
  *   /leaderboard               Challenge points (ADR 0025)
  *   /privacy                   what is stored, and why
  *   /account                   sign in / create account / manage account
@@ -20,6 +21,7 @@ export type Route =
   | { kind: "archive"; difficulty: number | null }
   | { kind: "stats" }
   | { kind: "bookmarks" }
+  | { kind: "history" }
   | { kind: "leaderboard" }
   | { kind: "privacy" }
   | { kind: "account" }
@@ -46,6 +48,7 @@ export function parseRoute(pathname: string, search: string): Route {
 
   if (path === "/stats") return { kind: "stats" };
   if (path === "/bookmarks") return { kind: "bookmarks" };
+  if (path === "/history") return { kind: "history" };
   if (path === "/leaderboard") return { kind: "leaderboard" };
   if (path === "/privacy") return { kind: "privacy" };
   if (path === "/account") return { kind: "account" };

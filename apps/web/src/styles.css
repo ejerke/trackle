@@ -1127,27 +1127,88 @@ button,
 }
 .account {
   display: grid;
-  gap: 1rem;
-  justify-items: center;
+  gap: 0.75rem;
+}
+.account-card {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.account-card h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+.account-card__text {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+.account-card .form {
+  max-width: none;
+}
+.account-card--danger {
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--border));
 }
 .account__tabs {
   justify-self: center;
 }
-.account__who {
+.account-list {
   margin: 0;
-  text-align: center;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+  font-size: 0.92rem;
+}
+.account-list li {
+  position: relative;
+  padding-left: 1.2rem;
+}
+/* A small sleeper-coloured rail tie as the bullet. */
+.account-list li::before {
+  content: "";
+  position: absolute;
+  left: 0.1rem;
+  top: 0.5em;
+  width: 0.55rem;
+  height: 0.22rem;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.account-who {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+.account-who__avatar {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+.account-who__name {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.account-who__name span {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 .form {
   display: grid;
   gap: 0.75rem;
   width: 100%;
   max-width: 20rem;
-}
-.form--section {
-  width: 100%;
-  max-width: 20rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
 }
 .form h2 {
   margin: 0;
@@ -1623,4 +1684,112 @@ button,
     width: 0.9rem;
     height: 0.9rem;
   }
+}
+
+/* ---- Challenge history ---- */
+.history-summary dl {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+.history-summary dl > div {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.1rem;
+}
+.history-summary dd {
+  font-size: 1.3rem;
+  order: -1;
+}
+.history-summary dt {
+  font-size: 0.8rem;
+}
+@media (max-width: 480px) {
+  .history-summary dl {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 0.75rem;
+  }
+}
+.history-today {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font-size: 0.92rem;
+}
+.history-month {
+  margin-top: 1.25rem;
+}
+.history-month h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+.history-month__points {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.history-month ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.75rem 0.45rem 0.45rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+}
+.history-item:hover .history-item__date {
+  color: var(--accent);
+}
+.history-thumb {
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+.history-thumb rect {
+  fill: var(--cell);
+  stroke: var(--gridline);
+  stroke-width: 0.15;
+}
+.history-thumb path {
+  fill: none;
+  stroke: var(--rail-player);
+  stroke-width: 0.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.history-item__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.history-item__date {
+  font-weight: 700;
+}
+.history-item__detail {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.history-item__points {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+.history-item__points--none {
+  color: var(--muted);
+}
+.history-note {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
 }

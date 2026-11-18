@@ -78,6 +78,12 @@ export function challengePoints(layout: { rowClues: readonly number[] }): number
   return POINTS_PER_TRACK_SQUARE * layout.rowClues.reduce((sum, n) => sum + n, 0);
 }
 
+/**
+ * How long after a Challenge's day ends (UTC midnight) its solve may still
+ * reach the server and score: a solve at 23:59 shouldn't fail on a slow sync.
+ */
+export const SYNC_GRACE_MINUTES = 10;
+
 /** Levels that exist only as daily puzzles, never random ones. */
 export function isDailyOnly(difficulty: number): boolean {
   return LEVELS[difficulty]?.dailyOnly ?? false;

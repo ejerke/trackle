@@ -19,6 +19,7 @@ export function SiteMenu() {
         <a href="/archive">Archive</a>
         <a href="/stats">Stats</a>
         <a href="/bookmarks">Bookmarks</a>
+        <a href="/history">Challenge history</a>
         <a href="/leaderboard">Leaderboard</a>
         <a href="/privacy">Privacy</a>
         <a href="/account" className="site-menu__account">

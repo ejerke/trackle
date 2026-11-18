@@ -65,7 +65,7 @@ export function ChallengeLeaderboard() {
               )}
               <MyStanding board={board} onChanged={reload} />
               <p className="challenge-board__more">
-                <a href="/leaderboard">Full leaderboard</a>
+                <a href="/leaderboard">Full leaderboard</a> · <a href="/history">Your Challenges</a>
               </p>
             </>
           )}

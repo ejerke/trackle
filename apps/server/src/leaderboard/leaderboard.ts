@@ -1,6 +1,7 @@
 import {
   CHALLENGE_DIFFICULTY,
   POINTS_PER_TRACK_SQUARE,
+  SYNC_GRACE_MINUTES,
   utcDate,
   type AccountUser,
   type ApiError,
@@ -13,12 +14,6 @@ import type { Db } from "../db/connection.ts";
 
 /** How many players the board lists. */
 export const LEADERBOARD_SIZE = 100;
-
-/**
- * How long after the day's end (UTC midnight) a solve may still reach the
- * server and count: a solve at 23:59 shouldn't fail on a slow sync.
- */
-export const SYNC_GRACE_MINUTES = 10;
 
 interface StandingRow {
   user_id: number;

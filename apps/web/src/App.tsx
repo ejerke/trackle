@@ -3,6 +3,7 @@ import { AccountPage } from "./components/AccountPage";
 import { ArchivePage } from "./components/ArchivePage";
 import { BookmarksPage } from "./components/BookmarksPage";
 import { DailyPage } from "./components/DailyPage";
+import { HistoryPage } from "./components/HistoryPage";
 import { Lab } from "./components/Lab";
 import { LeaderboardPage } from "./components/LeaderboardPage";
 import { Page } from "./components/Page";
@@ -26,6 +27,8 @@ export function App({ store }: { store: ProgressStore }) {
       return <StatsPage store={store} />;
     case "bookmarks":
       return <BookmarksPage store={store} />;
+    case "history":
+      return <HistoryPage store={store} />;
     case "leaderboard":
       return <LeaderboardPage store={store} />;
     case "privacy":

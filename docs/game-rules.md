@@ -165,6 +165,6 @@ generator makes each level's puzzles is in
 | 2 Hard | 8×8, a long track, at most one piece given; no row or column gives itself away; needs "if this were track, something breaks" reasoning many times, but never guessing |
 | 4 Insane | 10×10 and a longer track that crosses itself once, over a given bridge; at most three pieces given besides the bridge; needs more "if this were track" reasoning than Hard |
 | 3 Super-duper hard | A joke: 9×9 and no hints, but the track is (almost) a straight line |
-| 5 Challenge | 10×10, only the two end pieces given, no hints or answer; needs more "if this were track" reasoning than Insane (at least 20 steps); daily only, scores leaderboard points |
+| 5 Challenge | 10×10, only the two end pieces given, no hints or answer; needs more "if this were track" reasoning than Insane (at least 14 steps); daily only, scores leaderboard points |
 
 How levels are defined and measured: [architecture.md](architecture.md#puzzle-generation).

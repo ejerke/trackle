@@ -141,8 +141,8 @@ const GENERATION: readonly GenerationSettings[] = [
   },
   {
     // Challenge (ADR 0025): 10x10, only the two end pieces given, no hints or
-    // answer to ask for. Needs at least 20 trial steps (Insane: 12, with up to
-    // three pieces given). About 1 path in 20 qualifies, in milliseconds each.
+    // answer to ask for. Needs at least 14 trial steps (Insane: 12, with up to
+    // three pieces given; the Challenge launched with 20).
     extraHints: 0,
     maxAttempts: 3000,
     pathStyle: "wander",
@@ -152,7 +152,7 @@ const GENERATION: readonly GenerationSettings[] = [
     filters: {
       maxGiveawayLines: 0,
       tiers: [3],
-      minTier3Steps: 20,
+      minTier3Steps: 14,
     },
   },
 ];

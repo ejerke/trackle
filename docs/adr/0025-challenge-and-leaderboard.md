@@ -104,3 +104,10 @@ which the receipt carries without any of that.
   any, so nothing changes for players.
 - Adding the level needed no `GENERATOR_VERSION` bump: the other levels'
   puzzles are unchanged.
+
+## Amendment (2026-11-19): at least 14 trial steps
+
+The minimum dropped from 20 to 14 trial steps, to ask for less trial reasoning.
+`GENERATOR_VERSION` stays 3, as in ADR 0022: only Challenge puzzles change,
+and stored dailies keep their layout. Over 100 seeds: trial steps p10 22 → 17,
+median 32 → 30; generation median ~0.14 s, p90 0.96 → 0.65 s; all accepted.

@@ -115,7 +115,7 @@ describe("generatePuzzle", () => {
       expect(g.layout.width).toBe(10);
       expect(g.layout.hints).toEqual(g.layout.endpoints.map(({ row, col }) => ({ row, col, piece: g.solution[row]![col]! })));
       expect(g.metrics.tier).toBe(3);
-      expect(g.metrics.tier3Steps).toBeGreaterThanOrEqual(20);
+      expect(g.metrics.tier3Steps).toBeGreaterThanOrEqual(14);
       expect(g.metrics.giveawayLines).toBe(0);
     }
   }, 30_000);
